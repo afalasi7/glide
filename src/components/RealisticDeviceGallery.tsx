@@ -32,55 +32,288 @@ export const RealisticDeviceGallery: React.FC<RealisticDeviceGalleryProps> = ({
   delayMinutes,
   onTriggerHeal,
 }) => {
-  const [activeTab, setActiveTab] = useState<"interactive" | "studio">("interactive");
+  const [activeTab, setActiveTab] = useState<"interactive" | "studio">("studio");
+  const [colorTheme, setColorTheme] = useState<"bw" | "glass">("bw");
 
   return (
     <div className="space-y-8">
-      {/* Header bar with Mode Selector */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-2xl border border-cyan-950/60 bg-gradient-to-r from-slate-900/90 via-[#0E1528] to-slate-900/90 p-5 shadow-xl">
+      {/* Header bar with Mode & Theme Selectors */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-2xl border border-slate-800 bg-[#090D16] p-5 shadow-xl">
         <div>
           <div className="flex items-center gap-2">
-            <span className="flex h-2.5 w-2.5 rounded-full bg-cyan-400 animate-ping" />
+            <span className="flex h-2.5 w-2.5 rounded-full bg-white animate-ping" />
             <h3 className="text-sm font-bold uppercase tracking-wider text-white">
               Hardware Laboratory & Precise Device Specs
             </h3>
-            <span className="rounded bg-cyan-500/10 px-2 py-0.5 text-[10px] font-mono text-cyan-300 border border-cyan-500/20">
-              4 OFFICIAL HARDWARE PROFILES
+            <span className="rounded bg-zinc-800 px-2 py-0.5 text-[10px] font-mono text-zinc-300 border border-zinc-700">
+              MONOCHROME & GLASS EDITIONS
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            Exact physical millimeter specs and display ratios. Foldables feature dual-aspect ratios and interactive unfold toggles.
+            Galaxy Z Fold 8 Ultra features separate, dedicated Folded and Unfolded studio mockups with exact hardware millimeters.
           </p>
         </div>
 
-        {/* Tab switcher: Interactive Frames vs Photorealistic Studio Renders */}
-        <div className="flex items-center gap-1 rounded-xl bg-slate-950 p-1 border border-slate-800 text-xs">
-          <button
-            onClick={() => setActiveTab("interactive")}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-bold transition ${
-              activeTab === "interactive"
-                ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-md"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <Smartphone className="h-3.5 w-3.5" />
-            <span>Interactive Bezels</span>
-          </button>
-          <button
-            onClick={() => setActiveTab("studio")}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-bold transition ${
-              activeTab === "studio"
-                ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-md"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            <Eye className="h-3.5 w-3.5" />
-            <span>Photorealistic 8K Renders</span>
-          </button>
+        {/* Controls */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Color Mode */}
+          <div className="flex items-center gap-1 rounded-xl bg-slate-950 p-1 border border-slate-800 text-xs">
+            <button
+              onClick={() => setColorTheme("bw")}
+              className={`rounded-lg px-2.5 py-1 font-bold transition ${
+                colorTheme === "bw"
+                  ? "bg-white text-black shadow-sm"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              Black & White
+            </button>
+            <button
+              onClick={() => setColorTheme("glass")}
+              className={`rounded-lg px-2.5 py-1 font-bold transition ${
+                colorTheme === "glass"
+                  ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              Electric Glass
+            </button>
+          </div>
+
+          {/* View Tab Switcher */}
+          <div className="flex items-center gap-1 rounded-xl bg-slate-950 p-1 border border-slate-800 text-xs">
+            <button
+              onClick={() => setActiveTab("studio")}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1 font-bold transition ${
+                activeTab === "studio"
+                  ? "bg-white text-black shadow-md"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <Eye className="h-3.5 w-3.5" />
+              <span>Studio Renders</span>
+            </button>
+            <button
+              onClick={() => setActiveTab("interactive")}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1 font-bold transition ${
+                activeTab === "interactive"
+                  ? "bg-white text-black shadow-md"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <Smartphone className="h-3.5 w-3.5" />
+              <span>Interactive Bezels</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Tab 1: Interactive Bezels */}
+      {/* Tab: Studio Renders */}
+      {activeTab === "studio" && (
+        <div className="space-y-12">
+          {/* 1. Galaxy Z Fold 8 Ultra - Dedicated Folded & Unfolded Gallery */}
+          <div className="rounded-3xl border border-zinc-800 bg-[#07090E] p-6 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-4 border-b border-zinc-800">
+              <div>
+                <h4 className="text-base font-bold text-white flex items-center gap-2">
+                  <span>Samsung Galaxy Z Fold 8 Ultra</span>
+                  <span className="rounded bg-zinc-800 px-2 py-0.5 text-[10px] font-mono text-zinc-300">
+                    Dual Hardware Mockup
+                  </span>
+                </h4>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  Separate high-resolution mockups for Cover Display (Folded) and Dynamic AMOLED 2X Canvas (Unfolded).
+                </p>
+              </div>
+              <div className="text-right text-[11px] font-mono text-zinc-400">
+                <span>Total Height: 158.4 mm</span> • <span>Thickness: 4.8 mm / 9.8 mm</span>
+              </div>
+            </div>
+
+            {/* Side-by-side Z Fold 8 Ultra cards */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              {/* Z Fold 8 Ultra - FOLDED */}
+              <div className="lg:col-span-5 rounded-2xl border border-zinc-800 bg-[#0B0D14] p-4 space-y-3">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase">
+                      State 1: Cover Screen
+                    </span>
+                    <h5 className="font-bold text-white text-xs">
+                      Galaxy Z Fold 8 Ultra (Folded)
+                    </h5>
+                  </div>
+                  <span className="rounded bg-zinc-800 px-2 py-0.5 text-[9px] font-mono text-white font-bold">
+                    6.3" 22:9
+                  </span>
+                </div>
+
+                <div className="relative aspect-[9/16] w-full overflow-hidden rounded-xl bg-black border border-zinc-800/80">
+                  <Image
+                    src="/renders/z_fold_8_ultra_clean_folded.jpg"
+                    alt="Galaxy Z Fold 8 Ultra Folded Standalone"
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+
+                <div className="rounded-xl bg-zinc-900/90 p-3 space-y-1.5 text-[11px] font-mono border border-zinc-800">
+                  <div className="flex justify-between text-zinc-300">
+                    <span className="text-zinc-500">DIMENSIONS:</span>
+                    <span className="text-white font-bold">158.4 x 72.8 x 9.8 mm</span>
+                  </div>
+                  <div className="flex justify-between text-zinc-300">
+                    <span className="text-zinc-500">DISPLAY:</span>
+                    <span>6.3-inch Dynamic AMOLED Cover</span>
+                  </div>
+                  <div className="flex justify-between text-zinc-300">
+                    <span className="text-zinc-500">FORM FACTOR:</span>
+                    <span>Tall & Narrow Pocketable</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Z Fold 8 Ultra - UNFOLDED */}
+              <div className="lg:col-span-7 rounded-2xl border border-zinc-800 bg-[#0B0D14] p-4 space-y-3">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <span className="text-[10px] font-mono font-bold text-zinc-400 uppercase">
+                      State 2: Tablet Inner Canvas
+                    </span>
+                    <h5 className="font-bold text-white text-xs">
+                      Galaxy Z Fold 8 Ultra (Unfolded)
+                    </h5>
+                  </div>
+                  <span className="rounded bg-white px-2 py-0.5 text-[9px] font-mono text-black font-bold">
+                    8.0" 6:5
+                  </span>
+                </div>
+
+                <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-black border border-zinc-800/80">
+                  <Image
+                    src="/renders/z_fold_8_ultra_clean_unfolded.jpg"
+                    alt="Galaxy Z Fold 8 Ultra Unfolded Standalone"
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+
+                <div className="rounded-xl bg-zinc-900/90 p-3 space-y-1.5 text-[11px] font-mono border border-zinc-800">
+                  <div className="flex justify-between text-zinc-300">
+                    <span className="text-zinc-500">DIMENSIONS:</span>
+                    <span className="text-white font-bold">158.4 x 145.6 x 4.8 mm</span>
+                  </div>
+                  <div className="flex justify-between text-zinc-300">
+                    <span className="text-zinc-500">DISPLAY:</span>
+                    <span>8.0-inch Dynamic AMOLED 2X Canvas</span>
+                  </div>
+                  <div className="flex justify-between text-zinc-300">
+                    <span className="text-zinc-500">LAYOUT:</span>
+                    <span>Split Screen Itinerary & Live Vector Map</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. Flagship Smartphones Gallery (iPhone 18 Pro Max & Samsung S26 Ultra) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* iPhone 18 Pro Max */}
+            <div className="rounded-3xl border border-zinc-800 bg-[#0B0D14] p-5 space-y-3">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h4 className="font-bold text-white text-sm">iPhone 18 Pro Max</h4>
+                  <span className="text-[11px] font-mono text-zinc-400">
+                    163.4 x 78.0 x 8.75 mm • 6.9-inch Display
+                  </span>
+                </div>
+                <span className="rounded bg-zinc-800 px-2 py-0.5 text-[10px] font-mono text-white">
+                  6.9" TITANIUM
+                </span>
+              </div>
+              <div className="relative aspect-[9/16] w-full overflow-hidden rounded-2xl bg-black border border-zinc-800">
+                <Image
+                  src={
+                    colorTheme === "bw"
+                      ? "/renders/airbnb_bw_iphone.jpg"
+                      : "/renders/iphone_18_pro_max.jpg"
+                  }
+                  alt="iPhone 18 Pro Max Mockup"
+                  fill
+                  className="object-cover"
+                />
+              </div>
+              <div className="rounded-xl bg-zinc-900/90 p-3 text-xs text-zinc-400 font-mono flex justify-between border border-zinc-800">
+                <span>Super Retina XDR OLED</span>
+                <span className="text-white font-bold">
+                  {colorTheme === "bw" ? "Monochrome Editorial" : "Electric Glass"}
+                </span>
+              </div>
+            </div>
+
+            {/* Samsung S26 Ultra */}
+            <div className="rounded-3xl border border-zinc-800 bg-[#0B0D14] p-5 space-y-3">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h4 className="font-bold text-white text-sm">Samsung Galaxy S26 Ultra</h4>
+                  <span className="text-[11px] font-mono text-zinc-400">
+                    163.6 x 78.1 x 7.9 mm • 6.9-inch Display
+                  </span>
+                </div>
+                <span className="rounded bg-zinc-800 px-2 py-0.5 text-[10px] font-mono text-white">
+                  BOXY SHARP
+                </span>
+              </div>
+              <div className="relative aspect-[9/16] w-full overflow-hidden rounded-2xl bg-black border border-zinc-800">
+                <Image
+                  src="/renders/samsung_s26_ultra.jpg"
+                  alt="Samsung Galaxy S26 Ultra Mockup"
+                  fill
+                  className="object-cover"
+                />
+              </div>
+              <div className="rounded-xl bg-zinc-900/90 p-3 text-xs text-zinc-400 font-mono flex justify-between border border-zinc-800">
+                <span>Dynamic AMOLED 2X</span>
+                <span className="text-white font-bold">Infinity-O Bezel</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. iPhone Duo (Passport Design) */}
+          <div className="rounded-3xl border border-zinc-800 bg-[#0B0D14] p-5 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div>
+                <h4 className="font-bold text-white text-sm">iPhone Duo (Passport Form Factor)</h4>
+                <span className="text-[11px] font-mono text-zinc-400">
+                  Folded: 123.9 x 81.9 mm (5.4") • Unfolded: 123.9 x 161.4 mm (7.6" Canvas, 4:3)
+                </span>
+              </div>
+              <span className="rounded bg-zinc-800 px-2.5 py-0.5 text-[10px] font-bold text-white border border-zinc-700">
+                PASSPORT PROPORTION
+              </span>
+            </div>
+            <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl bg-black border border-zinc-800">
+              <Image
+                src={
+                  colorTheme === "bw"
+                    ? "/renders/airbnb_bw_foldables.jpg"
+                    : "/renders/iphone_duo_passport.jpg"
+                }
+                alt="iPhone Duo Passport Design"
+                fill
+                className="object-cover"
+              />
+            </div>
+            <div className="rounded-xl bg-zinc-900/90 p-3 text-xs text-zinc-400 font-mono flex flex-col sm:flex-row justify-between gap-1 border border-zinc-800">
+              <span>Cover: Shorter & Wider Passport Size (123.9 x 81.9 mm)</span>
+              <span className="text-white">Inner: 7.6" iPad Mini Canvas (4:3)</span>
+              <span className="text-zinc-300">Grade 5 Polished Titanium</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Interactive Bezels */}
       {activeTab === "interactive" && (
         <div className="space-y-12">
           {/* Row 1: Normal Smartphones */}
@@ -108,7 +341,6 @@ export const RealisticDeviceGallery: React.FC<RealisticDeviceGalleryProps> = ({
                 </div>
 
                 <div className="relative h-[680px] w-[326px] overflow-hidden rounded-[54px] border-[10px] border-slate-900 bg-black shadow-2xl shadow-cyan-950/30 ring-1 ring-white/10 flex flex-col">
-                  {/* Dynamic Island cutout */}
                   <div className="absolute top-2.5 left-1/2 -translate-x-1/2 z-40 h-5 w-28 rounded-full bg-black ring-1 ring-slate-800 flex items-center justify-between px-2.5">
                     <span className="h-2 w-2 rounded-full bg-cyan-400" />
                     <span className="h-1.5 w-1.5 rounded-full bg-slate-700" />
@@ -139,7 +371,6 @@ export const RealisticDeviceGallery: React.FC<RealisticDeviceGalleryProps> = ({
                 </div>
 
                 <div className="relative h-[680px] w-[326px] overflow-hidden rounded-[20px] border-[10px] border-slate-900 bg-black shadow-2xl shadow-cyan-950/30 ring-1 ring-white/10 flex flex-col">
-                  {/* Infinity-O Punch Hole */}
                   <div className="absolute top-2.5 left-1/2 -translate-x-1/2 z-40 h-3.5 w-3.5 rounded-full bg-black ring-1 ring-slate-800" />
                   <MobileAppUI
                     deviceName="Samsung S26 Ultra"
@@ -163,7 +394,6 @@ export const RealisticDeviceGallery: React.FC<RealisticDeviceGalleryProps> = ({
               </h4>
             </div>
 
-            {/* Samsung Galaxy Z Fold 8 Ultra */}
             <div className="rounded-3xl border border-slate-800 bg-[#0A0E1A]/60 p-6 flex flex-col items-center">
               <FoldableDeviceFrame
                 deviceType="zfold8"
@@ -175,7 +405,6 @@ export const RealisticDeviceGallery: React.FC<RealisticDeviceGalleryProps> = ({
               />
             </div>
 
-            {/* iPhone Duo (Passport Design) */}
             <div className="rounded-3xl border border-slate-800 bg-[#0A0E1A]/60 p-6 flex flex-col items-center">
               <FoldableDeviceFrame
                 deviceType="iphoneduo"
@@ -185,127 +414,6 @@ export const RealisticDeviceGallery: React.FC<RealisticDeviceGalleryProps> = ({
                 delayMinutes={delayMinutes}
                 onTriggerHeal={onTriggerHeal}
               />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tab 2: Studio Renders */}
-      {activeTab === "studio" && (
-        <div className="space-y-8">
-          {/* Pair 1: Normal Phones */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* iPhone 18 Pro Max */}
-            <div className="rounded-3xl border border-slate-800 bg-[#0B101D] p-5 space-y-3">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h4 className="font-bold text-white text-sm">iPhone 18 Pro Max</h4>
-                  <span className="text-[11px] font-mono text-cyan-400">
-                    163.4 x 78.0 x 8.75 mm • 6.9-inch Display
-                  </span>
-                </div>
-                <span className="rounded bg-cyan-500/10 px-2 py-0.5 text-[10px] font-bold text-cyan-300">
-                  FLAGSHIP
-                </span>
-              </div>
-              <div className="relative aspect-[9/16] w-full overflow-hidden rounded-2xl bg-black">
-                <Image
-                  src="/renders/iphone_18_pro_max.jpg"
-                  alt="iPhone 18 Pro Max Mockup"
-                  fill
-                  className="object-cover"
-                />
-              </div>
-              <div className="rounded-xl bg-slate-900/80 p-3 text-xs text-slate-400 font-mono flex justify-between">
-                <span>Display: 6.9" Super Retina XDR</span>
-                <span className="text-emerald-400">Glassmorphism UI</span>
-              </div>
-            </div>
-
-            {/* Samsung S26 Ultra */}
-            <div className="rounded-3xl border border-slate-800 bg-[#0B101D] p-5 space-y-3">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h4 className="font-bold text-white text-sm">Samsung Galaxy S26 Ultra</h4>
-                  <span className="text-[11px] font-mono text-cyan-400">
-                    163.6 x 78.1 x 7.9 mm • 6.9-inch Display
-                  </span>
-                </div>
-                <span className="rounded bg-indigo-500/10 px-2 py-0.5 text-[10px] font-bold text-indigo-300">
-                  BOXY SHARP
-                </span>
-              </div>
-              <div className="relative aspect-[9/16] w-full overflow-hidden rounded-2xl bg-black">
-                <Image
-                  src="/renders/samsung_s26_ultra.jpg"
-                  alt="Samsung Galaxy S26 Ultra Mockup"
-                  fill
-                  className="object-cover"
-                />
-              </div>
-              <div className="rounded-xl bg-slate-900/80 p-3 text-xs text-slate-400 font-mono flex justify-between">
-                <span>Display: 6.9" Dynamic AMOLED 2X</span>
-                <span className="text-emerald-400">Boxy Frame</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Pair 2: Foldable Previews (Folded and Unfolded side-by-side) */}
-          <div className="space-y-8">
-            {/* Samsung Galaxy Z Fold 8 Ultra (Folded + Unfolded) */}
-            <div className="rounded-3xl border border-slate-800 bg-[#0B101D] p-5 space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <div>
-                  <h4 className="font-bold text-white text-sm">Samsung Galaxy Z Fold 8 Ultra</h4>
-                  <span className="text-[11px] font-mono text-cyan-400">
-                    Folded: 158.4 x 72.8 mm (6.3") • Unfolded: 158.4 x 145.6 mm (8.0" Canvas)
-                  </span>
-                </div>
-                <span className="rounded bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/30">
-                  DUAL-STATE SHOWCASE (FOLDED & UNFOLDED)
-                </span>
-              </div>
-              <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl bg-black">
-                <Image
-                  src="/renders/z_fold_8_ultra_duo.jpg"
-                  alt="Galaxy Z Fold 8 Ultra Folded and Unfolded"
-                  fill
-                  className="object-cover"
-                />
-              </div>
-              <div className="rounded-xl bg-slate-900/80 p-3 text-xs text-slate-400 font-mono flex flex-col sm:flex-row justify-between gap-1">
-                <span>Cover: Tall Narrow (6.3", 22:9)</span>
-                <span className="text-cyan-300">Inner: 8.0" Multi-Tasking Tablet HUD (6:5)</span>
-                <span className="text-emerald-400">Zero Code in UI</span>
-              </div>
-            </div>
-
-            {/* iPhone Duo Passport (Folded + Unfolded) */}
-            <div className="rounded-3xl border border-slate-800 bg-[#0B101D] p-5 space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <div>
-                  <h4 className="font-bold text-white text-sm">iPhone Duo (Apple Foldable Passport Design)</h4>
-                  <span className="text-[11px] font-mono text-cyan-400">
-                    Folded: 123.9 x 81.9 mm (5.4") • Unfolded: 123.9 x 161.4 mm (7.6" Canvas, 4:3)
-                  </span>
-                </div>
-                <span className="rounded bg-cyan-500/10 px-2.5 py-0.5 text-[10px] font-bold text-cyan-300 border border-cyan-500/30">
-                  PASSPORT FORM FACTOR (FOLDED & UNFOLDED)
-                </span>
-              </div>
-              <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl bg-black">
-                <Image
-                  src="/renders/iphone_duo_passport.jpg"
-                  alt="iPhone Duo Passport Design Folded and Unfolded"
-                  fill
-                  className="object-cover"
-                />
-              </div>
-              <div className="rounded-xl bg-slate-900/80 p-3 text-xs text-slate-400 font-mono flex flex-col sm:flex-row justify-between gap-1">
-                <span>Cover: Shorter & Wider Passport Size (123.9 x 81.9 mm)</span>
-                <span className="text-cyan-300">Inner: 7.6" iPad Mini Canvas (4:3)</span>
-                <span className="text-emerald-400">Grade 5 Polished Titanium</span>
-              </div>
             </div>
           </div>
         </div>
