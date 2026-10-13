@@ -16,7 +16,7 @@ export function Hero() {
   return (
     <section ref={ref} data-say="Hi, I'm Glide. I make the awkward phone calls so you don't have to." className="relative h-[100svh] min-h-[640px] overflow-hidden bg-ink text-paper">
       <motion.div style={{ y, scale }} className="absolute inset-0">
-        <Image src="/images/hd/jebel_jais_sunset.jpg" alt="The Jebel Jais mountain road at sunset" fill priority sizes="100vw" className="object-cover" />
+        <Image src="/images/hd/jebel_jais_sunset.jpg" alt="The Jebel Jais mountain road at sunset" fill priority sizes="100vw" className="object-cover object-[75%_center]" />
       </motion.div>
       <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/30 to-ink/40" aria-hidden />
 
