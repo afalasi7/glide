@@ -52,11 +52,17 @@ export function BotArt({ mood = "idle", px, py, blink = false, small = false }: 
       {/* googly eyes (different sizes, loose pupils) */}
       <g>
         <circle cx="42" cy="54" r="17" fill="#fff" stroke="#1C1230" strokeWidth="3" />
-        <motion.circle cx="42" cy="54" r={small ? 13 : 10.5} fill="#1C1230" style={style} animate={{ scaleY: eyeScale }} transition={{ duration: 0.08 }} />
+        <motion.g style={style} animate={{ scaleY: eyeScale }} transition={{ duration: 0.08 }}>
+          <circle cx="42" cy="54" r={small ? 11.5 : 10.5} fill="#1C1230" />
+          <circle cx="38.5" cy="50.5" r={small ? 3.4 : 2.8} fill="#fff" />
+        </motion.g>
       </g>
       <g>
         <circle cx="80" cy="50" r="20" fill="#fff" stroke="#1C1230" strokeWidth="3" />
-        <motion.circle cx="80" cy="50" r={small ? 14 : 11.5} fill="#1C1230" style={style} animate={{ scaleY: eyeScale }} transition={{ duration: 0.08 }} />
+        <motion.g style={style} animate={{ scaleY: eyeScale }} transition={{ duration: 0.08 }}>
+          <circle cx="80" cy="50" r={small ? 12.5 : 11.5} fill="#1C1230" />
+          <circle cx="76" cy="46" r={small ? 3.4 : 2.8} fill="#fff" />
+        </motion.g>
       </g>
 
       {/* mouth */}

@@ -88,7 +88,7 @@ export function PlanScreen() {
         <Row time={clock(dinner.time)} was={dinner.was} label="Levant & Nar" note="Table saved · no fee" hot />
       </ul>
       <div className="mt-auto flex items-center gap-2 px-5 pb-5">
-        <div className="h-8 w-8"><BotArt mood="happy" /></div>
+        <div className="h-8 w-8"><BotArt mood="happy" small /></div>
         <p className="text-[11px] leading-tight text-ink-soft">Nothing for you to do. Keep driving.</p>
       </div>
     </div>
@@ -100,7 +100,7 @@ export function ChatScreen() {
     <div className="flex h-full flex-col">
       <Status time="16:18" />
       <div className="flex items-center gap-2 border-b border-ink/10 px-5 pb-2 pt-2">
-        <div className="h-9 w-9"><BotArt mood="idle" /></div>
+        <div className="h-9 w-9"><BotArt mood="idle" small /></div>
         <div className="leading-tight">
           <p className="font-display text-lg italic">Glide</p>
           <p className="text-[10px] text-ink-soft">Your trip agent</p>
@@ -142,7 +142,7 @@ export function RoadScreen() {
         <path d="M30 280 C 30 220, 190 230, 190 170 S 40 130, 90 70 S 200 40, 180 12" fill="none" stroke="#1C1230" strokeWidth="26" strokeLinecap="round" opacity="0.92" />
         <path d="M30 280 C 30 220, 190 230, 190 170 S 40 130, 90 70 S 200 40, 180 12" fill="none" stroke="#FFB400" strokeWidth="3" strokeDasharray="10 9" strokeLinecap="round" />
         <circle cx="30" cy="280" r="8" fill="#5B3DF5" /><circle cx="180" cy="12" r="8" fill="#FF5A36" />
-        <g transform="translate(150 150) scale(0.32)"><BotArt mood="happy" /></g>
+        <g transform="translate(150 150) scale(0.32)"><BotArt mood="happy" small /></g>
       </svg>
       <div className="mx-5 mt-auto mb-5 rounded-2xl bg-paper px-4 py-3">
         <p className="text-[10px] uppercase tracking-[0.18em] text-ink-soft">Arrive</p>

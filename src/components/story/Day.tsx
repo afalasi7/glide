@@ -71,7 +71,7 @@ export function Day() {
             ))}
             <motion.g style={{ x: bx, y: by }}>
               <g transform="translate(-30 -34) scale(0.5)">
-                <BotArt mood={i === 3 ? "happy" : "working"} />
+                <BotArt mood={i === 3 ? "happy" : "working"} small />
               </g>
             </motion.g>
           </svg>

@@ -140,7 +140,7 @@ export function AgentScreen({ onStart }: { onStart?: () => void }) {
     <div className="flex h-full flex-col">
       <Status time="9:43" />
       <div className="flex items-center gap-2 border-b border-ink/10 px-5 pb-2 pt-2">
-        <div className="h-9 w-9"><BotArt mood="idle" /></div>
+        <div className="h-9 w-9"><BotArt mood="idle" small /></div>
         <div className="leading-tight">
           <p className="font-display text-lg italic">Glide</p>
           <p className="text-[10px] text-ink-soft">Step 3 of 3 · Your trip agent</p>
