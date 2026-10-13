@@ -33,14 +33,14 @@ export default function PreviewsPage() {
                 One plan, <em className="text-sun">every screen.</em>
               </h1>
               <p className="max-w-[42ch] text-xl font-light leading-relaxed text-paper/80">
-                Onboarding first: connect the Google Calendar plugin, import your trip date, tap Start. Then Glide shows you where to go.
+                Onboarding first: allow Google Calendar access, import your trip date, tap Start. Then Glide shows you where to go.
               </p>
             </div>
             <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, ease: [0.23, 1, 0.32, 1] }}>
               <Fold left={<ConnectScreen />} right={<AgentScreen />} />
               <div className="mt-5 space-y-1">
                 <p className="font-display text-2xl italic leading-none">Foldable, unfolded</p>
-                <p className="text-sm font-light tracking-wide text-paper/70">Plugins on one side, the agent on the other</p>
+                <p className="text-sm font-light tracking-wide text-paper/70">Calendar access on one side, the agent on the other</p>
               </div>
             </motion.div>
           </div>
@@ -50,7 +50,7 @@ export default function PreviewsPage() {
           <div className="mx-auto grid max-w-7xl justify-items-center gap-14 px-5 py-28 sm:px-8 md:grid-cols-2 xl:grid-cols-4">
             {[
               ["1 · Welcome", "Meet Glide", <WelcomeScreen key="a" />],
-              ["2 · Plugins", "Google Calendar imports the date", <ConnectScreen key="b" />],
+              ["2 · Calendar access", "Google Calendar imports the date", <ConnectScreen key="b" />],
               ["3 · Agent", "Say Start and it begins", <AgentScreen key="c" />],
               ["4 · Where to go", "The route, in order", <RouteScreen key="d" />],
             ].map(([n, note, screen], i) => (

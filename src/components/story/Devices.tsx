@@ -20,7 +20,7 @@ export function Devices() {
             One plan, <em className="text-sun">every screen.</em>
           </h2>
           <p className="max-w-[44ch] text-xl font-light leading-relaxed text-paper/80">
-            It starts with onboarding: connect Google Calendar, import your trip date, then tap Start and Glide shows you where to go.
+            It starts with sign up, then calendar access: allow Google Calendar, import your trip date, then tap Start and Glide shows you where to go.
           </p>
           <Link href="/previews" className="btn inline-block rounded-full bg-sun px-9 py-4 text-base font-semibold tracking-wide text-ink shadow-lift">
             Browse the devices

@@ -3,9 +3,9 @@
 import React, { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { BareContext, PlanScreen, ChatScreen } from "./Screens";
-import { WelcomeScreen, ConnectScreen, AgentScreen, RouteScreen } from "./Onboarding";
+import { WelcomeScreen, AuthScreen, IntroScreen, ConnectScreen, AgentScreen, RouteScreen } from "./Onboarding";
 
-type Step = "welcome" | "connect" | "agent" | "route" | "plan" | "chat";
+type Step = "welcome" | "signup" | "signin" | "intro" | "connect" | "agent" | "route" | "plan" | "chat";
 const TABS: { id: Extract<Step, "route" | "plan" | "chat">; label: string }[] = [
   { id: "route", label: "Where to go" },
   { id: "plan", label: "Plan" },
@@ -16,6 +16,12 @@ const TABS: { id: Extract<Step, "route" | "plan" | "chat">; label: string }[] = 
 export function GlideApp() {
   const [step, setStep] = useState<Step>("welcome");
   const [connected, setConnected] = useState(false);
+  const [name, setName] = useState("");
+  const done = (n: string) => {
+    setName(n);
+    try { localStorage.setItem("glide-user", JSON.stringify({ name: n })); } catch {}
+    setStep("intro");
+  };
   const inTrip = step === "route" || step === "plan" || step === "chat";
 
   return (
@@ -31,7 +37,10 @@ export function GlideApp() {
               transition={{ duration: 0.22 }}
               className="absolute inset-0"
             >
-              {step === "welcome" && <WelcomeScreen onNext={() => setStep("connect")} />}
+              {step === "welcome" && <WelcomeScreen onNext={() => setStep("signup")} onSignIn={() => setStep("signin")} />}
+              {step === "signup" && <AuthScreen mode="signup" onSubmit={done} onSwitch={() => setStep("signin")} />}
+              {step === "signin" && <AuthScreen mode="signin" onSubmit={done} onSwitch={() => setStep("signup")} />}
+              {step === "intro" && <IntroScreen name={name} onNext={() => setStep("connect")} />}
               {step === "connect" && (
                 <ConnectScreen connected={connected} onToggle={() => setConnected((c) => !c)} onNext={() => setStep("agent")} />
               )}
@@ -43,14 +52,14 @@ export function GlideApp() {
           </AnimatePresence>
         </div>
         {inTrip && (
-          <nav aria-label="Trip" className="flex gap-1 border-t border-ink/10 bg-paper px-3 pb-[max(env(safe-area-inset-bottom),10px)] pt-2">
+          <nav aria-label="Trip" className="flex gap-1 bg-paper px-3 pb-[max(env(safe-area-inset-bottom),10px)] pt-2">
             {TABS.map((t) => (
               <button
                 key={t.id}
                 type="button"
                 aria-current={step === t.id ? "page" : undefined}
                 onClick={() => setStep(t.id)}
-                className={`flex-1 rounded-full py-2.5 text-[13px] font-medium ${step === t.id ? "bg-ink text-paper" : "text-ink-soft"}`}
+                className={`flex-1 rounded-full py-3 text-[13px] font-medium ${step === t.id ? "bg-ink text-paper" : "text-ink-soft"}`}
               >
                 {t.label}
               </button>
