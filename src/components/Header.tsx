@@ -14,7 +14,7 @@ export const Header: React.FC<{ active: "story" | "devices" }> = ({ active }) =>
   <header className="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-4">
     <div className="pointer-events-auto flex items-center gap-2 rounded-full bg-cream/85 py-2 pl-3 pr-2 shadow-pop backdrop-blur-xl">
       <Link href="/" aria-label="Glide home" className="mr-3 flex items-center gap-2">
-        <GlideBot size={40} />
+        <GlideBot size={48} />
         <span className="font-display text-2xl font-semibold italic tracking-tight">Glide</span>
       </Link>
       <nav aria-label="Primary" className="flex items-center gap-1">

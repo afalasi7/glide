@@ -1,10 +1,12 @@
-import React from "react";
+"use client";
+
+import React, { createContext, useContext } from "react";
 import Image from "next/image";
 import { BotArt } from "@/components/GlideBot";
 import { CHAPTERS } from "@/components/story/data";
 
-const [depart, jais, hotel, dinner] = CHAPTERS;
-const clock = (t: string) => t.replace(/^Day \d • /, "");
+export const [depart, jais, hotel, dinner] = CHAPTERS;
+export const clock = (t: string) => t.replace(/^Day \d • /, "");
 
 /** Thin ink bezel; `punch` swaps the iPhone island for a Galaxy camera dot. */
 export function Phone({ children, punch = false, className = "" }: { children: React.ReactNode; punch?: boolean; className?: string }) {
@@ -35,7 +37,12 @@ export function Fold({ left, right, className = "" }: { left: React.ReactNode; r
   );
 }
 
-function Status({ time = "16:15" }: { time?: string }) {
+/** In the real app the OS draws its own status bar, so screens drop the fake one. */
+export const BareContext = createContext(false);
+
+export function Status({ time = "16:15" }: { time?: string }) {
+  const bare = useContext(BareContext);
+  if (bare) return <div className="pt-[max(env(safe-area-inset-top),12px)]" />;
   return (
     <div className="flex items-center justify-between px-6 pb-1 pt-3 text-[11px] font-semibold">
       <span className="num">{time}</span>

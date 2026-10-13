@@ -11,13 +11,15 @@ interface ArtProps {
   px?: unknown;
   py?: unknown;
   blink?: boolean;
+  /** Bigger pupils with a highlight so they read at nav size. */
+  small?: boolean;
 }
 
 /**
  * Glide's agent: a grey, asphalt-skinned little robot with road markings,
  * googly eyes and a smile. Pure SVG so it also works inside other SVGs.
  */
-export function BotArt({ mood = "idle", px, py, blink = false }: ArtProps) {
+export function BotArt({ mood = "idle", px, py, blink = false, small = false }: ArtProps) {
   const uid = useId().replace(/:/g, "");
   const style = { x: px as never, y: py as never };
   const eyeScale = blink ? 0.08 : 1;
@@ -50,11 +52,11 @@ export function BotArt({ mood = "idle", px, py, blink = false }: ArtProps) {
       {/* googly eyes (different sizes, loose pupils) */}
       <g>
         <circle cx="42" cy="54" r="17" fill="#fff" stroke="#1C1230" strokeWidth="3" />
-        <motion.circle cx="42" cy="54" r="10.5" fill="#1C1230" style={style} animate={{ scaleY: eyeScale }} transition={{ duration: 0.08 }} />
+        <motion.circle cx="42" cy="54" r={small ? 13 : 10.5} fill="#1C1230" style={style} animate={{ scaleY: eyeScale }} transition={{ duration: 0.08 }} />
       </g>
       <g>
         <circle cx="80" cy="50" r="20" fill="#fff" stroke="#1C1230" strokeWidth="3" />
-        <motion.circle cx="80" cy="50" r="11.5" fill="#1C1230" style={style} animate={{ scaleY: eyeScale }} transition={{ duration: 0.08 }} />
+        <motion.circle cx="80" cy="50" r={small ? 14 : 11.5} fill="#1C1230" style={style} animate={{ scaleY: eyeScale }} transition={{ duration: 0.08 }} />
       </g>
 
       {/* mouth */}
@@ -98,13 +100,13 @@ export function GlideBot({ size = 96, mood = "idle", hop = 0, className = "" }: 
       const dx = e.clientX - (r.left + r.width / 2);
       const dy = e.clientY - (r.top + r.height / 2);
       const d = Math.hypot(dx, dy) || 1;
-      const k = Math.min(d / 160, 1) * 6;
+      const k = Math.min(d / 160, 1) * (size < 56 ? 3 : 6);
       tx.set((dx / d) * k);
       ty.set((dy / d) * k);
     };
     window.addEventListener("pointermove", onMove, { passive: true });
     return () => window.removeEventListener("pointermove", onMove);
-  }, [tx, ty]);
+  }, [tx, ty, size]);
 
   useEffect(() => {
     if (reduce) return;
@@ -141,7 +143,7 @@ export function GlideBot({ size = 96, mood = "idle", hop = 0, className = "" }: 
     <div ref={ref} className={className} style={{ width: size, height: size * 1.03 }}>
       <motion.div animate={controls} style={{ transformOrigin: "50% 90%" }} className="h-full w-full">
         <motion.div animate={sway} style={{ transformOrigin: "50% 90%" }} className="h-full w-full">
-          <BotArt mood={mood} px={px} py={py} blink={blink} />
+          <BotArt mood={mood} px={px} py={py} blink={blink} small={size < 56} />
         </motion.div>
       </motion.div>
     </div>

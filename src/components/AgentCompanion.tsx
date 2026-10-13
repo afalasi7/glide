@@ -1,11 +1,13 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { GlideBot, type BotMood } from "@/components/GlideBot";
 
 /** Sections announce what the agent should say via `data-say`; the story can also dispatch a "glide:say" event. */
 export function AgentCompanion() {
+  const pathname = usePathname();
   const [text, setText] = useState("");
   const [hop, setHop] = useState(0);
   const [scrolling, setScrolling] = useState(false);
@@ -45,13 +47,15 @@ export function AgentCompanion() {
     };
     window.addEventListener("scroll", onScroll, { passive: true });
 
-    return () => {
+  return () => {
       io.disconnect();
       window.removeEventListener("glide:say", onSay);
       window.removeEventListener("scroll", onScroll);
       clearTimeout(timer.current);
     };
-  }, []);
+  }, [pathname]);
+
+  if (pathname === "/app") return null;
 
   const mood: BotMood = happy ? "happy" : scrolling ? "working" : "idle";
 
