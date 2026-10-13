@@ -34,9 +34,6 @@ export function Finale() {
             <GlideBot size={44} />
             <span className="font-display text-2xl font-semibold italic">Glide</span>
           </span>
-          <p className="text-sm font-light tracking-wide text-paper/70">
-            Dubai Chamber Create AI Agents Championship · Youth Category
-          </p>
         </div>
       </footer>
     </>

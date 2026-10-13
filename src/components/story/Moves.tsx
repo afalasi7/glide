@@ -5,15 +5,15 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { TICKETS } from "./data";
 
-const STUB = ["bg-violet text-paper", "bg-sun text-ink", "bg-ink text-paper", "bg-coral text-ink"];
+const STUB = ["bg-violet text-paper", "bg-sun text-ink", "bg-ink text-paper"];
 
 /** Each tool call is a boarding-pass strip: notched, perforated, stamped with the real latency. */
 export function Moves() {
   return (
-    <section data-say="Four calls. Zero from you." className="bg-ink py-28 text-paper sm:py-40">
+    <section data-say="Three moves. Zero from you." className="bg-ink py-28 text-paper sm:py-40">
       <div className="mx-auto max-w-5xl px-5 sm:px-8">
         <h2 className="max-w-[14ch] text-[clamp(3rem,8vw,6.5rem)] leading-[0.92] tracking-[-0.02em]">
-          Four moves. <em className="text-sun">Zero calls.</em>
+          Three moves. <em className="text-sun">Zero calls.</em>
         </h2>
         <p className="mt-6 max-w-[48ch] text-xl font-light leading-relaxed text-paper/75">
           A deterministic solver decides what is broken and what fixes it. Language models only explain it to you afterwards.
@@ -40,12 +40,8 @@ export function Moves() {
                 <span className="relative text-xs font-medium uppercase tracking-[0.2em]">Move {i + 1}</span>
                 <span className="num relative text-2xl leading-tight sm:text-3xl">{t.result}</span>
               </div>
-              <div className="relative flex flex-1 flex-col justify-between border-l-2 border-dashed border-ink/25 p-5 sm:p-7">
+              <div className="relative flex flex-1 flex-col justify-center border-l-2 border-dashed border-ink/25 p-5 sm:p-7">
                 <h3 className="text-3xl leading-none tracking-tight sm:text-4xl">{t.title}</h3>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs font-medium text-ink-soft">
-                  <span>{t.tool}</span>
-                  <span>200 OK · {t.ms}ms</span>
-                </div>
               </div>
             </motion.li>
           ))}

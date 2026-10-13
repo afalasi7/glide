@@ -50,7 +50,6 @@ export const TICKETS = [
   { tool: "resequence_node", title: "Moves the mountain", result: "Day 2 · 08:30", photo: "/images/jebel_jais_sunset.jpg", ms: tool("resequence_node").latencyMs },
   { tool: "modify_dining_reservation", title: "Saves the table", result: "21:15 · no fee", photo: "/images/levant_nar_dining.jpg", ms: tool("modify_dining_reservation").latencyMs },
   { tool: "flag_hotel_late_arrival", title: "Warns the hotel", result: "Key ready", photo: "/images/ic_rak_resort.jpg", ms: tool("flag_hotel_late_arrival").latencyMs },
-  { tool: "push_wallet_pass_sync", title: "Updates your wallet", result: "3 passes synced", photo: "/images/glide_logo.jpg", ms: tool("push_wallet_pass_sync").latencyMs },
 ] as const;
 
 export const TIMES = {

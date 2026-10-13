@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef } from "react";
-import Image from "next/image";
+import { Phone, PlanScreen, ChatScreen } from "@/components/screens/Screens";
 import Link from "next/link";
 import { motion, useScroll, useTransform } from "framer-motion";
 
@@ -9,7 +9,6 @@ export function Devices() {
   const ref = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
   const a = useTransform(scrollYProgress, [0, 1], [90, -90]);
-  const b = useTransform(scrollYProgress, [0, 1], [-30, 60]);
   const c = useTransform(scrollYProgress, [0, 1], [140, -140]);
 
   return (
@@ -27,15 +26,12 @@ export function Devices() {
           </Link>
         </div>
 
-        <div className="relative mx-auto grid h-[560px] w-full max-w-[560px] grid-cols-6 items-center">
-          <motion.div style={{ y: a }} className="relative col-span-3 col-start-1 aspect-[9/16] overflow-hidden rounded-[6px] shadow-lift">
-            <Image src="/renders/airbnb_route_bw_iphone_1791740518135.jpg" alt="Glide itinerary on an iPhone" fill sizes="300px" className="object-cover" />
+        <div className="relative mx-auto flex h-[640px] w-full max-w-[600px] items-center justify-center">
+          <motion.div style={{ y: a }} className="absolute left-0 top-6 origin-top-left scale-[0.8] sm:scale-90">
+            <Phone><PlanScreen /></Phone>
           </motion.div>
-          <motion.div style={{ y: b }} className="relative z-10 col-span-3 col-start-3 -ml-6 aspect-square overflow-hidden rounded-[6px] shadow-lift">
-            <Image src="/renders/z_fold_8_ultra_clean_unfolded.jpg" alt="Glide route map on an unfolded foldable" fill sizes="300px" className="object-cover" />
-          </motion.div>
-          <motion.div style={{ y: c }} className="relative col-span-2 col-start-5 -mt-24 aspect-[9/16] overflow-hidden rounded-[6px] shadow-lift max-sm:hidden">
-            <Image src="/renders/s26_ultra_flat.jpg" alt="Glide itinerary on a Galaxy phone" fill sizes="200px" className="object-cover" />
+          <motion.div style={{ y: c }} className="absolute right-0 top-24 origin-top-right scale-[0.8] sm:scale-90">
+            <Phone punch><ChatScreen /></Phone>
           </motion.div>
         </div>
       </div>
