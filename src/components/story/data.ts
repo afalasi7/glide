@@ -10,7 +10,7 @@ const tool = (name: string) => r.toolResults.find((t) => t.tool === name)!;
 export const CHAPTERS = [
   {
     key: "depart",
-    photo: "/images/dubai_traffic_gridlock.jpg",
+    photo: "/images/hd/traffic_road.jpg",
     place: "Dubai Marina",
     time: fmt(h.depart.startAt),
     was: "15:00",
@@ -19,7 +19,7 @@ export const CHAPTERS = [
   },
   {
     key: "jais",
-    photo: "/images/jebel_jais_sunset.jpg",
+    photo: "/images/hd/jebel_jais_sunset.jpg",
     place: "Jebel Jais Viewing Deck",
     time: fmt(h.jais.startAt).replace("Day 2 • ", ""),
     was: fmt(b.jais.arriveAt - 75),
@@ -28,7 +28,7 @@ export const CHAPTERS = [
   },
   {
     key: "hotel",
-    photo: "/images/ic_rak_resort.jpg",
+    photo: "/images/hd/ic_rak_resort.jpg",
     place: "InterContinental RAK",
     time: fmt(h.hotel.arriveAt),
     was: fmt(base.nodes.hotel.bookedArriveAt ?? 0),
@@ -37,7 +37,7 @@ export const CHAPTERS = [
   },
   {
     key: "dinner",
-    photo: "/images/levant_nar_dining.jpg",
+    photo: "/images/hd/levant_nar_dining.jpg",
     place: "Levant & Nar",
     time: fmt(h.dinner.startAt),
     was: "20:00",

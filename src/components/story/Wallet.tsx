@@ -20,7 +20,7 @@ export function Wallet() {
   const rot = [useTransform(scrollYProgress, [0, 1], [8, -4]), useTransform(scrollYProgress, [0, 1], [0, 0]), useTransform(scrollYProgress, [0, 1], [-8, 4])];
 
   return (
-    <section ref={ref} className="overflow-hidden bg-cream py-28 sm:py-40">
+    <section ref={ref} data-say="Your passes update themselves. Nothing to open." className="overflow-hidden bg-cream py-28 sm:py-40">
       <div className="mx-auto max-w-7xl px-5 sm:px-8">
         <div className="flex flex-wrap items-end justify-between gap-8">
           <h2 className="max-w-[12ch] text-[clamp(3rem,8vw,6.5rem)] leading-[0.92] tracking-[-0.02em]">

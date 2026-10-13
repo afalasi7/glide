@@ -9,14 +9,14 @@ export function Hero() {
   const ref = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
   const y = useTransform(scrollYProgress, [0, 1], ["0%", "22%"]);
-  const scale = useTransform(scrollYProgress, [0, 1], [1.05, 1.25]);
+  const scale = useTransform(scrollYProgress, [0, 1], [1, 1.08]);
   const textY = useTransform(scrollYProgress, [0, 1], ["0%", "-30%"]);
   const fade = useTransform(scrollYProgress, [0, 0.7], [1, 0]);
 
   return (
-    <section ref={ref} className="relative h-[100svh] min-h-[640px] overflow-hidden bg-ink text-paper">
+    <section ref={ref} data-say="Hi, I'm Glide. I make the awkward phone calls so you don't have to." className="relative h-[100svh] min-h-[640px] overflow-hidden bg-ink text-paper">
       <motion.div style={{ y, scale }} className="absolute inset-0">
-        <Image src="/images/jebel_jais_sunset.jpg" alt="The Jebel Jais mountain road at sunset" fill priority sizes="100vw" className="object-cover" />
+        <Image src="/images/hd/jebel_jais_sunset.jpg" alt="The Jebel Jais mountain road at sunset" fill priority sizes="100vw" className="object-cover" />
       </motion.div>
       <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/30 to-ink/40" aria-hidden />
 

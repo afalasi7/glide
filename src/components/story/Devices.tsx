@@ -13,7 +13,7 @@ export function Devices() {
   const c = useTransform(scrollYProgress, [0, 1], [140, -140]);
 
   return (
-    <section ref={ref} className="overflow-hidden bg-paper py-28 sm:py-40">
+    <section ref={ref} data-say="Same plan, every screen." className="overflow-hidden bg-paper py-28 sm:py-40">
       <div className="mx-auto grid max-w-7xl items-center gap-16 px-5 sm:px-8 lg:grid-cols-[1fr_1.1fr]">
         <div className="space-y-7">
           <h2 className="text-[clamp(3rem,7vw,5.5rem)] leading-[0.92] tracking-[-0.02em]">

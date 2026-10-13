@@ -10,7 +10,7 @@ const STUB = ["bg-violet text-paper", "bg-sun text-ink", "bg-ink text-paper", "b
 /** Each tool call is a boarding-pass strip: notched, perforated, stamped with the real latency. */
 export function Moves() {
   return (
-    <section className="bg-ink py-28 text-paper sm:py-40">
+    <section data-say="Four calls. Zero from you." className="bg-ink py-28 text-paper sm:py-40">
       <div className="mx-auto max-w-5xl px-5 sm:px-8">
         <h2 className="max-w-[14ch] text-[clamp(3rem,8vw,6.5rem)] leading-[0.92] tracking-[-0.02em]">
           Four moves. <em className="text-sun">Zero calls.</em>

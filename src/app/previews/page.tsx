@@ -43,7 +43,7 @@ export default function PreviewsPage() {
       <Header active="devices" />
 
       <main>
-        <section className="mx-auto grid max-w-7xl items-center gap-12 px-5 pb-24 pt-36 sm:px-8 lg:grid-cols-[1fr_1.1fr]">
+        <section data-say="Same plan on every device." className="mx-auto grid max-w-7xl items-center gap-12 px-5 pb-24 pt-36 sm:px-8 lg:grid-cols-[1fr_1.1fr]">
           <div className="space-y-6">
             <h1 className="max-w-[10ch] text-[clamp(3.4rem,9vw,7rem)] leading-[0.9] tracking-[-0.025em]">
               One plan, <em className="text-violet">every screen.</em>

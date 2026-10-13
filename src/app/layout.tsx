@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Bodoni_Moda, Jost, Geist_Mono } from "next/font/google";
 import { LenisProvider } from "@/components/LenisProvider";
+import { AgentCompanion } from "@/components/AgentCompanion";
 import "./globals.css";
 
 const bodoni = Bodoni_Moda({
@@ -38,6 +39,7 @@ export default function RootLayout({
     >
       <body className="min-h-screen bg-cream text-ink font-sans">
         <LenisProvider>{children}</LenisProvider>
+        <AgentCompanion />
       </body>
     </html>
   );
