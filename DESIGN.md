@@ -1,29 +1,26 @@
 # DESIGN.md — Glide Design System
-*Direction: Distilled, Ultra-Simple Mobbin-Grade Autonomous Travel Shock Absorber*
+*World: "Sunset Luxe". An editorial travel story: warm sand canvas, aubergine ink, real photography, a high-contrast serif.*
 
-## Visual Philosophy
-Glide draws directly from top-tier Mobbin apps (Flighty, Linear Mobile, Apple Wallet, Arc). Following Impeccable's `distill` methodology, it strips away visual noise, sidebars, dense multi-column grids, and nested containers in favor of a focused, calm single-column experience.
+## Type
+- Display: **Bodoni Moda** (500, italic for the one emphasised phrase per headline), tracking -0.025em, max 8rem.
+- Body/UI: **Jost**. Mono (tool names, references): Geist Mono. Clock numerals use Bodoni lining tabular figures (`.num`).
 
-## Principles
-1. **Single Focused Column**: Max width 576px (`max-w-xl`), centered, generous negative space.
-2. **Zero Nested Cards**: Flat hierarchy where spacing and typography establish structure.
-3. **Progressive Disclosure**: Agent tool execution details and payloads stay quiet until requested.
-4. **Ruthless Simplicity**: ONE primary goal per screen — observe route, inject delay, and trigger autonomous healing.
+## Colour (globals.css tokens)
+cream `#FFF3DF` canvas · paper `#FFFBF3` · ink `#1C1230` · ink-soft `#5E5470` · violet `#5B3DF5` accent/CTA · sun `#FFB400` highlight · coral `#FF5A36` · mint `#2FD6A1`. Photography carries most of the colour.
 
-## Color Palette
-- **Canvas / Root Background**: `#07080B` (Pitch Obsidian)
-- **Surfaces**: `#0E1017`
-- **Borders**: `rgba(255, 255, 255, 0.08)` (Subtle hairline)
-- **Primary Text**: `#FFFFFF`
-- **Secondary Text**: `#A1A1AA` (Muted Zinc)
-- **Accents**:
-  - Emerald (`#10B981`): Autonomous resolution
-  - Amber (`#F59E0B`): Delay warnings
-  - Rose (`#F43F5E`): Constraint conflicts
+## Imagery (all real, in /public)
+- Photos: jebel_jais_sunset, dubai_traffic_gridlock, ic_rak_resort, levant_nar_dining. Each chapter of the day uses its own.
+- Logo: images/glide_logo.jpg, clipped to a squircle (`GlideLogo`). Never redrawn.
+- Devices: the B&W renders in /renders, shown sharp-cornered, no frames drawn in code.
 
-## Components
-1. **Trip Summary**: Clear route header with immediate plain-language status.
-2. **Delay Injector**: 4-preset segmented strip (`On Time`, `+15m`, `+45m`, `+75m Late`) + high-contrast action button.
-3. **Vertical Timeline**: 4 stops displaying time, location, and clear status pill without clutter.
-4. **Autonomous Actions**: Progressive disclosure list of tool executions.
-5. **Live Pass**: Dynamic Island / Apple Wallet sync notification.
+## Shapes (no rounded-rectangle cards)
+- **Arch window** for chapter photography (round top, soft base).
+- **Ticket strip** (side notches + dashed perforation) for each agent tool call.
+- **Wallet pass**: photo header, big time, dashed tear line, QR block. Google and Samsung skins only.
+- **Serpentine road** that draws itself with scroll, with pins for each stop.
+
+## Motion (scroll-led, Lenis smooth scroll)
+Hero photo parallax and text lift · pinned four-chapter day (road draws, arch photo wipes in, clock changes) · tickets slide in from alternating sides · wallet passes fan out from a stack · device renders drift at different speeds · finale photo parallax. Reduced motion disables Lenis and animation durations.
+
+## Pages
+- `/` the story (hero, day, four moves, wallet, devices, finale). `/previews` device gallery. `/landing` redirects to `/`.

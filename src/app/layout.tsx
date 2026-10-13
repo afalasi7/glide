@@ -1,17 +1,18 @@
 import type { Metadata } from "next";
-import {
-  Plus_Jakarta_Sans,
-  Geist_Mono,
-  Playfair_Display,
-  Cormorant_Garamond,
-  Cinzel,
-} from "next/font/google";
+import { Bodoni_Moda, Jost, Geist_Mono } from "next/font/google";
+import { LenisProvider } from "@/components/LenisProvider";
 import "./globals.css";
 
-const plusJakartaSans = Plus_Jakarta_Sans({
+const bodoni = Bodoni_Moda({
+  variable: "--font-display",
+  subsets: ["latin"],
+  style: ["normal", "italic"],
+  axes: ["opsz"],
+});
+
+const jost = Jost({
   variable: "--font-sans",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
 });
 
 const geistMono = Geist_Mono({
@@ -19,29 +20,10 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const playfair = Playfair_Display({
-  variable: "--font-serif",
-  subsets: ["latin"],
-  weight: ["400", "600", "700", "800", "900"],
-  style: ["normal", "italic"],
-});
-
-const cormorant = Cormorant_Garamond({
-  variable: "--font-luxury",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  style: ["normal", "italic"],
-});
-
-const cinzel = Cinzel({
-  variable: "--font-display",
-  subsets: ["latin"],
-  weight: ["500", "600", "700", "800", "900"],
-});
-
 export const metadata: Metadata = {
-  title: "Glide",
-  description: "Road trip peace of mind across the UAE. Your trip, handled.",
+  title: "Glide — Your trip, handled.",
+  description:
+    "When a road trip runs late, Glide's agents move the mountain, save the dinner table and tell the hotel before you notice. Zero phone calls.",
 };
 
 export default function RootLayout({
@@ -52,10 +34,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${plusJakartaSans.variable} ${geistMono.variable} ${playfair.variable} ${cormorant.variable} ${cinzel.variable} antialiased`}
+      className={`${bodoni.variable} ${jost.variable} ${geistMono.variable} antialiased`}
     >
-      <body className="min-h-screen bg-background text-foreground selection:bg-accent/30 font-sans">
-        {children}
+      <body className="min-h-screen bg-cream text-ink font-sans">
+        <LenisProvider>{children}</LenisProvider>
       </body>
     </html>
   );
