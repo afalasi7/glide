@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+.DS_Store
+*.log
+.claude
+.codex
+.freebuff
+skills-reference
+scratch

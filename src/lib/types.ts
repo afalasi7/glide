@@ -27,6 +27,7 @@ export interface ItineraryStop {
   iconName: string;
   isRescheduled?: boolean;
   rescheduledLabel?: string;
+  day?: 1 | 2;
   passDetails?: {
     venue: string;
     code: string;
@@ -39,6 +40,7 @@ export interface AgentLogEntry {
   id: string;
   timestamp: string;
   type: "TRIGGER" | "PLANNER" | "TOOL_CALL" | "STATE" | "INFO";
+  agent?: string;
   toolName?: string;
   toolArgs?: Record<string, unknown>;
   toolStatus?: number;
@@ -50,6 +52,7 @@ export const INITIAL_STOPS: ItineraryStop[] = [
   {
     id: "stop-1",
     order: 1,
+    day: 1,
     originalTime: "15:00",
     currentTime: "15:00",
     title: "Depart Dubai Marina",
@@ -71,6 +74,7 @@ export const INITIAL_STOPS: ItineraryStop[] = [
   {
     id: "stop-2",
     order: 2,
+    day: 1,
     originalTime: "17:15",
     currentTime: "17:15",
     title: "Jebel Jais Viewing Deck",
@@ -93,6 +97,7 @@ export const INITIAL_STOPS: ItineraryStop[] = [
   {
     id: "stop-3",
     order: 3,
+    day: 1,
     originalTime: "18:45",
     currentTime: "18:45",
     title: "InterContinental RAK",
@@ -123,6 +128,7 @@ export const INITIAL_STOPS: ItineraryStop[] = [
   {
     id: "stop-4",
     order: 4,
+    day: 1,
     originalTime: "20:00",
     currentTime: "20:00",
     title: "Levant & Nar (Dinner)",

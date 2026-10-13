@@ -4,11 +4,9 @@ import React, { useState } from "react";
 import confetti from "canvas-confetti";
 import { Header } from "@/components/Header";
 import { DelayControl } from "@/components/DelayControl";
-import { RealisticDeviceGallery } from "@/components/RealisticDeviceGallery";
 import { TimelineView } from "@/components/Timeline";
 import { AgentTerminal } from "@/components/AgentLog";
 import { DynamicIslandWidget } from "@/components/DynamicIslandWidget";
-import { GraphVisualizer } from "@/components/GraphVisualizer";
 import {
   INITIAL_STOPS,
   ItineraryStop,
@@ -19,7 +17,7 @@ import {
   getHealedStops,
   HEALING_STEPS_TEMPLATE,
 } from "@/lib/agentEngine";
-import { Smartphone, LayoutDashboard, Sparkles, ShieldCheck } from "lucide-react";
+import { MapPin, ArrowRight } from "lucide-react";
 
 export default function Home() {
   const [delayMinutes, setDelayMinutes] = useState<number>(75);
@@ -30,15 +28,15 @@ export default function Home() {
   const [isHealing, setIsHealing] = useState<boolean>(false);
   const [isHealed, setIsHealed] = useState<boolean>(false);
   const [walletSynced, setWalletSynced] = useState<boolean>(false);
-  const [viewMode, setViewMode] = useState<"devices" | "system">("devices");
 
-  // Sync stops whenever delay slider changes (if not already healed)
+  // Sync stops whenever delay preset changes
   const handleSetDelay = (mins: number) => {
     if (isHealing) return;
     setDelayMinutes(mins);
-    if (!isHealed) {
-      setStops(calculateDelayedStops(mins));
-    }
+    setIsHealed(false);
+    setWalletSynced(false);
+    setStops(calculateDelayedStops(mins));
+    setLogs([]);
   };
 
   // Reset to initial baseline state
@@ -63,18 +61,13 @@ export default function Home() {
       return `${d.getHours().toString().padStart(2, "0")}:${d
         .getMinutes()
         .toString()
-        .padStart(2, "0")}:${d.getSeconds().toString().padStart(2, "0")}.${Math.floor(
-        d.getMilliseconds() / 10
-      )
-        .toString()
-        .padStart(2, "0")}`;
+        .padStart(2, "0")}:${d.getSeconds().toString().padStart(2, "0")}`;
     };
 
     // Sequential playback of autonomous tool calls with delays
     for (let i = 0; i < HEALING_STEPS_TEMPLATE.length; i++) {
       const template = HEALING_STEPS_TEMPLATE[i];
 
-      // Add log
       const newEntry: AgentLogEntry = {
         ...template,
         id: `log-${Date.now()}-${i}`,
@@ -83,7 +76,7 @@ export default function Home() {
 
       setLogs((prev) => [...prev, newEntry]);
 
-      // When tool call 1 runs (resequence Jebel Jais)
+      // Tool call 1: resequence Jebel Jais to Day 2 morning
       if (i === 2) {
         setStops((prev) => {
           const next = [...prev];
@@ -92,15 +85,17 @@ export default function Home() {
               ...next[1],
               currentTime: "Day 2 • 08:30",
               title: "Jebel Jais Viewing Deck",
-              tag: "Resequencing to Day 2...",
+              tag: "Morning Summit",
               status: "healed",
+              day: 2,
+              statusMessage: "Rescheduled to Day 2 08:30 for morning light",
             };
           }
           return next;
         });
       }
 
-      // When tool call 2 runs (modify dining reservation)
+      // Tool call 2: modify dining reservation via SevenRooms
       if (i === 3) {
         setStops((prev) => {
           const next = [...prev];
@@ -109,23 +104,39 @@ export default function Home() {
               ...next[3],
               currentTime: "21:15",
               status: "healed",
-              statusMessage: "SevenRooms confirmed 21:15 table",
+              statusMessage: "SevenRooms confirmed 21:15 • Table #14",
+              bufferText: "+75m kitchen buffer (Closes 22:30)",
             };
           }
           return next;
         });
       }
 
-      // When tool call 4 runs (wallet pass sync)
+      // Tool call 3: flag hotel late arrival in Cloudbeds PMS
+      if (i === 4) {
+        setStops((prev) => {
+          const next = [...prev];
+          if (next[2]) {
+            next[2] = {
+              ...next[2],
+              status: "healed",
+              statusMessage: "Cloudbeds PMS: Late arrival noted & mobile key ready",
+              bufferText: "Check-in window secured",
+            };
+          }
+          return next;
+        });
+      }
+
+      // Tool call 4: push wallet pass sync
       if (i === 5) {
         setWalletSynced(true);
       }
 
-      const delay = template.type === "TOOL_CALL" ? 650 : 500;
+      const delay = template.type === "TOOL_CALL" ? 500 : 350;
       await new Promise((res) => setTimeout(res, delay));
     }
 
-    // Complete healing
     setStops(getHealedStops(delayMinutes));
     setIsHealing(false);
     setIsHealed(true);
@@ -133,10 +144,10 @@ export default function Home() {
 
     try {
       confetti({
-        particleCount: 60,
-        spread: 70,
+        particleCount: 50,
+        spread: 60,
         origin: { y: 0.7 },
-        colors: ["#06B6D4", "#10B981", "#38BDF8"],
+        colors: ["#FFFFFF", "#10B981", "#38BDF8"],
       });
     } catch {
       // ignore
@@ -144,67 +155,49 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0B0F19] text-slate-100 flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">
-      {/* Header */}
-      <Header
-        isHealed={isHealed}
-        isHealing={isHealing}
-        totalSavedMinutes={delayMinutes}
-      />
+    <div className="min-h-screen bg-[#090D16] text-white flex flex-col font-sans selection:bg-white/20 pb-20">
+      {/* Top Bar */}
+      <Header isHealed={isHealed} isHealing={isHealing} />
 
-      {/* Main Content Area */}
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8 space-y-8">
-        {/* Scenario Banner with View Mode Selector */}
-        <div className="rounded-2xl border border-cyan-950/60 bg-gradient-to-r from-slate-900/90 via-[#0E1526] to-slate-900/90 p-4 sm:p-5 shadow-lg">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-cyan-400" />
-                <span className="text-xs font-mono font-bold uppercase tracking-wider text-cyan-400">
-                  Live Showcase Scenario
-                </span>
-                <span className="rounded bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
-                  4 Verified Links Loaded
-                </span>
-              </div>
-              <h2 className="text-base font-bold text-white mt-1">
-                Dubai Marina → Jebel Jais Sunset → InterContinental RAK → Levant & Nar Dinner
-              </h2>
-              <p className="text-xs text-slate-400 mt-1 max-w-3xl">
-                Testing Glide across 4 mobile hardware profiles: iPhone 18 Pro Max, Samsung S26 Ultra,
-                Samsung Z Fold 8 Ultra, and iPhone Duo. The interfaces feature glass UI without intrusive code.
-              </p>
-            </div>
+      {/* Main Single Column Container */}
+      <main className="mx-auto w-full max-w-xl px-4 py-6 space-y-4">
+        {/* Route Card */}
+        <div className="rounded-2xl border border-white/10 bg-[#121624] p-5 shadow-lg space-y-3">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-white text-sm">Dubai → Ras Al Khaimah Road Trip</span>
+            <span className="text-[11px] font-semibold text-zinc-400 bg-white/5 border border-white/10 px-2 py-0.5 rounded-full">
+              4 Stops · 150 km
+            </span>
+          </div>
 
-            {/* View Mode Toggle Pill */}
-            <div className="flex items-center gap-1.5 rounded-2xl bg-slate-950/90 p-1.5 border border-slate-800">
-              <button
-                onClick={() => setViewMode("devices")}
-                className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition ${
-                  viewMode === "devices"
-                    ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-md"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                <Smartphone className="h-3.5 w-3.5" />
-                <span>4 Mobile Devices Grid</span>
-              </button>
-              <button
-                onClick={() => setViewMode("system")}
-                className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition ${
-                  viewMode === "system"
-                    ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-md"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                <LayoutDashboard className="h-3.5 w-3.5" />
-                <span>System Dashboard</span>
-              </button>
-            </div>
+          <div className="flex items-center gap-1.5 text-xs text-zinc-200 font-semibold overflow-x-auto pb-1">
+            <span className="shrink-0">Dubai Marina</span>
+            <ArrowRight className="h-3 w-3 text-zinc-500 shrink-0" />
+            <span className="shrink-0">Jebel Jais</span>
+            <ArrowRight className="h-3 w-3 text-zinc-500 shrink-0" />
+            <span className="shrink-0">InterContinental RAK</span>
+            <ArrowRight className="h-3 w-3 text-zinc-500 shrink-0" />
+            <span className="shrink-0">Levant & Nar Dinner</span>
+          </div>
+
+          <div
+            className={`p-3 rounded-xl border text-xs leading-relaxed transition-all ${
+              isHealed
+                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-200"
+                : delayMinutes > 0
+                ? "bg-rose-500/10 border-rose-500/30 text-rose-200"
+                : "bg-white/5 border-white/10 text-zinc-300"
+            }`}
+          >
+            {isHealed
+              ? "All 4 stops protected: mountain drive moved to tomorrow morning when visibility is pristine. Dinner table pushed to 9:15 PM. Zero calls made."
+              : delayMinutes > 0
+              ? `Leaving ${delayMinutes} minutes late means arriving at the mountain in total darkness (6:30 PM) and forfeiting your 8:00 PM dinner reservation.`
+              : "All stops are currently on schedule with comfortable drive times."}
           </div>
         </div>
 
-        {/* Delay Control Simulator Bar */}
+        {/* Delay Control */}
         <DelayControl
           delayMinutes={delayMinutes}
           onSetDelay={handleSetDelay}
@@ -214,63 +207,27 @@ export default function Home() {
           isHealed={isHealed}
         />
 
-        {/* Tab 1: 4 Devices Grid Mode */}
-        {viewMode === "devices" && (
-          <RealisticDeviceGallery
-            stops={stops}
-            isHealed={isHealed}
-            isHealing={isHealing}
-            delayMinutes={delayMinutes}
-            onTriggerHeal={handleTriggerHeal}
-          />
-        )}
+        {/* Live Timeline */}
+        <TimelineView
+          stops={stops}
+          isHealed={isHealed}
+          isHealing={isHealing}
+          delayMinutes={delayMinutes}
+        />
 
-        {/* Tab 2: System Dashboard Mode */}
-        {viewMode === "system" && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            <div className="lg:col-span-7 space-y-6">
-              <TimelineView
-                stops={stops}
-                isHealed={isHealed}
-                isHealing={isHealing}
-                delayMinutes={delayMinutes}
-              />
-            </div>
-
-            <div className="lg:col-span-5 space-y-6">
-              <AgentTerminal
-                logs={logs}
-                isHealing={isHealing}
-                isHealed={isHealed}
-              />
-
-              <GraphVisualizer
-                stops={stops}
-                isHealed={isHealed}
-                delayMinutes={delayMinutes}
-              />
-            </div>
-          </div>
-        )}
+        {/* Multi-Agent Coordination Actions */}
+        <AgentTerminal
+          logs={logs}
+          isHealing={isHealing}
+          isHealed={isHealed}
+        />
       </main>
 
-      {/* Floating Dynamic Island / Apple Wallet sync widget */}
+      {/* Apple Wallet / Live Pass Notification */}
       <DynamicIslandWidget
         isHealed={isHealed}
         walletSynced={walletSynced}
       />
-
-      {/* Footer */}
-      <footer className="border-t border-slate-900 bg-slate-950/60 py-6 text-center text-xs text-slate-500">
-        <div className="mx-auto max-w-7xl px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <span>
-            GLIDE • Autonomous AI Travel Itinerary Shock Absorber
-          </span>
-          <span className="text-slate-400 font-mono text-[11px]">
-            Dubai Chamber Create AI Agents Competition • Youth Category
-          </span>
-        </div>
-      </footer>
     </div>
   );
 }

@@ -13,11 +13,8 @@ import {
   QrCode,
   CheckCircle2,
   AlertTriangle,
-  ChevronRight,
   Car,
-  Bell,
   Navigation,
-  ArrowRight,
   Zap,
 } from "lucide-react";
 import { ItineraryStop } from "@/lib/types";
@@ -40,7 +37,6 @@ export const MobileAppUI: React.FC<MobileAppProps> = ({
   isHealing,
   delayMinutes,
   onTriggerHeal,
-  isFolded = true,
 }) => {
   const [activeTab, setActiveTab] = useState<"itinerary" | "passes" | "map">("itinerary");
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -59,7 +55,7 @@ export const MobileAppUI: React.FC<MobileAppProps> = ({
   };
 
   return (
-    <div className="relative flex h-full w-full flex-col bg-[#080C16] text-slate-100 select-none overflow-hidden font-sans">
+    <div className="relative flex h-full w-full flex-col bg-[#F8F9FA] text-neutral-900 select-none overflow-hidden font-sans">
       {/* Verification modal drawer */}
       <VerificationDrawer
         isOpen={drawerOpen}
@@ -68,90 +64,88 @@ export const MobileAppUI: React.FC<MobileAppProps> = ({
       />
 
       {/* Top Mobile App Header */}
-      <div className="relative z-10 px-4 pt-3 pb-2 border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-xl">
+      <div className="relative z-10 px-4 pt-10 pb-3 border-b border-neutral-200/80 bg-white/90 backdrop-blur-md">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-tr from-cyan-400 to-blue-600 font-black text-slate-950 text-xs shadow-md shadow-cyan-500/20">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-neutral-900 font-bold text-white text-xs">
               G
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <h3 className="text-xs font-black tracking-tight text-white">GLIDE</h3>
-                <span className="rounded bg-cyan-500/10 px-1 py-0.2 text-[8px] font-bold text-cyan-400 border border-cyan-500/30">
-                  SHOCK ABSORBER
+                <h3 className="text-xs font-bold tracking-tight text-neutral-900">Glide</h3>
+                <span className="rounded bg-neutral-100 px-1.5 py-0.2 text-[9px] font-semibold text-neutral-600">
+                  Live Guard
                 </span>
               </div>
-              <p className="text-[9px] text-slate-400">Dubai → Ras Al Khaimah</p>
+              <p className="text-[10px] text-neutral-500">Dubai → Ras Al Khaimah</p>
             </div>
           </div>
 
-          {/* Verification check pill */}
           <button
             onClick={() => setDrawerOpen(true)}
-            className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[9px] font-bold text-emerald-300 hover:bg-emerald-500/20 transition active:scale-95"
+            className="flex items-center gap-1 rounded-full border border-neutral-200 bg-neutral-100 px-2.5 py-1 text-[10px] font-semibold text-neutral-700 hover:bg-neutral-200 transition active:scale-95"
           >
-            <ShieldCheck className="h-3 w-3 text-emerald-400" />
-            <span>4 Verifications</span>
-            <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <ShieldCheck className="h-3 w-3 text-neutral-800" />
+            <span>4 Audits</span>
           </button>
         </div>
 
         {/* Live Trip Status Pill Banner */}
-        <div className="mt-2 flex items-center justify-between rounded-xl border border-slate-800/90 bg-[#0F1626]/80 px-2.5 py-1.5 text-[10px]">
+        <div className="mt-2.5 flex items-center justify-between rounded-xl border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 text-[10px]">
           <div className="flex items-center gap-1.5">
-            <Car className="h-3 w-3 text-cyan-400" />
-            <span className="text-slate-300 font-medium">Status:</span>
+            <Car className="h-3 w-3 text-neutral-600" />
+            <span className="text-neutral-500 font-medium">Status:</span>
             {isHealed ? (
-              <span className="font-bold text-emerald-300 flex items-center gap-1">
-                <CheckCircle2 className="h-3 w-3" /> Healed Schedule
+              <span className="font-bold text-emerald-700 flex items-center gap-1">
+                <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Healed Schedule
               </span>
             ) : delayMinutes > 0 ? (
-              <span className="font-bold text-rose-300 flex items-center gap-1">
-                <AlertTriangle className="h-3 w-3" /> +{delayMinutes}m Delay
+              <span className="font-bold text-red-700 flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3 text-red-600" /> +{delayMinutes}m Delay
               </span>
             ) : (
-              <span className="font-semibold text-slate-300">On Track</span>
+              <span className="font-semibold text-neutral-800">On Track</span>
             )}
           </div>
 
-          <div className="text-[9px] font-mono text-slate-400">
+          <div className="text-[10px] font-mono text-neutral-500">
             {isHealed ? "0 Forfeits" : delayMinutes >= 45 ? "Sunset at Risk" : "Normal ETA"}
           </div>
         </div>
       </div>
 
-      {/* Main Body Content based on tabs or fold state */}
+      {/* Main Body */}
       <div className="flex-1 overflow-y-auto px-3.5 py-3 space-y-3 no-scrollbar">
         {activeTab === "itinerary" && (
           <>
-            {/* Autonomous Action Trigger Banner if delayed and not healed */}
+            {/* Delay Conflict Banner */}
             {delayMinutes > 0 && !isHealed && (
-              <div className="rounded-2xl border border-rose-500/40 bg-gradient-to-r from-rose-950/40 to-slate-900/60 p-3 shadow-lg space-y-2">
+              <div className="rounded-2xl border border-red-200 bg-red-50/70 p-3.5 space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-rose-300 flex items-center gap-1.5">
-                    <AlertTriangle className="h-3.5 w-3.5 text-rose-400" />
-                    Itinerary Conflict Detected
+                  <span className="font-bold text-red-800 flex items-center gap-1.5">
+                    <AlertTriangle className="h-3.5 w-3.5 text-red-600" />
+                    Conflict Detected
                   </span>
-                  <span className="text-[10px] font-mono text-rose-400">
+                  <span className="text-[10px] font-mono font-bold text-red-700">
                     +{delayMinutes}m DELAY
                   </span>
                 </div>
-                <p className="text-[10px] text-slate-300">
-                  Late start breaches the 17:48 Jebel Jais sunset cutoff. Trigger Glide to autonomously heal stops.
+                <p className="text-[11px] text-neutral-700 leading-snug">
+                  Sunset at Jebel Jais (17:48) will be missed by 42m.
                 </p>
                 <button
                   onClick={onTriggerHeal}
                   disabled={isHealing}
-                  className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 py-2 text-xs font-bold text-slate-950 shadow-md active:scale-95 transition"
+                  className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-neutral-900 py-2 text-xs font-bold text-white active:scale-95 transition"
                 >
                   {isHealing ? (
                     <>
-                      <Zap className="h-3.5 w-3.5 animate-spin" />
-                      <span>Healing Itinerary...</span>
+                      <Zap className="h-3.5 w-3.5 animate-spin text-white" />
+                      <span>Healing Schedule...</span>
                     </>
                   ) : (
                     <>
-                      <Sparkles className="h-3.5 w-3.5" />
+                      <Sparkles className="h-3.5 w-3.5 text-white" />
                       <span>Absorb Shock Autonomously</span>
                     </>
                   )}
@@ -159,34 +153,32 @@ export const MobileAppUI: React.FC<MobileAppProps> = ({
               </div>
             )}
 
-            {/* Healed Success Card */}
+            {/* Healed Card */}
             {isHealed && (
-              <div className="rounded-2xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/30 via-cyan-950/20 to-slate-900/60 p-3 shadow-lg space-y-1.5">
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3 space-y-1">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-emerald-300 flex items-center gap-1.5">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                  <span className="font-bold text-emerald-800 flex items-center gap-1.5">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
                     Autonomous Healing Complete
                   </span>
-                  <span className="text-[10px] rounded-full bg-emerald-500/20 px-2 py-0.5 text-emerald-300 font-bold">
+                  <span className="text-[10px] rounded-full bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5">
                     0 Missed Stays
                   </span>
                 </div>
-                <p className="text-[10px] text-slate-300">
-                  Jebel Jais moved to Day 2 morning • Dinner table rebooked to 21:15 • Late check-in confirmed.
+                <p className="text-[11px] text-neutral-700">
+                  Jebel Jais moved to Day 2 morning • Dinner rebooked to 21:15 • Late check-in confirmed.
                 </p>
               </div>
             )}
 
-            {/* Itinerary Cards Sequence */}
+            {/* Stops list */}
             <div className="space-y-2.5">
-              <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1">
+              <div className="flex items-center justify-between text-[11px] font-bold text-neutral-400 uppercase tracking-wider px-1">
                 <span>Trip Schedule</span>
-                <span className="text-[10px] text-cyan-400 font-mono">
-                  {stops.length} STOPS
-                </span>
+                <span className="font-mono text-neutral-700">{stops.length} STOPS</span>
               </div>
 
-              {stops.map((stop, index) => {
+              {stops.map((stop) => {
                 const isConflict = stop.status === "conflict";
                 const isWarning = stop.status === "warning";
                 const isHealedStop = stop.status === "healed";
@@ -194,89 +186,84 @@ export const MobileAppUI: React.FC<MobileAppProps> = ({
                 return (
                   <div
                     key={stop.id}
-                    className={`relative rounded-2xl border p-3 transition-all ${
+                    className={`rounded-2xl border p-3 bg-white shadow-sm transition ${
                       isConflict
-                        ? "border-rose-500/40 bg-rose-950/20"
+                        ? "border-red-300 ring-1 ring-red-100"
                         : isWarning
-                        ? "border-amber-500/40 bg-amber-950/20"
+                        ? "border-amber-300 ring-1 ring-amber-100"
                         : isHealedStop
-                        ? "border-cyan-500/40 bg-cyan-950/20"
-                        : "border-slate-850 bg-[#0F1728]/70"
+                        ? "border-emerald-300 ring-1 ring-emerald-100"
+                        : "border-neutral-200"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <div
-                          className={`flex h-7 w-7 items-center justify-center rounded-xl ${
+                          className={`flex h-7 w-7 items-center justify-center rounded-lg ${
                             isConflict
-                              ? "bg-rose-500/20 text-rose-400"
+                              ? "bg-red-100 text-red-700"
                               : isHealedStop
-                              ? "bg-cyan-500/20 text-cyan-300"
-                              : "bg-slate-800 text-slate-300"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-neutral-100 text-neutral-700"
                           }`}
                         >
                           {getIcon(stop.iconName)}
                         </div>
                         <div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-bold text-white">
-                              {stop.title}
-                            </span>
+                          <div className="text-xs font-bold text-neutral-900">
+                            {stop.title}
                           </div>
-                          <p className="text-[10px] text-slate-400 flex items-center gap-1">
-                            <MapPin className="h-2.5 w-2.5 text-slate-500" />
+                          <p className="text-[10px] text-neutral-500 flex items-center gap-1">
+                            <MapPin className="h-2.5 w-2.5 text-neutral-400" />
                             {stop.location}
                           </p>
                         </div>
                       </div>
 
-                      {/* Time Pill */}
                       <div className="text-right">
                         <div
-                          className={`rounded-lg px-2 py-0.5 text-[10px] font-mono font-bold ${
+                          className={`rounded-md px-2 py-0.5 text-[10px] font-mono font-bold ${
                             isConflict
-                              ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                              ? "bg-red-50 text-red-700 border border-red-200"
                               : isHealedStop
-                              ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
-                              : "bg-slate-800 text-slate-300"
+                              ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                              : "bg-neutral-100 text-neutral-800"
                           }`}
                         >
                           {stop.currentTime}
                         </div>
-                        <span className="text-[9px] text-slate-500 block mt-0.5 font-mono">
+                        <span className="text-[9px] text-neutral-400 block mt-0.5 font-medium">
                           {stop.tag}
                         </span>
                       </div>
                     </div>
 
-                    {/* Constraint & Buffer Note */}
-                    <div className="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
-                      <span className="text-slate-400 truncate max-w-[65%]">
+                    <div className="mt-2 pt-2 border-t border-neutral-100 flex items-center justify-between text-[10px]">
+                      <span className="text-neutral-500 truncate max-w-[65%]">
                         {stop.constraint.description}
                       </span>
                       <span
                         className={`font-semibold font-mono ${
                           isConflict
-                            ? "text-rose-400"
+                            ? "text-red-700"
                             : isHealedStop
-                            ? "text-emerald-300"
-                            : "text-slate-400"
+                            ? "text-emerald-700"
+                            : "text-neutral-600"
                         }`}
                       >
                         {stop.bufferText}
                       </span>
                     </div>
 
-                    {/* Reservation Pass snippet */}
                     {stop.passDetails && (
-                      <div className="mt-2 rounded-xl bg-slate-950/70 p-2 border border-slate-850 flex items-center justify-between text-[10px]">
+                      <div className="mt-2 rounded-xl bg-neutral-50 p-2 border border-neutral-200 flex items-center justify-between text-[10px]">
                         <div className="flex items-center gap-1.5">
-                          <QrCode className="h-3 w-3 text-cyan-400" />
-                          <span className="font-mono text-slate-300">
+                          <QrCode className="h-3 w-3 text-neutral-700" />
+                          <span className="font-mono text-neutral-700 font-bold">
                             {stop.passDetails.code}
                           </span>
                         </div>
-                        <span className="text-cyan-300 font-medium">
+                        <span className="text-neutral-800 font-semibold">
                           {stop.passDetails.badge}
                         </span>
                       </div>
@@ -290,83 +277,67 @@ export const MobileAppUI: React.FC<MobileAppProps> = ({
 
         {activeTab === "passes" && (
           <div className="space-y-3">
-            <div className="text-xs font-bold text-white px-1">
-              Synchronized Apple & Google Wallet Passes
+            <div className="text-xs font-bold text-neutral-900 px-1">
+              Synchronized Apple Wallet Passes
             </div>
-            <div className="rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-slate-900 to-cyan-950/40 p-4 space-y-3">
+            <div className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm space-y-3">
               <div className="flex justify-between items-start">
                 <div>
-                  <span className="text-[10px] text-cyan-400 font-mono">
+                  <span className="text-[10px] text-neutral-500 font-mono font-bold">
                     SEVENROOMS DINING PASS
                   </span>
-                  <h4 className="text-sm font-bold text-white">
+                  <h4 className="text-sm font-bold text-neutral-900">
                     Levant & Nar Dinner
                   </h4>
                 </div>
-                <QrCode className="h-8 w-8 text-white" />
+                <QrCode className="h-7 w-7 text-neutral-900" />
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs pt-1">
                 <div>
-                  <span className="text-[10px] text-slate-500 block">TIME</span>
-                  <span className="font-bold text-emerald-300">
+                  <span className="text-[10px] text-neutral-400 block font-medium">TIME</span>
+                  <span className="font-bold text-neutral-900">
                     {isHealed ? "21:15 Confirmed" : "20:00 Slot"}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-500 block">GUESTS</span>
-                  <span className="font-bold text-white">2 Guests • Table #14</span>
+                  <span className="text-[10px] text-neutral-400 block font-medium">GUESTS</span>
+                  <span className="font-bold text-neutral-900">2 Guests • Table #14</span>
                 </div>
               </div>
-              <div className="text-[10px] text-slate-400 border-t border-slate-800 pt-2 flex justify-between">
+              <div className="text-[10px] text-neutral-500 border-t border-neutral-100 pt-2 flex justify-between">
                 <span>Ref: #SR-994182-MOD</span>
-                <span className="text-emerald-400 font-semibold">Pass Valid</span>
+                <span className="text-emerald-700 font-bold">Pass Active</span>
               </div>
-            </div>
-
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 space-y-2">
-              <div className="flex justify-between items-start">
-                <div>
-                  <span className="text-[10px] text-slate-400 font-mono">
-                    HOTEL PMS PASS
-                  </span>
-                  <h4 className="text-xs font-bold text-white">
-                    InterContinental RAK
-                  </h4>
-                </div>
-                <Building2 className="h-5 w-5 text-slate-400" />
-              </div>
-              <p className="text-[10px] text-slate-400">
-                Ocean Terrace Suite • Mobile key pre-authorized for arrival window 18:35 - 20:00.
-              </p>
             </div>
           </div>
         )}
 
         {activeTab === "map" && (
           <div className="space-y-3">
-            <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4 text-center space-y-2">
-              <Navigation className="h-8 w-8 text-cyan-400 mx-auto" />
-              <h4 className="text-xs font-bold text-white">Live E311 / E611 Route</h4>
-              <p className="text-[10px] text-slate-400">
-                Distance: 180 km • Highway speed: 120 km/h • RAK Mountain Ascent bypass active.
+            <div className="rounded-2xl border border-neutral-200 bg-white p-4 text-center space-y-2 shadow-sm">
+              <Navigation className="h-6 w-6 text-neutral-900 mx-auto" />
+              <h4 className="text-xs font-bold text-neutral-900">E311 Highway Route</h4>
+              <p className="text-[10px] text-neutral-500">
+                Dubai Marina → Ras Al Khaimah (180 km)
               </p>
-              <div className="rounded-xl bg-slate-900 p-2.5 text-[10px] font-mono text-cyan-300 text-left">
-                Origin: Dubai Marina<br />
-                Waypoint: Mina Al Arab RAK<br />
-                Next Morning: Jebel Jais Summit (08:30)
+              <div className="rounded-xl bg-neutral-50 p-2.5 text-[10px] font-mono text-neutral-700 text-left border border-neutral-200">
+                Origin: Dubai Marina (16:15)<br />
+                Stop 2: InterContinental RAK (18:35)<br />
+                Stop 3: Levant & Nar Dinner (21:15)<br />
+                Day 2: Jebel Jais Summit (08:30)
               </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Bottom Navigation Bar */}
-      <div className="border-t border-slate-800/80 bg-slate-950/90 px-4 py-2 backdrop-blur-xl">
+      {/* Bottom Navigation */}
+      <div className="border-t border-neutral-200 bg-white px-4 py-2">
         <div className="flex items-center justify-around">
           <button
             onClick={() => setActiveTab("itinerary")}
-            className={`flex flex-col items-center gap-1 text-[10px] font-semibold transition ${
-              activeTab === "itinerary" ? "text-cyan-400" : "text-slate-500 hover:text-slate-300"
+            className={`flex flex-col items-center gap-0.5 text-[10px] font-semibold transition ${
+              activeTab === "itinerary" ? "text-neutral-900 font-bold" : "text-neutral-400 hover:text-neutral-700"
             }`}
           >
             <Compass className="h-4 w-4" />
@@ -374,8 +345,8 @@ export const MobileAppUI: React.FC<MobileAppProps> = ({
           </button>
           <button
             onClick={() => setActiveTab("passes")}
-            className={`flex flex-col items-center gap-1 text-[10px] font-semibold transition ${
-              activeTab === "passes" ? "text-cyan-400" : "text-slate-500 hover:text-slate-300"
+            className={`flex flex-col items-center gap-0.5 text-[10px] font-semibold transition ${
+              activeTab === "passes" ? "text-neutral-900 font-bold" : "text-neutral-400 hover:text-neutral-700"
             }`}
           >
             <QrCode className="h-4 w-4" />
@@ -383,8 +354,8 @@ export const MobileAppUI: React.FC<MobileAppProps> = ({
           </button>
           <button
             onClick={() => setActiveTab("map")}
-            className={`flex flex-col items-center gap-1 text-[10px] font-semibold transition ${
-              activeTab === "map" ? "text-cyan-400" : "text-slate-500 hover:text-slate-300"
+            className={`flex flex-col items-center gap-0.5 text-[10px] font-semibold transition ${
+              activeTab === "map" ? "text-neutral-900 font-bold" : "text-neutral-400 hover:text-neutral-700"
             }`}
           >
             <Navigation className="h-4 w-4" />
@@ -392,7 +363,7 @@ export const MobileAppUI: React.FC<MobileAppProps> = ({
           </button>
           <button
             onClick={() => setDrawerOpen(true)}
-            className="flex flex-col items-center gap-1 text-[10px] font-semibold text-emerald-400 hover:text-emerald-300 transition"
+            className="flex flex-col items-center gap-0.5 text-[10px] font-semibold text-neutral-600 hover:text-neutral-900 transition"
           >
             <ShieldCheck className="h-4 w-4" />
             <span>Audits</span>

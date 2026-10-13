@@ -106,6 +106,7 @@ export const RealisticDeviceGallery: React.FC<RealisticDeviceGalleryProps> = ({
                     src="/renders/airbnb_bw_iphone.jpg"
                     alt="iPhone 18 Pro Max Flat Screen Mockup"
                     fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
                     className="object-cover"
                   />
                 </div>
@@ -133,6 +134,7 @@ export const RealisticDeviceGallery: React.FC<RealisticDeviceGalleryProps> = ({
                     src="/renders/s26_ultra_flat.jpg"
                     alt="Samsung Galaxy S26 Ultra Flat Screen Mockup"
                     fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
                     className="object-cover"
                   />
                 </div>
@@ -174,6 +176,7 @@ export const RealisticDeviceGallery: React.FC<RealisticDeviceGalleryProps> = ({
                     src="/renders/zfold8_flat_folded.jpg"
                     alt="Galaxy Z Fold 8 Ultra Folded Flat View"
                     fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
                     className="object-cover"
                   />
                 </div>
@@ -203,6 +206,7 @@ export const RealisticDeviceGallery: React.FC<RealisticDeviceGalleryProps> = ({
                     src="/renders/zfold8_flat_unfolded.jpg"
                     alt="Galaxy Z Fold 8 Ultra Unfolded Flat View"
                     fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
                     className="object-cover"
                   />
                 </div>
@@ -244,6 +248,7 @@ export const RealisticDeviceGallery: React.FC<RealisticDeviceGalleryProps> = ({
                     src="/renders/iphoneduo_flat_folded.jpg"
                     alt="iPhone Duo Folded Flat View"
                     fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
                     className="object-cover"
                   />
                 </div>
@@ -273,6 +278,7 @@ export const RealisticDeviceGallery: React.FC<RealisticDeviceGalleryProps> = ({
                     src="/renders/iphoneduo_flat_unfolded.jpg"
                     alt="iPhone Duo Unfolded Flat View"
                     fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
                     className="object-cover"
                   />
                 </div>

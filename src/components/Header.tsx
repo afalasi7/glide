@@ -1,100 +1,71 @@
 "use client";
 
 import React from "react";
-import { Sparkles, ShieldCheck, Zap, Globe, Cpu } from "lucide-react";
+import Link from "next/link";
+import { GlideLogo } from "@/components/GlideLogo";
 
 interface HeaderProps {
   isHealed: boolean;
   isHealing: boolean;
-  totalSavedMinutes: number;
 }
 
-export const Header: React.FC<HeaderProps> = ({
-  isHealed,
-  isHealing,
-  totalSavedMinutes,
-}) => {
+export const Header: React.FC<HeaderProps> = ({ isHealed, isHealing }) => {
   return (
-    <header className="relative border-b border-cyan-950/40 bg-gradient-to-r from-slate-950 via-[#0B0F19] to-slate-950 px-6 py-6 backdrop-blur-md">
-      <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        {/* Left: Branding */}
-        <div className="space-y-1.5">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 shadow-lg shadow-cyan-500/20">
-                <Zap className="h-5 w-5 text-slate-950 fill-slate-950" />
-                <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-75"></span>
-                  <span className="relative inline-flex h-3 w-3 rounded-full bg-cyan-500"></span>
+    <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0B0F19]/90 backdrop-blur-md">
+      <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3 sm:px-6">
+        {/* Brand */}
+        <div className="flex items-center gap-2.5">
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <GlideLogo size={34} />
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold tracking-tight text-white leading-none">
+                  Glide
+                </span>
+                <span className="hidden sm:inline-block rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+                  Trip Guard
                 </span>
               </div>
-              <div>
-                <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
-                  GLIDE
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 tracking-normal">
-                    v2.4 Autonomous
-                  </span>
-                </h1>
-                <p className="text-xs font-medium text-slate-400">
-                  Autonomous AI Travel Itinerary Shock Absorber
-                </p>
-              </div>
+              <span className="text-[11px] text-zinc-400">
+                Road trip peace of mind.
+              </span>
             </div>
-          </div>
+          </Link>
         </div>
 
-        {/* Center/Right: Dubai Chamber Championship Badge & Live Agent Badge */}
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Competition Badge */}
-          <div className="group relative flex items-center gap-2.5 rounded-full border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent px-4 py-1.5 shadow-sm">
-            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500/20 text-amber-300">
-              <Sparkles className="h-3 w-3" />
-            </div>
-            <div className="text-xs leading-none">
-              <span className="font-semibold text-amber-200">
-                Dubai Chamber Create AI Agents
-              </span>
-              <span className="mx-1.5 text-amber-500/60">•</span>
-              <span className="text-amber-400/90 font-medium">
-                Youth Category Prototype
-              </span>
-            </div>
-          </div>
-
-          {/* Graph status badge */}
-          <div className="hidden md:flex items-center gap-2 rounded-full border border-slate-800 bg-slate-900/80 px-3 py-1.5 text-xs text-slate-300">
-            <Cpu className="h-3.5 w-3.5 text-cyan-400" />
-            <span>Dependency Engine:</span>
-            <span className="font-mono text-cyan-300 font-semibold">
-              Topological DAG
-            </span>
-          </div>
-
-          {/* Healing state indicator */}
-          <div
-            className={`flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-semibold border transition-all duration-300 ${
-              isHealing
-                ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-300 animate-pulse"
-                : isHealed
-                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
-                : "border-slate-800 bg-slate-900/60 text-slate-400"
-            }`}
+        {/* Navigation & Status */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Link
+            href="/landing"
+            className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-zinc-300 hover:text-white hover:bg-white/5 transition"
           >
-            <ShieldCheck
-              className={`h-3.5 w-3.5 ${
+            Story
+          </Link>
+
+          <Link
+            href="/previews"
+            className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-zinc-300 hover:text-white hover:bg-white/5 transition"
+          >
+            Devices & Passes
+          </Link>
+
+          {/* Status Pill */}
+          <div className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs border border-white/10 bg-white/5 shadow-xs">
+            <span
+              className={`h-2 w-2 rounded-full ${
                 isHealing
-                  ? "text-cyan-400 animate-spin"
+                  ? "bg-amber-400 animate-pulse"
                   : isHealed
-                  ? "text-emerald-400"
-                  : "text-slate-400"
+                  ? "bg-emerald-400"
+                  : "bg-zinc-400"
               }`}
             />
-            <span>
+            <span className="text-zinc-200 text-xs font-medium">
               {isHealing
-                ? "Autonomous Solver Running..."
+                ? "Agents Working..."
                 : isHealed
-                ? `Protected (Saved ${totalSavedMinutes}m)`
-                : "Standby Monitor"}
+                ? "Trip Protected"
+                : "Monitoring"}
             </span>
           </div>
         </div>

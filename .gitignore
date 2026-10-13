@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# agent scratch & local logs
+server.log
+server.pid
+.claude
+.codex
+.freebuff
+skills-reference
