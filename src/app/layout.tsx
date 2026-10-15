@@ -22,9 +22,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Glide — Your trip, handled.",
+  title: "Glide — Your personal travel agent",
   description:
-    "When a road trip runs late, Glide's agents move the mountain, save the dinner table and tell the hotel before you notice. Zero phone calls.",
+    "Glide brings your itinerary together and helps your travel plans adapt when the day changes.",
 };
 
 export default function RootLayout({

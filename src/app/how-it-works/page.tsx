@@ -48,7 +48,7 @@ const STEPS = [
   },
 ];
 
-export default function HowItWorksPage() {
+export function GlideLandingPage() {
   return (
     <>
       <Header />
@@ -121,4 +121,8 @@ export default function HowItWorksPage() {
       </main>
     </>
   );
+}
+
+export default function HowItWorksPage() {
+  return <GlideLandingPage />;
 }
