@@ -2,7 +2,6 @@
 
 import React, { useRef } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { GlideBot } from "@/components/GlideBot";
 import { TIMES } from "./data";
@@ -14,18 +13,15 @@ export function Finale() {
 
   return (
     <>
-      <section ref={ref} data-say="Dinner's at 21:15. Go enjoy it." className="relative flex min-h-[90svh] items-end overflow-hidden bg-ink text-paper">
+      <section ref={ref} data-say="Your plans are in place. Go enjoy the trip." className="relative flex min-h-[90svh] items-end overflow-hidden bg-ink text-paper">
         <motion.div style={{ y }} className="absolute inset-x-0 -inset-y-[14%]">
           <Image src="/images/hd/levant_nar_dining.jpg" alt="Dinner on the terrace at Levant & Nar" fill sizes="100vw" className="object-cover" />
         </motion.div>
         <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/40 to-ink/10" aria-hidden />
         <div className="relative z-10 mx-auto w-full max-w-7xl space-y-8 px-5 pb-20 sm:px-8 sm:pb-28">
           <h2 className="max-w-[12ch] text-[clamp(3.4rem,10vw,8rem)] leading-[0.9] tracking-[-0.025em]">
-            Dinner is at <em className="text-sun">{TIMES.dinner}.</em> You&apos;ll make it.
+            Dinner is at <em className="text-sun">{TIMES.dinner}.</em> Enjoy the trip.
           </h2>
-          <Link href="/previews" className="btn inline-block rounded-full bg-sun px-9 py-4 text-base font-semibold tracking-wide text-ink shadow-lift">
-            See it on every device
-          </Link>
         </div>
       </section>
       <footer className="bg-ink py-10 text-paper">

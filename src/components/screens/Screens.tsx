@@ -4,15 +4,18 @@ import React, { createContext, useContext } from "react";
 import Image from "next/image";
 import { BotArt } from "@/components/GlideBot";
 import { CHAPTERS } from "@/components/story/data";
+import { MessageComposer } from "./MessageComposer";
+import { GlassPanel, GlassTag, useGlassColorScheme } from "@/components/ui/glass";
 
 export const [depart, jais, hotel, dinner] = CHAPTERS;
 export const clock = (t: string) => t.replace(/^Day \d • /, "");
 
 /** Thin ink bezel; `punch` swaps the iPhone island for a Galaxy camera dot. */
 export function Phone({ children, punch = false, className = "" }: { children: React.ReactNode; punch?: boolean; className?: string }) {
+  const dark = useGlassColorScheme();
   return (
     <div className={`relative w-[280px] shrink-0 rounded-[46px] bg-ink p-[7px] shadow-lift ${className}`}>
-      <div className="relative aspect-[9/19] overflow-hidden rounded-[39px] bg-cream text-ink">
+      <div className={`glide-glass-screen relative aspect-[9/19] overflow-hidden rounded-[39px] ${dark ? "dark" : ""}`}>
         {punch ? (
           <span className="absolute left-1/2 top-2.5 z-20 h-3 w-3 -translate-x-1/2 rounded-full bg-ink" />
         ) : (
@@ -26,9 +29,10 @@ export function Phone({ children, punch = false, className = "" }: { children: R
 
 /** Unfolded foldable: two panes under one thin bezel. */
 export function Fold({ left, right, className = "" }: { left: React.ReactNode; right: React.ReactNode; className?: string }) {
+  const dark = useGlassColorScheme();
   return (
     <div className={`relative w-full max-w-[640px] rounded-[34px] bg-ink p-[7px] shadow-lift ${className}`}>
-      <div className="relative grid aspect-[4/3] grid-cols-2 overflow-hidden rounded-[28px] bg-cream text-ink">
+      <div className={`glide-glass-screen relative grid aspect-[4/3] grid-cols-2 overflow-hidden rounded-[28px] ${dark ? "dark" : ""}`}>
         <span className="absolute left-1/2 top-0 z-20 h-full w-px bg-ink/25" />
         <div className="relative overflow-hidden">{left}</div>
         <div className="relative overflow-hidden">{right}</div>
@@ -62,7 +66,7 @@ function Row({ time, was, label, note, hot = false }: { time: string; was?: stri
         <p className="truncate font-display text-[15px] italic">{label}</p>
         <p className="truncate text-[10.5px] text-ink-soft">{note}</p>
       </div>
-      {hot && <span className="rounded-full bg-sun px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider">New</span>}
+      {hot && <GlassTag className="text-[10px]">New</GlassTag>}
     </li>
   );
 }
@@ -79,9 +83,9 @@ export function PlanScreen() {
       </div>
       <div className="relative mx-5 mt-3 h-[118px] overflow-hidden rounded-t-[70px] rounded-b-[14px]">
         <Image src={jais.photo} alt="" fill sizes="260px" className="object-cover" />
-        <span className="absolute bottom-2 left-2 rounded-full bg-paper px-2.5 py-1 text-[10px] font-semibold">Jebel Jais · Day 2 {clock(jais.time)}</span>
+        <GlassTag className="glide-glass-photo-label absolute bottom-2 left-2 bg-card text-[10px]">Jebel Jais · Day 2 {clock(jais.time)}</GlassTag>
       </div>
-      <ul className="mt-2 px-5">
+      <ul className="glass-panel mx-4 mt-3 rounded-xl px-3">
         <Row time={clock(depart.time)} was={depart.was} label="Leave Dubai Marina" note="Route re-timed" />
         <Row time={clock(jais.time)} label="Jebel Jais" note="Moved to tomorrow morning" hot />
         <Row time={clock(hotel.time)} was={hotel.was} label="InterContinental RAK" note="Hotel told · key ready" />
@@ -96,6 +100,11 @@ export function PlanScreen() {
 }
 
 export function ChatScreen() {
+  const [messages, setMessages] = React.useState<string[]>([]);
+  const latestMessage = React.useRef<HTMLParagraphElement>(null);
+  React.useEffect(() => {
+    if (messages.length) latestMessage.current?.scrollIntoView({ block: "nearest" });
+  }, [messages]);
   return (
     <div className="flex h-full flex-col">
       <Status time="16:18" />
@@ -106,10 +115,10 @@ export function ChatScreen() {
           <p className="text-[10px] text-ink-soft">Your trip agent</p>
         </div>
       </div>
-      <div className="flex flex-1 flex-col gap-2.5 px-4 py-4 text-[12px] leading-snug">
-        <p className="max-w-[88%] rounded-2xl rounded-tl-sm bg-paper px-3 py-2">You are 75 minutes behind. I moved the mountain to tomorrow at {clock(jais.time)}.</p>
-        <p className="max-w-[88%] rounded-2xl rounded-tl-sm bg-paper px-3 py-2">I kept your table. Levant &amp; Nar is now {clock(dinner.time)}, no fee.</p>
-        <div className="max-w-[92%] rounded-2xl rounded-tl-sm bg-paper p-2">
+      <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto overscroll-contain px-4 py-4 text-[12px] leading-snug" data-lenis-prevent>
+        <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">You are 75 minutes behind. I moved the mountain to tomorrow at {clock(jais.time)}.</p>
+        <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">I kept your table. Levant &amp; Nar is now {clock(dinner.time)}, no fee.</p>
+        <GlassPanel className="max-w-[92%] p-2">
           <div className="relative h-20 overflow-hidden rounded-xl">
             <Image src={dinner.photo} alt="" fill sizes="240px" className="object-cover" />
             <span className="absolute bottom-1.5 left-2 font-display text-lg italic text-white">Levant &amp; Nar</span>
@@ -117,13 +126,17 @@ export function ChatScreen() {
           </div>
           <p className="mt-2 px-1 font-mono text-[10.5px]">levant-nar-2115.pkpass</p>
           <p className="px-1 text-[10px] text-ink-soft">Copied from your updated reservation</p>
-        </div>
+        </GlassPanel>
         <div className="flex flex-wrap gap-1.5">
           {["Apple Wallet", "Google Wallet", "Samsung Wallet"].map((w) => (
-            <span key={w} className="rounded-full bg-ink px-2.5 py-1 text-[9.5px] font-medium text-paper">{w}</span>
+            <GlassTag key={w} className="text-[10px]">{w}</GlassTag>
           ))}
         </div>
+        {messages.map((message, index) => (
+          <p key={index} ref={index === messages.length - 1 ? latestMessage : undefined} className="glide-chat-bubble-user glass-primary max-w-[88%] self-end break-words rounded-xl px-3 py-2">{message}</p>
+        ))}
       </div>
+      <MessageComposer onSend={(message) => setMessages((previous) => [...previous, message])} />
     </div>
   );
 }
@@ -144,11 +157,11 @@ export function RoadScreen() {
         <circle cx="30" cy="280" r="8" fill="#5B3DF5" /><circle cx="180" cy="12" r="8" fill="#FF5A36" />
         <g transform="translate(150 150) scale(0.32)"><BotArt mood="happy" small /></g>
       </svg>
-      <div className="mx-5 mt-auto mb-5 rounded-2xl bg-paper px-4 py-3">
+      <GlassPanel className="mx-5 mt-auto mb-5 px-4 py-3">
         <p className="text-[10px] uppercase tracking-[0.18em] text-ink-soft">Arrive</p>
         <p className="num text-3xl leading-none">{clock(hotel.time)}</p>
         <p className="mt-1 text-[10.5px] text-ink-soft">Hotel is expecting you.</p>
-      </div>
+      </GlassPanel>
     </div>
   );
 }

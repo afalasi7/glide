@@ -1,30 +1,46 @@
 "use client";
 
 import React, { useEffect, useId, useRef, useState } from "react";
-import { motion, useAnimationControls, useMotionValue, useSpring, useReducedMotion } from "framer-motion";
+import { motion, useAnimationControls, useMotionValue, useSpring, useReducedMotion, useTransform, type MotionValue } from "framer-motion";
 
 export type BotMood = "idle" | "working" | "happy";
 
 interface ArtProps {
   mood?: BotMood;
   /** Pupil offsets in svg units, each within about ±6. */
-  px?: unknown;
-  py?: unknown;
+  px?: MotionValue<number>;
+  py?: MotionValue<number>;
   blink?: boolean;
   /** Bigger pupils with a highlight so they read at nav size. */
   small?: boolean;
 }
 
-/**
- * Glide's agent: a grey, asphalt-skinned little robot with road markings,
- * googly eyes and a smile. Pure SVG so it also works inside other SVGs.
- */
+function Pupil({ cx, cy, radius, px, py, blink = false, small }: ArtProps & { cx: number; cy: number; radius: number }) {
+  const highlightX = useTransform(() => (px?.get() ?? 0) - 3.5);
+  const highlightY = useTransform(() => (py?.get() ?? 0) - 3.5);
+  // Keep the compact brand mark readable throughout the animation cycle.
+  if (small) {
+    return (
+      <g>
+        <circle cx={cx} cy={cy} r={radius} fill="#1C1230" />
+        <circle cx={cx - 3.5} cy={cy - 3.5} r={3.4} fill="#fff" />
+      </g>
+    );
+  }
+  return (
+    <g transform={`translate(${cx} ${cy})`}>
+      {/* Native SVG coordinates keep pupils visible in WebKit as well as Chromium. */}
+      <motion.ellipse cx={px ?? 0} cy={py ?? 0} rx={radius} ry={radius} fill="#1C1230" animate={{ ry: blink ? 1 : radius }} initial={false} transition={{ duration: 0.08 }} />
+      <motion.circle cx={highlightX} cy={highlightY} r={2.8} fill="#fff" opacity={blink ? 0 : 1} />
+    </g>
+  );
+}
+
+/** Glide's road-marked mascot, drawn in SVG for every screen size. */
 export function BotArt({ mood = "idle", px, py, blink = false, small = false }: ArtProps) {
   const uid = useId().replace(/:/g, "");
-  const style = { x: px as never, y: py as never };
-  const eyeScale = blink ? 0.08 : 1;
   return (
-    <svg viewBox="0 0 120 124" role="img" aria-label="Glide, your trip agent" className="h-full w-full overflow-visible">
+    <svg viewBox="0 0 120 124" role="img" aria-label="Glide, your trip agent" className="h-full w-full overflow-visible" style={{ colorScheme: "only light" }}>
       <defs>
         <clipPath id={`body-${uid}`}>
           <rect x="12" y="24" width="96" height="86" rx="36" />
@@ -52,17 +68,11 @@ export function BotArt({ mood = "idle", px, py, blink = false, small = false }: 
       {/* googly eyes (different sizes, loose pupils) */}
       <g>
         <circle cx="42" cy="54" r="17" fill="#fff" stroke="#1C1230" strokeWidth="3" />
-        <motion.g style={style} animate={{ scaleY: eyeScale }} transition={{ duration: 0.08 }}>
-          <circle cx="42" cy="54" r={small ? 11.5 : 10.5} fill="#1C1230" />
-          <circle cx="38.5" cy="50.5" r={small ? 3.4 : 2.8} fill="#fff" />
-        </motion.g>
+        <Pupil cx={42} cy={54} radius={small ? 11.5 : 10.5} px={px} py={py} blink={blink} small={small} />
       </g>
       <g>
         <circle cx="80" cy="50" r="20" fill="#fff" stroke="#1C1230" strokeWidth="3" />
-        <motion.g style={style} animate={{ scaleY: eyeScale }} transition={{ duration: 0.08 }}>
-          <circle cx="80" cy="50" r={small ? 12.5 : 11.5} fill="#1C1230" />
-          <circle cx="76" cy="46" r={small ? 3.4 : 2.8} fill="#fff" />
-        </motion.g>
+        <Pupil cx={80} cy={50} radius={small ? 12.5 : 11.5} px={px} py={py} blink={blink} small={small} />
       </g>
 
       {/* mouth */}

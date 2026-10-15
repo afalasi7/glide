@@ -7,11 +7,15 @@ import { BotArt } from "@/components/GlideBot";
 import { CHAPTERS } from "./data";
 
 const SAY = [
-  "75 minutes late? I'm already re-planning your day.",
+  "I've connected your route, hotel and dinner into one trip plan. I'll keep an eye on how it all fits.",
+  "A 75-minute delay changes the sunset stop. I'm finding a better fit for your trip.",
   "You'd miss sunset. Moving Jebel Jais to tomorrow morning.",
   "Telling the hotel. Your room key is on your phone.",
   "Re-booking dinner for 21:15. No fee.",
 ];
+
+const ROAD_PATH = "M40 30 C 8 72, 72 108, 40 135 S 8 200, 40 240 S 72 310, 40 345 S 8 410, 40 450";
+const ROAD_STOPS = [30, 135, 240, 345, 450];
 
 /** Pinned scroll story: the winding road draws itself and the chapter photo changes as you scroll. */
 export function Day() {
@@ -27,7 +31,7 @@ export function Day() {
   // The agent rides the road as it draws
   const pathRef = useRef<SVGPathElement>(null);
   const bx = useMotionValue(40);
-  const by = useMotionValue(10);
+  const by = useMotionValue(30);
   useMotionValueEvent(draw, "change", (v) => {
     const path = pathRef.current;
     if (!path) return;
@@ -46,11 +50,11 @@ export function Day() {
     <section id="day" ref={ref} className="relative h-[460vh] bg-cream">
       <div className="sticky top-0 grid h-screen items-center gap-6 overflow-hidden px-5 pt-20 sm:px-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-16">
         <div className="mx-auto flex h-full w-full max-w-2xl items-center gap-6 sm:gap-10 lg:ml-auto lg:mr-0 lg:max-w-[46rem]">
-          {/* The road: a serpentine path with four pins */}
-          <svg viewBox="-20 -20 120 560" className="hidden h-[72vh] shrink-0 overflow-visible sm:block" aria-hidden>
+          {/* The road: a serpentine path with one stop for each trip chapter */}
+          <svg viewBox="-20 0 120 500" className="hidden h-[72vh] shrink-0 overflow-visible sm:block" aria-hidden>
             <path
               id="road"
-              d="M40 10 C 8 70, 72 110, 40 170 S 8 270, 40 330 S 72 430, 40 510"
+              d={ROAD_PATH}
               fill="none"
               stroke="#1C1230"
               strokeOpacity="0.12"
@@ -59,14 +63,14 @@ export function Day() {
             />
             <motion.path
               ref={pathRef}
-              d="M40 10 C 8 70, 72 110, 40 170 S 8 270, 40 330 S 72 430, 40 510"
+              d={ROAD_PATH}
               fill="none"
               stroke="#5B3DF5"
               strokeWidth="6"
               strokeLinecap="round"
               style={{ pathLength: draw }}
             />
-            {[10, 170, 330, 510].map((y, k) => (
+            {ROAD_STOPS.map((y, k) => (
               <circle key={y} cx="40" cy={y} r={k <= i ? 11 : 7} fill={k <= i ? "#FFB400" : "#FFF3DF"} stroke="#1C1230" strokeWidth="2.5" />
             ))}
             <motion.g style={{ x: bx, y: by }}>
@@ -91,7 +95,7 @@ export function Day() {
               >
                 <p className="num flex items-baseline gap-4 text-[clamp(4.5rem,13vw,10rem)] leading-[0.85]">
                   {c.time}
-                  <span className="num text-[0.22em] text-ink/40 line-through decoration-1">{c.was}</span>
+                  {c.was && <span className="num text-[0.22em] text-ink/40 line-through decoration-1">{c.was}</span>}
                 </p>
                 <p className="max-w-[34ch] text-2xl font-light leading-snug text-ink sm:text-3xl">{c.problem}</p>
                 <p className="max-w-[36ch] text-lg font-normal leading-relaxed text-violet">

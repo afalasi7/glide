@@ -10,13 +10,13 @@ const STUB = ["bg-violet text-paper", "bg-sun text-ink", "bg-ink text-paper"];
 /** Each tool call is a boarding-pass strip: notched, perforated, stamped with the real latency. */
 export function Moves() {
   return (
-    <section data-say="Three moves. Zero from you." className="bg-ink py-28 text-paper sm:py-40">
+    <section data-say="I coordinate your itinerary, reservations and hotel together." className="bg-ink py-28 text-paper sm:py-40">
       <div className="mx-auto max-w-5xl px-5 sm:px-8">
         <h2 className="max-w-[14ch] text-[clamp(3rem,8vw,6.5rem)] leading-[0.92] tracking-[-0.02em]">
-          Three moves. <em className="text-sun">Zero calls.</em>
+          A personal agent. <em className="text-sun">Every detail in sync.</em>
         </h2>
         <p className="mt-6 max-w-[48ch] text-xl font-light leading-relaxed text-paper/75">
-          A deterministic solver decides what is broken and what fixes it. Language models only explain it to you afterwards.
+          Glide keeps your itinerary, reservations and hotel plans coordinated. When the day changes, it works through the updates while you stay focused on the trip.
         </p>
 
         <ul className="mt-16 space-y-5">

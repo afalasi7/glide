@@ -35,6 +35,8 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      // Capacitor owns the safe-area style attributes it injects before hydration.
+      suppressHydrationWarning
       className={`${bodoni.variable} ${jost.variable} ${geistMono.variable} antialiased`}
     >
       <body className="min-h-screen bg-cream text-ink font-sans">

@@ -5,6 +5,7 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import { GlideBot } from "@/components/GlideBot";
 import { WalletPass, BRAND_LABEL, type WalletBrand } from "./WalletPass";
 import { TIMES } from "./data";
+import { GlassPanel, GlassTag } from "@/components/ui/glass";
 
 const BRANDS: WalletBrand[] = ["apple", "google", "samsung"];
 
@@ -21,14 +22,14 @@ export function Wallet() {
         <div className="grid items-end gap-12 lg:grid-cols-[1.1fr_1fr]">
           <div className="space-y-6">
             <h2 className="max-w-[12ch] text-[clamp(3rem,8vw,6.5rem)] leading-[0.92] tracking-[-0.02em]">
-              Your pass, <em className="text-violet">in the chat.</em>
+              Your trip details, <em className="text-violet">within reach.</em>
             </h2>
             <p className="max-w-[50ch] text-xl font-light leading-relaxed text-ink-soft">
-              When the restaurant confirms the new time, Glide copies the wallet file from the updated reservation and sends it to you in the chat. Tap it once and it opens in Apple, Google or Samsung Wallet.
+              When a booking changes, Glide keeps the updated details and pass close at hand. Here, dinner moves to {TIMES.dinner.replace("Day 1 • ", "")}, and the new pass is ready in your chat. Add it to Apple, Google or Samsung Wallet.
             </p>
           </div>
 
-          <div className="rounded-[28px] bg-paper p-5 shadow-pop sm:p-6">
+          <GlassPanel className="p-5 sm:p-6">
             <div className="flex items-start gap-3">
               <GlideBot size={40} />
               <div className="space-y-3">
@@ -44,12 +45,12 @@ export function Wallet() {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {BRANDS.map((b) => (
-                    <span key={b} className="rounded-full bg-ink px-4 py-2 text-xs font-medium tracking-wide text-paper">Add to {BRAND_LABEL[b]}</span>
+                    <GlassTag key={b} className="px-4 py-2 tracking-wide">Add to {BRAND_LABEL[b]}</GlassTag>
                   ))}
                 </div>
               </div>
             </div>
-          </div>
+          </GlassPanel>
         </div>
 
         <ul className="mt-20 flex flex-col items-center gap-10 lg:flex-row lg:justify-center lg:gap-6">

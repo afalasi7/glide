@@ -69,7 +69,7 @@ export function AgentCompanion() {
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 8 }}
             transition={{ type: "spring", stiffness: 420, damping: 28 }}
-            className="relative mb-6 max-w-[190px] rounded-[22px] rounded-br-md bg-paper px-4 py-3 text-sm font-medium leading-snug text-ink shadow-pop sm:max-w-[250px] sm:text-[15px]"
+            className="glide-glass glass-control relative mb-6 max-w-[190px] rounded-[22px] rounded-br-md bg-card px-4 py-3 text-sm font-medium leading-snug text-ink sm:max-w-[250px] sm:text-[15px]"
             aria-live="polite"
           >
             {text}

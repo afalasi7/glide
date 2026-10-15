@@ -2,11 +2,13 @@
 
 import { useEffect } from "react";
 import Lenis from "lenis";
+import { usePathname } from "next/navigation";
 
 /** Page-wide smooth scrolling. Scroll-linked animation reads native scroll through framer-motion's useScroll. */
 export function LenisProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (pathname === "/app" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     const lenis = new Lenis({
       duration: 1.15,
@@ -34,7 +36,7 @@ export function LenisProvider({ children }: { children: React.ReactNode }) {
       document.removeEventListener("click", onClick);
       lenis.destroy();
     };
-  }, []);
+  }, [pathname]);
 
   return <>{children}</>;
 }

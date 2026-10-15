@@ -18,7 +18,13 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to load Bodoni Moda, Jost, and Geist Mono.
+
+## Glide UI
+
+The story landing page is at `/`, the trip flow at `/app`, the how-it-works guide followed by the full traffic and itinerary story at `/how-it-works`, and device previews at `/previews`.
+Glide uses Bodoni Moda and Jost, with the upstream [Solid Glass](https://github.com/deeplethe/solid-glass) stylesheet for its controls and panels.
+See [integration notes](src/styles/SOLID_GLASS.md) and [DESIGN.md](DESIGN.md) for the material tokens, shared components, and update procedure. The upstream MIT license is preserved in `public/licenses/solid-glass-MIT.txt`.
 
 ## Learn More
 

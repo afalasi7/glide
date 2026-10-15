@@ -1,0 +1,81 @@
+/* Glide's palette on Solid Glass's upstream material. */
+:root {
+  --background: var(--cream);
+  --foreground: var(--ink);
+  --card-foreground: var(--ink);
+  --popover-foreground: var(--ink);
+  --primary: var(--ink);
+  --primary-foreground: var(--paper);
+  --secondary-foreground: var(--ink);
+  --muted-foreground: var(--ink-soft);
+  --accent-foreground: var(--ink);
+  --brand: var(--violet);
+  --link: var(--violet);
+  --focus-line: var(--violet);
+  --panel: color-mix(in oklch, var(--paper) 48%, transparent);
+  --card: color-mix(in oklch, var(--paper) 78%, transparent);
+  --popover: color-mix(in oklch, var(--paper) 96%, transparent);
+  --light-1: color-mix(in oklch, var(--sun) 9%, transparent);
+  --light-2: color-mix(in oklch, var(--sky) 9%, transparent);
+  --light-3: color-mix(in oklch, var(--sun) 5%, transparent);
+}
+
+.glide-glass-screen {
+  position: relative;
+  isolation: isolate;
+  color: var(--foreground);
+  background: var(--background);
+}
+
+.glide-glass-screen::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 20% 5%, var(--light-1), transparent 60%),
+    radial-gradient(ellipse at 95% 80%, var(--light-2), transparent 55%);
+  animation: glide-glass-breathe 16s ease-in-out infinite alternate;
+}
+
+.glide-glass-screen.dark {
+  --violet: #B4A6FF;
+  --focus-line: var(--violet);
+}
+
+.glide-glass-screen .text-ink { color: var(--foreground); }
+.glide-glass-screen .text-ink-soft { color: var(--muted-foreground); }
+.glide-glass-screen .bg-cream { background-color: var(--background); }
+.glide-glass-screen .bg-paper { background-color: var(--card); }
+.glide-glass-screen .border-ink\/10 { border-color: var(--border); }
+.glide-glass-screen input,
+.glide-glass-screen textarea { caret-color: var(--foreground); font-size: 16px; }
+.glide-glass-screen :focus-visible { outline-color: var(--focus-line); }
+
+.glide-glass-header { border-radius: 999px; }
+.glide-glass-alert { color: var(--ink); background-color: var(--coral); }
+.glide-glass-alert:hover { background-color: color-mix(in oklch, var(--coral) 85%, var(--paper)); }
+.glide-glass-photo-label { --card: color-mix(in oklch, var(--paper) 94%, transparent); color: var(--ink); }
+.glide-composer-dock { padding: 10px 12px max(env(safe-area-inset-bottom), 12px); }
+.glide-composer { padding: 8px 10px 8px 14px; }
+.glide-composer:focus-within { outline: 1px solid var(--focus-line); outline-offset: 2px; }
+.glide-composer textarea { max-height: 120px; min-height: 44px; background: transparent; box-shadow: none; outline: none; border: 0; border-radius: 0; }
+.glide-composer textarea:focus-visible { outline: none; }
+.glide-trip-nav { margin: 0 12px max(env(safe-area-inset-bottom), 10px); padding: 5px; border-radius: 20px; }
+.glide-trip-nav button { min-height: 44px; min-width: 0; color: var(--muted-foreground); border: 1px solid transparent; border-radius: 15px; }
+.glide-trip-nav button[aria-current="page"] { color: var(--foreground); }
+.glide-chat-bubble { overflow-wrap: anywhere; color: var(--foreground); }
+.glide-chat-bubble-user { color: var(--primary-foreground); }
+
+@keyframes glide-glass-breathe {
+  from { opacity: 0.45; }
+  to { opacity: 1; }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glide-glass { --panel: var(--background); --card: var(--background); --popover: var(--background); --field: var(--background); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glide-glass-screen::before { animation: none; opacity: 0.6; }
+}

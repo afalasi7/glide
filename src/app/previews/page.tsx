@@ -23,7 +23,7 @@ export default function PreviewsPage() {
 
   return (
     <div className="min-h-screen">
-      <Header active="devices" />
+      <Header />
 
       <main>
         <section data-say="It starts with onboarding." className="bg-violet text-paper">

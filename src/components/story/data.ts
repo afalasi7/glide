@@ -9,13 +9,22 @@ const tool = (name: string) => r.toolResults.find((t) => t.tool === name)!;
 
 export const CHAPTERS = [
   {
+    key: "plan",
+    photo: "/images/hd/traffic_road.jpg",
+    place: "Dubai → Ras Al Khaimah",
+    time: fmt(base.nodes.depart.earliestStart ?? 0),
+    was: "",
+    problem: "Your route, mountain stop, hotel and dinner are all part of one trip.",
+    fix: "Glide connects the timings and details so every stop fits the whole journey.",
+  },
+  {
     key: "depart",
     photo: "/images/hd/traffic_road.jpg",
     place: "Dubai Marina",
     time: fmt(h.depart.startAt),
     was: "15:00",
     problem: "You leave 75 minutes late, straight into Friday-evening traffic.",
-    fix: "The whole day is re-planned before you reach the highway.",
+    fix: "Glide checks the rest of your itinerary and reshapes the day around what still matters.",
   },
   {
     key: "jais",
@@ -47,9 +56,9 @@ export const CHAPTERS = [
 ] as const;
 
 export const TICKETS = [
-  { tool: "resequence_node", title: "Moves the mountain", result: "Day 2 · 08:30", photo: "/images/jebel_jais_sunset.jpg", ms: tool("resequence_node").latencyMs },
-  { tool: "modify_dining_reservation", title: "Saves the table", result: "21:15 · no fee", photo: "/images/levant_nar_dining.jpg", ms: tool("modify_dining_reservation").latencyMs },
-  { tool: "flag_hotel_late_arrival", title: "Warns the hotel", result: "Key ready", photo: "/images/ic_rak_resort.jpg", ms: tool("flag_hotel_late_arrival").latencyMs },
+  { tool: "resequence_node", title: "Fits the stops to your trip", result: "Day 2 · 08:30", photo: "/images/jebel_jais_sunset.jpg", ms: tool("resequence_node").latencyMs ?? 0 },
+  { tool: "modify_dining_reservation", title: "Moves your reservation", result: "21:15 · no fee", photo: "/images/levant_nar_dining.jpg", ms: tool("modify_dining_reservation").latencyMs ?? 0 },
+  { tool: "flag_hotel_late_arrival", title: "Updates your hotel", result: "Key ready", photo: "/images/ic_rak_resort.jpg", ms: tool("flag_hotel_late_arrival").latencyMs ?? 0 },
 ] as const;
 
 export const TIMES = {

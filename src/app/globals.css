@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "../styles/solid-glass.css";
+@import "../styles/glide-glass.css";
 
 /* Glide — "Sunset Sticker": a warm sand canvas, aubergine ink, and four loud travel colours. */
 :root {
@@ -42,6 +44,7 @@ html {
 }
 
 body {
+  background-image: none;
   background-color: var(--cream);
   color: var(--ink);
   font-family: var(--font-sans), "Helvetica Neue", Arial, sans-serif;
