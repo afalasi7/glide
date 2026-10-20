@@ -1,14 +1,45 @@
 "use client";
 
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { GlideBot } from "@/components/GlideBot";
 import { WalletPass, BRAND_LABEL, type WalletBrand } from "./WalletPass";
 import { TIMES } from "./data";
-import { GlassPanel, GlassTag } from "@/components/ui/glass";
+import { GlassButton, GlassPanel } from "@/components/ui/glass";
 
 const BRANDS: WalletBrand[] = ["apple", "google", "samsung"];
+
+function DemoToast({ message }: { message: string | null }) {
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+  if (!mounted || !message) return null;
+  return createPortal(
+    <p role="status" className="pointer-events-none fixed top-24 left-1/2 z-[60] max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-full bg-ink px-4 py-2.5 text-center text-sm font-medium text-paper shadow-lift">
+      {message}
+    </p>,
+    document.body,
+  );
+}
+
 /** Glide copies the updated reservation's wallet file and sends it to you in the chat. */
 export function Wallet() {
+  const [added, setAdded] = useState<WalletBrand | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => () => clearTimeout(timer.current), []);
+
+  const choose = (brand: WalletBrand) => {
+    setAdded(brand);
+    setToast(`Demo only. Nothing was sent to ${BRAND_LABEL[brand]}.`);
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setToast(null), 2600);
+  };
+
   return (
     <section data-say="I copy your new dinner pass and send it to you here." className="relative z-10 overflow-hidden bg-cream py-28 sm:py-40">
       <div className="mx-auto max-w-7xl px-5 sm:px-8">
@@ -52,7 +83,15 @@ export function Wallet() {
                   <ul className="flex flex-wrap gap-2" aria-label="Wallet destinations in the demo">
                     {BRANDS.map((b) => (
                       <li key={b}>
-                        <GlassTag className="px-4 py-2 tracking-wide">{BRAND_LABEL[b]}</GlassTag>
+                        <GlassButton
+                          type="button"
+                          variant={added === b ? "primary" : "secondary"}
+                          aria-pressed={added === b}
+                          onClick={() => choose(b)}
+                          className="min-h-11 px-4 py-2 text-sm tracking-wide"
+                        >
+                          {BRAND_LABEL[b]}
+                        </GlassButton>
                       </li>
                     ))}
                   </ul>
@@ -61,6 +100,7 @@ export function Wallet() {
             </GlassPanel>
           </motion.div>
         </div>
+        <DemoToast message={toast} />
 
         <ul className="mt-20 flex flex-col items-center gap-10 lg:flex-row lg:justify-center lg:gap-6">
           {BRANDS.map((b, i) => (

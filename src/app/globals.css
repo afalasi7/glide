@@ -117,6 +117,29 @@ button:disabled { cursor: not-allowed; }
 }
 .drift { animation: drift 16s ease-in-out infinite; }
 
+/* At ~400px the road svg is 52px wide, so the stroke, stops, and mascot shrink to a hairline.
+   Scale the whole graphic — path and mascot together — so their places on the road stay put. */
+@media (max-width: 639px) {
+  .glide-day-road-frame {
+    width: 78px;
+    height: min(60svh, 480px);
+    flex: none;
+  }
+  .glide-day-road {
+    transform: scale(1.5);
+    transform-origin: top left;
+  }
+  .glide-day-track,
+  .glide-day-line {
+    stroke-width: 8px;
+    vector-effect: non-scaling-stroke;
+  }
+  .glide-day-stop {
+    stroke-width: 3.5px;
+    vector-effect: non-scaling-stroke;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

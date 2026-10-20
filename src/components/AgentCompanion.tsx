@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { GlideBot, type BotMood } from "@/components/GlideBot";
@@ -12,7 +12,38 @@ export function AgentCompanion() {
   const [hop, setHop] = useState(0);
   const [scrolling, setScrolling] = useState(false);
   const [happy, setHappy] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [roadOnScreen, setRoadOnScreen] = useState(false);
+  const [passOnScreen, setPassOnScreen] = useState(false);
+
+  useEffect(() => {
+    if (pathname !== "/" && pathname !== "/how-it-works") return;
+    let frame = 0;
+    const measure = () => {
+      const road = document.querySelector(".glide-day-road");
+      const roadBox = road?.getBoundingClientRect();
+      const roadVisible = !!roadBox && roadBox.width > 2 && roadBox.bottom > 72 && roadBox.top < window.innerHeight - 24;
+      let pass = false;
+      document.querySelectorAll("svg[aria-label^='Code']").forEach((node) => {
+        const r = node.getBoundingClientRect();
+        if (r.width < 2 || r.height < 2) return;
+        if (r.bottom > 0 && r.top < window.innerHeight && r.right > 0 && r.left < window.innerWidth) pass = true;
+      });
+      setRoadOnScreen((prev) => (prev === roadVisible ? prev : roadVisible));
+      setPassOnScreen((prev) => (prev === pass ? prev : pass));
+    };
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(measure);
+    };
+    schedule();
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+    };
+  }, [pathname]);
 
   useEffect(() => {
     if (pathname !== "/" && pathname !== "/how-it-works") return;
@@ -46,10 +77,11 @@ export function AgentCompanion() {
     const onSay = (e: Event) => say((e as CustomEvent<string>).detail);
     window.addEventListener("glide:say", onSay);
 
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const onScroll = () => {
       setScrolling(true);
-      clearTimeout(timer.current);
-      timer.current = setTimeout(() => setScrolling(false), 220);
+      clearTimeout(timer);
+      timer = setTimeout(() => setScrolling(false), 220);
     };
     window.addEventListener("scroll", onScroll, { passive: true });
 
@@ -57,22 +89,22 @@ export function AgentCompanion() {
       io.disconnect();
       window.removeEventListener("glide:say", onSay);
       window.removeEventListener("scroll", onScroll);
-      clearTimeout(timer.current);
+      clearTimeout(timer);
     };
   }, [pathname]);
 
   if (pathname !== "/" && pathname !== "/how-it-works") return null;
+  // One mascot at a time: the road already draws one, and a pass code needs a clear corner.
+  // Below 640px the float stays off so it cannot cover the headline or the day copy.
+  if (roadOnScreen || passOnScreen) return null;
 
   const mood: BotMood = happy ? "happy" : scrolling ? "working" : "idle";
 
   const onFinale = text.startsWith("Your plans are in place");
+  const place = onFinale ? "bottom-[5.5rem] opacity-90 sm:bottom-28" : "bottom-3 sm:bottom-5";
 
   return (
-    <div
-      className={`pointer-events-none fixed right-3 z-40 hidden items-end gap-2 transition-[bottom,opacity] duration-300 sm:right-5 sm:flex ${
-        onFinale ? "bottom-[5.5rem] opacity-90 sm:bottom-28" : "bottom-3 sm:bottom-5"
-      }`}
-    >
+    <div className={`pointer-events-none fixed right-4 z-40 hidden w-max max-w-[calc(100vw-3rem)] items-end gap-2 sm:right-8 sm:flex ${place}`}>
       <AnimatePresence mode="wait">
         {text && (
           <motion.p
@@ -81,7 +113,7 @@ export function AgentCompanion() {
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 8 }}
             transition={{ type: "spring", stiffness: 420, damping: 28 }}
-            className="glide-glass glass-control relative mb-6 max-w-[190px] rounded-[22px] rounded-br-md bg-card px-4 py-3 text-sm font-medium leading-snug text-ink sm:max-w-[250px] sm:text-[15px]"
+            className="glide-glass glass-control relative mb-6 min-w-0 max-w-[min(15.5rem,calc(100vw-7rem))] rounded-[22px] rounded-br-md bg-card px-4 py-3 text-sm font-medium leading-snug break-words text-ink sm:text-[15px]"
             aria-live="polite"
           >
             {text}
