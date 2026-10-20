@@ -43,7 +43,7 @@ export function GlideApp() {
   return (
     <BareContext.Provider value>
       <div className={`glide-glass-screen min-h-[100dvh] w-full ${dark ? "dark" : ""}`}>
-        <div ref={appRef} className="mx-auto flex h-[100dvh] w-full max-w-[480px] flex-col overflow-hidden md:max-w-[760px]" data-lenis-prevent>
+        <div ref={appRef} className="mx-auto flex h-[100dvh] w-full max-w-[480px] flex-col overflow-hidden md:w-[720px] md:max-w-[720px]" data-lenis-prevent>
           <div className="relative min-h-0 flex-1">
             <div key={step} className="absolute inset-0">
               {step === "welcome" && <WelcomeScreen onNext={() => setStep("signup")} onSignIn={() => setStep("signin")} />}

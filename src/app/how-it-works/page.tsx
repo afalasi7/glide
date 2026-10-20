@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { preload } from "react-dom";
 import { permanentRedirect } from "next/navigation";
 import Link from "next/link";
 import { Header } from "@/components/Header";
@@ -14,7 +15,10 @@ export const metadata: Metadata = {
   description: "See how Glide brings your itinerary together and helps your trip adapt when plans change.",
 };
 
+const HERO_PHOTO = "/images/hd/jebel_jais_sunset.jpg";
+
 export function GlideLandingPage() {
+  preload(HERO_PHOTO, { as: "image", fetchPriority: "high" });
   return (
     <>
       <Header />

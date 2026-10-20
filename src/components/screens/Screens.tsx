@@ -50,7 +50,10 @@ export const BareContext = createContext(false);
 /** Solid paper chip so a label on photography stays readable. Glass tags were washing out to an empty pill. */
 export function PhotoLabel({ children }: { children: React.ReactNode }) {
   return (
-    <span className="absolute bottom-2 left-2 z-10 max-w-[calc(100%-1rem)] truncate rounded-full bg-[#FFFBF3] px-3 py-1.5 text-xs font-semibold leading-none text-[#1C1230] shadow-[0_8px_18px_-12px_rgba(28,18,48,0.75)]">
+    <span
+      className="absolute bottom-2 left-2 z-10 max-w-[calc(100%-1rem)] whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold leading-none"
+      style={{ backgroundColor: "#FFFBF3", color: "#1C1230" }}
+    >
       {children}
     </span>
   );
@@ -60,6 +63,9 @@ const WALLET_CHIPS = ["Apple Wallet", "Google Wallet", "Samsung Wallet"] as cons
 
 function replyFor(message: string) {
   const q = message.toLowerCase();
+  if (/^(hi|hello|hey)\b/.test(q)) {
+    return `Hello. Dinner is held at Levant & Nar for ${clock(dinner.time)}, and Jebel Jais is tomorrow at ${clock(jais.time)}.`;
+  }
   if (q.includes("dinner") || q.includes("table") || q.includes("nar") || q.includes("levant")) {
     return `Dinner stays at Levant & Nar at ${clock(dinner.time)}, with no fee. The updated pass is just above.`;
   }
@@ -69,7 +75,14 @@ function replyFor(message: string) {
   if (q.includes("hotel") || q.includes("key") || q.includes("check")) {
     return `The InterContinental knows you're arriving at ${clock(hotel.time)}. Your room key is on your phone.`;
   }
-  return "I'm keeping the Dubai to Ras Al Khaimah plan together. This demo can't change live bookings, and the updated pass is above.";
+  if (q.includes("wallet")) {
+    return "The wallet buttons below are a demo. Tapping one tells you which pass Glide would add.";
+  }
+  return `I heard “${message.trim().slice(0, 80)}”. This demo can't change live bookings. Dinner is ${clock(dinner.time)}, and the pass is just above.`;
+}
+
+function walletReply(brand: string) {
+  return `${brand} isn't connected in this demo. The dinner pass above is the one Glide would add.`;
 }
 
 export function Status({ time = "16:15" }: { time?: string }) {
@@ -158,7 +171,14 @@ export function ChatScreen() {
         <ul className="flex flex-wrap gap-1.5" aria-label="Wallet passes in the demo">
           {WALLET_CHIPS.map((w) => (
             <li key={w}>
-              <span className="inline-flex min-h-8 items-center rounded-full bg-[#FFFBF3] px-3 py-1 text-xs font-semibold text-[#1C1230] ring-1 ring-[#1C1230]/20">{w}</span>
+              <button
+                type="button"
+                className="inline-flex min-h-11 items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-[#1C1230]/20"
+                style={{ backgroundColor: "#FFFBF3", color: "#1C1230" }}
+                onClick={() => setMessages((previous) => [...previous, { from: "glide", text: walletReply(w) }])}
+              >
+                {w}
+              </button>
             </li>
           ))}
         </ul>

@@ -7,6 +7,10 @@ import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion
 
 const GREETING = "Hi, I'm Glide, your personal travel agent. I keep your trip together and help when plans change.";
 
+/** Tiny sunset so the hero is not an empty ink field while the photo decodes. */
+const HERO_BLUR =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAANklEQVR42mN40eKAFTFcqbDCihgO5JhiRQyrEwywIoYZIdpYEUOLhxpWxFBgo4gVMcQYyGBFAO2vSmGM0I/uAAAAAElFTkSuQmCC";
+
 /** Full-bleed opening for the trip guide: photo, brand line, and one clear next step. */
 export function GuideHero() {
   const ref = useRef<HTMLElement>(null);
@@ -25,14 +29,16 @@ export function GuideHero() {
     <section
       ref={ref}
       data-say={GREETING}
-      className="relative flex min-h-svh items-end overflow-hidden bg-ink text-paper"
+      className="relative flex min-h-svh items-end overflow-hidden bg-[#c46a3a] text-paper"
     >
-      <motion.div style={{ y, scale }} className="absolute inset-0">
+      <motion.div style={{ y, scale }} className="absolute inset-0 bg-[linear-gradient(180deg,#e89a55_0%,#c45c3e_46%,#3a2418_100%)]">
         <Image
           src="/images/hd/jebel_jais_sunset.jpg"
           alt="A mountain road at sunset"
           fill
           priority
+          placeholder="blur"
+          blurDataURL={HERO_BLUR}
           sizes="100vw"
           className="object-cover object-center"
         />
