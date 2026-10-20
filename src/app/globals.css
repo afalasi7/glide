@@ -100,7 +100,7 @@ button:disabled { cursor: not-allowed; }
   0%, 100% { transform: rotate(var(--r, -3deg)); }
   50% { transform: rotate(calc(var(--r, -3deg) + 3deg)); }
 }
-.tilt { animation: tilt 5s var(--ease-arrive) infinite; }
+.tilt { animation: tilt 5s ease-in-out infinite; }
 
 @keyframes shake {
   0%, 100% { transform: translateX(0); }

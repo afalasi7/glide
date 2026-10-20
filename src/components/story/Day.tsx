@@ -48,91 +48,59 @@ export function Day() {
   const botRef = useRef<SVGGElement>(null);
   const stickyRef = useRef<HTMLDivElement>(null);
   const bubbleRef = useRef<HTMLParagraphElement>(null);
-  const copyRef = useRef<HTMLDivElement>(null);
-  const photoRef = useRef<HTMLDivElement>(null);
-  const blocksRef = useRef<{ l: number; t: number; r: number; b: number }[]>([]);
+  const anchorRef = useRef<{
+    originX: number;
+    originY: number;
+    scaleX: number;
+    scaleY: number;
+    botW: number;
+    offsetX: number;
+    offsetY: number;
+  } | null>(null);
   const [stops, setStops] = useState(ROAD_STOPS.map((y) => ({ x: 40, y })));
   const tipX = useMotionValue(40);
   const tipY = useMotionValue(24);
 
-  const measureBlocks = useCallback(() => {
-    const sticky = stickyRef.current;
-    const copy = copyRef.current;
-    if (!sticky || !copy) return;
-    const root = sticky.getBoundingClientRect();
-    const blocks: { l: number; t: number; r: number; b: number }[] = [];
-    const add = (rect: DOMRect, pad: number) => {
-      if (rect.width < 2 || rect.height < 2) return;
-      blocks.push({
-        l: rect.left - root.left - pad,
-        t: rect.top - root.top - pad,
-        r: rect.right - root.left + pad,
-        b: rect.bottom - root.top + pad,
-      });
-    };
-    const walker = document.createTreeWalker(copy, NodeFilter.SHOW_TEXT);
-    let node = walker.nextNode();
-    while (node) {
-      if (node.textContent?.trim()) {
-        const range = document.createRange();
-        range.selectNodeContents(node);
-        for (const rect of range.getClientRects()) add(rect, 8);
-      }
-      node = walker.nextNode();
-    }
-    sticky.querySelectorAll(".glide-day-stop").forEach((el) => add(el.getBoundingClientRect(), 6));
-    if (photoRef.current) add(photoRef.current.getBoundingClientRect(), 8);
-    blocksRef.current = blocks;
+  const applyBubble = useCallback((pt: { x: number; y: number }) => {
+    const anchor = anchorRef.current;
+    const bubble = bubbleRef.current;
+    if (!anchor || !bubble) return;
+    const x = anchor.originX + (pt.x - BOT_CX) * anchor.scaleX + anchor.botW + anchor.offsetX;
+    const y = anchor.originY + (pt.y - BOT_CHIN_Y) * anchor.scaleY + anchor.offsetY;
+    bubble.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
   }, []);
 
-  const placeBubble = useCallback(() => {
+  const syncBubbleAnchor = useCallback(() => {
+    const phone = window.matchMedia("(max-width: 639px)").matches;
     const sticky = stickyRef.current;
     const bubble = bubbleRef.current;
-    const art = botRef.current?.querySelector("svg");
-    if (!sticky || !bubble || !art) return;
+    const svg = botRef.current?.ownerSVGElement;
+    if (phone || !sticky || !bubble || !svg) {
+      anchorRef.current = null;
+      return;
+    }
     const root = sticky.getBoundingClientRect();
-    const bot = art.getBoundingClientRect();
-    const headerBottom = document.querySelector("header")?.getBoundingClientRect().bottom ?? root.top + 84;
-    const bw = bubble.offsetWidth;
-    const bh = bubble.offsetHeight;
-    const minTop = Math.max(8, headerBottom - root.top + 6);
-    const maxTop = Math.max(minTop, root.height - bh - 8);
-    const maxLeft = Math.max(8, root.width - bw - 8);
-    const mascot = {
-      l: bot.left - root.left - 4,
-      t: bot.top - root.top - 4,
-      r: bot.right - root.left + 4,
-      b: bot.bottom - root.top + 4,
-    };
-    const blocked = (l: number, t: number) => {
-      const r = l + bw;
-      const b = t + bh;
-      if (r > mascot.l && l < mascot.r && b > mascot.t && t < mascot.b) return true;
-      return blocksRef.current.some((box) => r > box.l && l < box.r && b > box.t && t < box.b);
-    };
-    const preferL = bot.right - root.left + 10;
-    const preferT = bot.top - root.top + 2;
-    let pos: { l: number; t: number } | null = null;
-    const attempt = (l: number, t: number) => {
-      if (pos || l < 8 || t < minTop || l > maxLeft || t > maxTop || blocked(l, t)) return;
-      pos = { l, t };
-    };
-    attempt(preferL, preferT);
-    const reach = Math.max(maxTop - preferT, preferT - minTop);
-    for (let step = 8; step <= reach && !pos; step += 8) {
-      attempt(preferL, preferT + step);
-      attempt(preferL, preferT - step);
+    const box = svg.getBoundingClientRect();
+    const vb = svg.viewBox.baseVal;
+    if (!box.width || !box.height || !vb.width || !vb.height) {
+      anchorRef.current = null;
+      return;
     }
-    if (!pos) {
-      let floor = minTop;
-      for (const box of blocksRef.current) {
-        if (preferL < box.r && preferL + bw > box.l) floor = Math.max(floor, box.b + 2);
-      }
-      const l = Math.max(8, Math.min(preferL, maxLeft));
-      const t = Math.max(minTop, Math.min(floor, maxTop));
-      pos = { l, t };
-    }
-    bubble.style.transform = `translate(${Math.round(pos.l)}px, ${Math.round(pos.t)}px)`;
+    // The road viewBox meets the CSS box (xMidYMid), so one scale maps user units to pixels.
+    const scale = Math.min(box.width / vb.width, box.height / vb.height);
+    const padX = (box.width - vb.width * scale) / 2;
+    const padY = (box.height - vb.height * scale) / 2;
+    const botW = 120 * BOT_SCALE * scale;
+    const botH = 124 * BOT_SCALE * scale;
+    anchorRef.current = {
+      originX: box.left - root.left + padX - vb.x * scale,
+      originY: box.top - root.top + padY - vb.y * scale,
+      scaleX: scale,
+      scaleY: scale,
+      botW,
+      offsetX: 12,
+      offsetY: Math.round((botH - bubble.offsetHeight) / 2),
+    };
   }, []);
 
   const placeOnRoad = useCallback((v: number) => {
@@ -148,8 +116,8 @@ export function Day() {
       "transform",
       `translate(${pt.x - BOT_CX} ${pt.y - BOT_CHIN_Y}) scale(${BOT_SCALE})`,
     );
-    placeBubble();
-  }, [tipX, tipY, placeBubble]);
+    applyBubble(pt);
+  }, [tipX, tipY, applyBubble]);
 
   useLayoutEffect(() => {
     const path = pathRef.current;
@@ -162,28 +130,32 @@ export function Day() {
         return { x: pt.x, y: pt.y };
       })
     );
-    measureBlocks();
+    syncBubbleAnchor();
     placeOnRoad(tip.get());
-    placeBubble();
-  }, [i, tip, placeOnRoad, placeBubble, measureBlocks]);
+  }, [i, tip, placeOnRoad, syncBubbleAnchor]);
 
   useEffect(() => {
-    const settle = () => {
-      measureBlocks();
-      placeBubble();
+    let timer = 0;
+    const onResize = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        syncBubbleAnchor();
+        placeOnRoad(tip.get());
+      }, 150);
     };
-    const id = window.setTimeout(settle, 480);
-    window.addEventListener("resize", settle);
-    const bubble = bubbleRef.current;
-    const observer = bubble ? new ResizeObserver(settle) : null;
-    if (bubble) observer?.observe(bubble);
-    document.fonts?.ready.then(settle);
+    window.addEventListener("resize", onResize);
+    const mq = window.matchMedia("(max-width: 639px)");
+    mq.addEventListener("change", onResize);
+    document.fonts?.ready.then(() => {
+      syncBubbleAnchor();
+      placeOnRoad(tip.get());
+    });
     return () => {
-      window.clearTimeout(id);
-      window.removeEventListener("resize", settle);
-      observer?.disconnect();
+      window.clearTimeout(timer);
+      window.removeEventListener("resize", onResize);
+      mq.removeEventListener("change", onResize);
     };
-  }, [i, measureBlocks, placeBubble]);
+  }, [placeOnRoad, syncBubbleAnchor, tip]);
 
   useMotionValueEvent(tip, "change", placeOnRoad);
   useMotionValueEvent(scrollYProgress, "change", (v) => {
@@ -241,7 +213,7 @@ export function Day() {
             </svg>
             </div>
 
-            <div ref={copyRef} data-day-copy className="min-w-0 flex-1 space-y-4 sm:space-y-6 lg:space-y-8">
+            <div data-day-copy className="min-w-0 flex-1 space-y-4 sm:space-y-6 lg:space-y-8">
               <p className="text-[0.7rem] font-medium uppercase tracking-[0.2em] text-ink-soft sm:text-sm sm:tracking-[0.24em] md:text-base">
                 {i + 1} / {CHAPTERS.length} · {c.place}
               </p>
@@ -265,16 +237,19 @@ export function Day() {
                   <p className="max-w-[18ch] text-[clamp(1.5rem,6.2vw,3.6rem)] font-light leading-[1.1] tracking-[-0.02em] text-ink">
                     {c.problem}
                   </p>
-                  <p className="max-w-[34ch] text-base leading-relaxed text-violet sm:text-xl lg:text-[1.65rem]">
-                    <span className="font-semibold">Glide: </span>
-                    {c.fix}
+                  <p
+                    data-road-say
+                    className="max-w-[min(18rem,100%)] rounded-2xl rounded-bl-md bg-paper px-3 py-2 text-[13px] font-medium leading-snug text-ink shadow-lift sm:hidden"
+                    aria-live="polite"
+                  >
+                    {SAY[i]}
                   </p>
                 </motion.div>
               </AnimatePresence>
             </div>
           </div>
 
-          <div ref={photoRef} className="relative mx-auto h-[min(22svh,180px)] w-full max-w-[360px] self-center overflow-hidden rounded-t-[999px] rounded-b-[40px] shadow-lift sm:h-[min(26vh,240px)] sm:max-w-[460px] lg:mx-0 lg:h-[min(84vh,800px)] lg:max-w-[580px] lg:justify-self-end">
+          <div className="relative mx-auto h-[min(22svh,180px)] w-full max-w-[360px] self-center overflow-hidden rounded-t-[999px] rounded-b-[40px] shadow-lift sm:h-[min(26vh,240px)] sm:max-w-[460px] lg:mx-0 lg:h-[min(84vh,800px)] lg:max-w-[580px] lg:justify-self-end">
             <AnimatePresence initial={false} mode="sync">
               <motion.div
                 key={c.key}
@@ -299,7 +274,7 @@ export function Day() {
         <p
           ref={bubbleRef}
           data-road-say
-          className="pointer-events-none absolute top-0 left-0 z-20 max-w-[min(15rem,calc(100vw-2rem))] rounded-2xl rounded-bl-md bg-paper px-3 py-2 text-[13px] font-medium leading-snug text-ink shadow-lift sm:text-sm"
+          className="pointer-events-none absolute top-0 left-0 z-20 hidden max-w-[15rem] rounded-2xl rounded-bl-md bg-paper px-3 py-2 text-sm font-medium leading-snug text-ink shadow-lift sm:block"
           aria-live="polite"
         >
           {SAY[i]}
