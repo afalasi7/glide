@@ -46,62 +46,9 @@ export function Day() {
 
   const pathRef = useRef<SVGPathElement>(null);
   const botRef = useRef<SVGGElement>(null);
-  const stickyRef = useRef<HTMLDivElement>(null);
-  const bubbleRef = useRef<HTMLParagraphElement>(null);
-  const anchorRef = useRef<{
-    originX: number;
-    originY: number;
-    scaleX: number;
-    scaleY: number;
-    botW: number;
-    offsetX: number;
-    offsetY: number;
-  } | null>(null);
   const [stops, setStops] = useState(ROAD_STOPS.map((y) => ({ x: 40, y })));
   const tipX = useMotionValue(40);
   const tipY = useMotionValue(24);
-
-  const applyBubble = useCallback((pt: { x: number; y: number }) => {
-    const anchor = anchorRef.current;
-    const bubble = bubbleRef.current;
-    if (!anchor || !bubble) return;
-    const x = anchor.originX + (pt.x - BOT_CX) * anchor.scaleX + anchor.botW + anchor.offsetX;
-    const y = anchor.originY + (pt.y - BOT_CHIN_Y) * anchor.scaleY + anchor.offsetY;
-    bubble.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
-  }, []);
-
-  const syncBubbleAnchor = useCallback(() => {
-    const phone = window.matchMedia("(max-width: 639px)").matches;
-    const sticky = stickyRef.current;
-    const bubble = bubbleRef.current;
-    const svg = botRef.current?.ownerSVGElement;
-    if (phone || !sticky || !bubble || !svg) {
-      anchorRef.current = null;
-      return;
-    }
-    const root = sticky.getBoundingClientRect();
-    const box = svg.getBoundingClientRect();
-    const vb = svg.viewBox.baseVal;
-    if (!box.width || !box.height || !vb.width || !vb.height) {
-      anchorRef.current = null;
-      return;
-    }
-    // The road viewBox meets the CSS box (xMidYMid), so one scale maps user units to pixels.
-    const scale = Math.min(box.width / vb.width, box.height / vb.height);
-    const padX = (box.width - vb.width * scale) / 2;
-    const padY = (box.height - vb.height * scale) / 2;
-    const botW = 120 * BOT_SCALE * scale;
-    const botH = 124 * BOT_SCALE * scale;
-    anchorRef.current = {
-      originX: box.left - root.left + padX - vb.x * scale,
-      originY: box.top - root.top + padY - vb.y * scale,
-      scaleX: scale,
-      scaleY: scale,
-      botW,
-      offsetX: 12,
-      offsetY: Math.round((botH - bubble.offsetHeight) / 2),
-    };
-  }, []);
 
   const placeOnRoad = useCallback((v: number) => {
     const path = pathRef.current;
@@ -116,8 +63,7 @@ export function Day() {
       "transform",
       `translate(${pt.x - BOT_CX} ${pt.y - BOT_CHIN_Y}) scale(${BOT_SCALE})`,
     );
-    applyBubble(pt);
-  }, [tipX, tipY, applyBubble]);
+  }, [tipX, tipY]);
 
   useLayoutEffect(() => {
     const path = pathRef.current;
@@ -130,32 +76,8 @@ export function Day() {
         return { x: pt.x, y: pt.y };
       })
     );
-    syncBubbleAnchor();
     placeOnRoad(tip.get());
-  }, [i, tip, placeOnRoad, syncBubbleAnchor]);
-
-  useEffect(() => {
-    let timer = 0;
-    const onResize = () => {
-      window.clearTimeout(timer);
-      timer = window.setTimeout(() => {
-        syncBubbleAnchor();
-        placeOnRoad(tip.get());
-      }, 150);
-    };
-    window.addEventListener("resize", onResize);
-    const mq = window.matchMedia("(max-width: 639px)");
-    mq.addEventListener("change", onResize);
-    document.fonts?.ready.then(() => {
-      syncBubbleAnchor();
-      placeOnRoad(tip.get());
-    });
-    return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener("resize", onResize);
-      mq.removeEventListener("change", onResize);
-    };
-  }, [placeOnRoad, syncBubbleAnchor, tip]);
+  }, [i, tip, placeOnRoad]);
 
   useMotionValueEvent(tip, "change", placeOnRoad);
   useMotionValueEvent(scrollYProgress, "change", (v) => {
@@ -172,7 +94,7 @@ export function Day() {
 
   return (
     <section id="day" ref={ref} className="relative z-0 h-[340vh] scroll-mt-28 isolate overflow-x-clip bg-cream">
-      <div ref={stickyRef} className="sticky top-0 z-0 flex h-screen items-start overflow-hidden bg-cream px-4 pt-24 pb-3 sm:items-center sm:px-8 sm:pt-20 sm:pb-8 lg:pt-24">
+      <div className="sticky top-0 z-0 flex h-screen items-start overflow-hidden bg-cream px-4 pt-24 pb-3 sm:items-center sm:px-8 sm:pt-20 sm:pb-8 lg:pt-24">
         <div className="relative mx-auto grid w-full max-w-7xl grid-cols-1 items-center gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-16 xl:gap-20">
           <div className="mx-auto flex w-full max-w-3xl items-start gap-3 sm:gap-8 lg:ml-auto lg:mr-0 lg:max-w-none lg:gap-10">
             {/* Road + mascot on every breakpoint — slim on mobile, tall on desktop.
@@ -239,7 +161,7 @@ export function Day() {
                   </p>
                   <p
                     data-road-say
-                    className="max-w-[min(18rem,100%)] rounded-2xl rounded-bl-md bg-paper px-3 py-2 text-[13px] font-medium leading-snug text-ink shadow-lift sm:hidden"
+                    className="max-w-[min(22rem,100%)] rounded-2xl rounded-bl-md bg-paper px-3 py-2 text-[13px] font-medium leading-snug text-ink shadow-lift sm:text-sm"
                     aria-live="polite"
                   >
                     {SAY[i]}
@@ -271,14 +193,6 @@ export function Day() {
             </AnimatePresence>
           </div>
         </div>
-        <p
-          ref={bubbleRef}
-          data-road-say
-          className="pointer-events-none absolute top-0 left-0 z-20 hidden max-w-[15rem] rounded-2xl rounded-bl-md bg-paper px-3 py-2 text-sm font-medium leading-snug text-ink shadow-lift sm:block"
-          aria-live="polite"
-        >
-          {SAY[i]}
-        </p>
       </div>
     </section>
   );
