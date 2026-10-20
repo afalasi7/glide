@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { findSunsetViolation, findToolResult } from "@/components/story/data";
+import { CHAPTERS, findSunsetViolation, findToolResult, TIMES } from "@/components/story/data";
 import type { ToolResult, Violation } from "@/lib/agent";
 import { createMockWorld, scenarioHotelBookedArrive } from "@/lib/agent";
 
@@ -58,5 +58,12 @@ describe("scenario hotel arrival", () => {
   test("mock world ETA matches scenario bookedArriveAt (18:30)", () => {
     expect(scenarioHotelBookedArrive()).toBe("18:30");
     expect(createMockWorld().hotelBookings["IC-RAK-4089"].etaTime).toBe("18:30");
+  });
+
+  test("story copy uses scenarioHotelBookedArrive for original hotel time", () => {
+    const hotel = CHAPTERS.find((c) => c.key === "hotel");
+    expect(hotel?.was).toBe(scenarioHotelBookedArrive());
+    expect(TIMES.hotelBooked).toBe(scenarioHotelBookedArrive());
+    expect(TIMES.hotelBooked).toBe("18:30");
   });
 });

@@ -5,53 +5,21 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { BareContext, PlanScreen, ChatScreen } from "./Screens";
 import { WelcomeScreen, AuthScreen, IntroScreen, ConnectScreen, AgentScreen, RouteScreen } from "./Onboarding";
 import { useGlassColorScheme } from "@/components/ui/glass";
+import {
+  clearPersistedGlideUser,
+  readPersistedGlideUser,
+  writePersistedGlideUser,
+  type GlideStep,
+  type PersistedGlideUser,
+  type ResumableStep,
+} from "@/lib/glide-session";
 
-type Step = "welcome" | "signup" | "signin" | "intro" | "connect" | "agent" | "route" | "plan" | "chat";
-const TABS: { id: Extract<Step, "route" | "plan" | "chat">; label: string }[] = [
+type Step = GlideStep;
+const TABS: { id: ResumableStep; label: string }[] = [
   { id: "route", label: "Trip" },
   { id: "plan", label: "Plan" },
   { id: "chat", label: "Glide" },
 ];
-
-const USER_KEY = "glide-user";
-
-function readStoredName(): string | null {
-  try {
-    const raw = localStorage.getItem(USER_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { name?: unknown };
-    if (typeof parsed?.name !== "string") return null;
-    const name = parsed.name.trim();
-    return name.length > 0 ? name : null;
-  } catch {
-    return null;
-  }
-}
-
-function clearStoredUser() {
-  try {
-    localStorage.removeItem(USER_KEY);
-  } catch {
-    /* ignore quota / private-mode failures */
-  }
-}
-
-function writeStoredUser(name: string) {
-  try {
-    localStorage.setItem(USER_KEY, JSON.stringify({ name }));
-  } catch {
-    /* ignore */
-  }
-}
-
-/** True only after hydration — keeps SSR and the first client paint on the same tree. */
-function useIsClient() {
-  return useSyncExternalStore(
-    () => () => {},
-    () => true,
-    () => false,
-  );
-}
 
 type Session = {
   name: string;
@@ -60,12 +28,52 @@ type Session = {
   reshaped: boolean;
 };
 
+const EMPTY: Session = { name: "", step: "welcome", connected: false, reshaped: false };
+
+/** Filled once on the client so storage is not re-read every render. */
+let persistedCache: PersistedGlideUser | null | undefined;
+const persistListeners = new Set<() => void>();
+
+function getPersistedSnapshot(): PersistedGlideUser | null {
+  if (persistedCache === undefined) {
+    persistedCache = readPersistedGlideUser();
+  }
+  return persistedCache;
+}
+
+function subscribePersisted(notify: () => void) {
+  persistListeners.add(notify);
+  return () => persistListeners.delete(notify);
+}
+
+function setPersistedCache(next: PersistedGlideUser | null) {
+  persistedCache = next;
+  persistListeners.forEach((notify) => notify());
+}
+
+function persistTrip(session: Session) {
+  if (!session.name.trim()) return;
+  const step: ResumableStep =
+    session.step === "route" || session.step === "plan" || session.step === "chat" ? session.step : "route";
+  const payload: PersistedGlideUser = { name: session.name.trim(), step, reshaped: session.reshaped };
+  writePersistedGlideUser(payload);
+  setPersistedCache(payload);
+}
+
 /** The real flow: onboarding, then the trip. Runs full-screen in the simulators. */
 export function GlideApp() {
   const dark = useGlassColorScheme();
   const reducedMotion = useReducedMotion();
-  const isClient = useIsClient();
   const appRef = useRef<HTMLDivElement>(null);
+  const ready = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+  const persisted = useSyncExternalStore(subscribePersisted, getPersistedSnapshot, () => null);
+  const [override, setOverride] = useState<Session | null>(null);
+  const [confirmReset, setConfirmReset] = useState(false);
+
   useEffect(() => {
     const viewport = window.visualViewport;
     const resize = () => {
@@ -80,30 +88,36 @@ export function GlideApp() {
     };
   }, []);
 
-  const persistedName = isClient ? readStoredName() : null;
-  const [session, setSession] = useState<Session | null>(null);
+  const session: Session =
+    override ??
+    (persisted
+      ? { name: persisted.name, step: persisted.step, connected: true, reshaped: persisted.reshaped }
+      : EMPTY);
 
-  const name = session?.name ?? persistedName ?? "";
-  const step = session?.step ?? (persistedName ? "route" : "welcome");
-  const connected = session?.connected ?? Boolean(persistedName);
-  const reshaped = session?.reshaped ?? false;
+  const { name, step, connected, reshaped } = session;
 
   const patch = (next: Partial<Session>) => {
-    setSession({ name, step, connected, reshaped, ...next });
+    const merged = { ...session, ...next };
+    if (merged.name.trim()) persistTrip(merged);
+    setOverride(merged);
+    setConfirmReset(false);
   };
 
   const done = (n: string) => {
-    writeStoredUser(n);
-    setSession({ name: n, step: "intro", connected: false, reshaped: false });
+    const next: Session = { name: n, step: "intro", connected: false, reshaped: false };
+    persistTrip({ ...next, step: "route" });
+    setOverride(next);
+    setConfirmReset(false);
   };
 
   const startOver = () => {
-    clearStoredUser();
-    setSession({ name: "", step: "welcome", connected: false, reshaped: false });
+    clearPersistedGlideUser();
+    setPersistedCache(null);
+    setOverride(EMPTY);
+    setConfirmReset(false);
   };
 
   const inTrip = step === "route" || step === "plan" || step === "chat";
-  const ready = isClient;
   const fadeMs = reducedMotion ? 0 : 0.12;
 
   return (
@@ -162,13 +176,32 @@ export function GlideApp() {
                   </button>
                 ))}
               </div>
-              <button
-                type="button"
-                onClick={startOver}
-                className="px-2 pb-2.5 pt-0.5 text-center text-[11px] font-medium text-ink-soft transition-colors hover:text-ink"
-              >
-                Start over
-              </button>
+              {confirmReset ? (
+                <div className="flex items-stretch gap-1 px-1 pb-1" role="group" aria-label="Confirm start over">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmReset(false)}
+                    className="glass-control flex min-h-11 flex-1 items-center justify-center rounded-[15px] px-2 text-[12px] font-medium text-secondary-foreground transition-colors hover:bg-accent"
+                  >
+                    Keep going
+                  </button>
+                  <button
+                    type="button"
+                    onClick={startOver}
+                    className="glide-glass-alert flex min-h-11 flex-1 items-center justify-center rounded-[15px] px-2 text-[12px] font-semibold transition-colors"
+                  >
+                    Yes, start over
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmReset(true)}
+                  className="flex min-h-11 w-full items-center justify-center rounded-[15px] px-2 text-[12px] font-medium text-ink-soft transition-colors hover:bg-accent hover:text-ink"
+                >
+                  Start over
+                </button>
+              )}
             </nav>
           )}
         </div>

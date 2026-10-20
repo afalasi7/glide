@@ -1,4 +1,11 @@
-import { buildRakRoadTrip, fmt, runShockAbsorber, type ToolResult, type Violation } from "@/lib/agent";
+import {
+  buildRakRoadTrip,
+  fmt,
+  runShockAbsorber,
+  scenarioHotelBookedArrive,
+  type ToolResult,
+  type Violation,
+} from "@/lib/agent";
 
 /** Strip the Day N prefix so clocks can sit large in the UI. */
 export const clock = (t: string) => t.replace(/^Day \d • /, "");
@@ -59,7 +66,7 @@ export const CHAPTERS = [
     photo: "/images/hd/ic_rak_resort.jpg",
     place: "InterContinental RAK",
     time: fmt(h.hotel.arriveAt),
-    was: fmt(base.nodes.hotel.bookedArriveAt ?? 0),
+    was: scenarioHotelBookedArrive(),
     problem: "Check-in slips an hour and nobody at the desk knows.",
     fix: "The hotel is told your new arrival and your mobile key is already on your phone.",
   },
@@ -84,5 +91,5 @@ export const TIMES = {
   dinner: clock(fmt(h.dinner.startAt)),
   hotel: clock(fmt(h.hotel.arriveAt)),
   /** Booked hotel arrival from the scenario graph — single source for original check-in copy. */
-  hotelBooked: clock(fmt(base.nodes.hotel.bookedArriveAt ?? 0)),
+  hotelBooked: scenarioHotelBookedArrive(),
 };
