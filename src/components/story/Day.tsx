@@ -46,9 +46,94 @@ export function Day() {
 
   const pathRef = useRef<SVGPathElement>(null);
   const botRef = useRef<SVGGElement>(null);
+  const stickyRef = useRef<HTMLDivElement>(null);
+  const bubbleRef = useRef<HTMLParagraphElement>(null);
+  const copyRef = useRef<HTMLDivElement>(null);
+  const photoRef = useRef<HTMLDivElement>(null);
+  const blocksRef = useRef<{ l: number; t: number; r: number; b: number }[]>([]);
   const [stops, setStops] = useState(ROAD_STOPS.map((y) => ({ x: 40, y })));
   const tipX = useMotionValue(40);
   const tipY = useMotionValue(24);
+
+  const measureBlocks = useCallback(() => {
+    const sticky = stickyRef.current;
+    const copy = copyRef.current;
+    if (!sticky || !copy) return;
+    const root = sticky.getBoundingClientRect();
+    const blocks: { l: number; t: number; r: number; b: number }[] = [];
+    const add = (rect: DOMRect, pad: number) => {
+      if (rect.width < 2 || rect.height < 2) return;
+      blocks.push({
+        l: rect.left - root.left - pad,
+        t: rect.top - root.top - pad,
+        r: rect.right - root.left + pad,
+        b: rect.bottom - root.top + pad,
+      });
+    };
+    const walker = document.createTreeWalker(copy, NodeFilter.SHOW_TEXT);
+    let node = walker.nextNode();
+    while (node) {
+      if (node.textContent?.trim()) {
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        for (const rect of range.getClientRects()) add(rect, 8);
+      }
+      node = walker.nextNode();
+    }
+    sticky.querySelectorAll(".glide-day-stop").forEach((el) => add(el.getBoundingClientRect(), 6));
+    if (photoRef.current) add(photoRef.current.getBoundingClientRect(), 8);
+    blocksRef.current = blocks;
+  }, []);
+
+  const placeBubble = useCallback(() => {
+    const sticky = stickyRef.current;
+    const bubble = bubbleRef.current;
+    const art = botRef.current?.querySelector("svg");
+    if (!sticky || !bubble || !art) return;
+    const root = sticky.getBoundingClientRect();
+    const bot = art.getBoundingClientRect();
+    const headerBottom = document.querySelector("header")?.getBoundingClientRect().bottom ?? root.top + 84;
+    const bw = bubble.offsetWidth;
+    const bh = bubble.offsetHeight;
+    const minTop = Math.max(8, headerBottom - root.top + 6);
+    const maxTop = Math.max(minTop, root.height - bh - 8);
+    const maxLeft = Math.max(8, root.width - bw - 8);
+    const mascot = {
+      l: bot.left - root.left - 4,
+      t: bot.top - root.top - 4,
+      r: bot.right - root.left + 4,
+      b: bot.bottom - root.top + 4,
+    };
+    const blocked = (l: number, t: number) => {
+      const r = l + bw;
+      const b = t + bh;
+      if (r > mascot.l && l < mascot.r && b > mascot.t && t < mascot.b) return true;
+      return blocksRef.current.some((box) => r > box.l && l < box.r && b > box.t && t < box.b);
+    };
+    const preferL = bot.right - root.left + 10;
+    const preferT = bot.top - root.top + 2;
+    let pos: { l: number; t: number } | null = null;
+    const attempt = (l: number, t: number) => {
+      if (pos || l < 8 || t < minTop || l > maxLeft || t > maxTop || blocked(l, t)) return;
+      pos = { l, t };
+    };
+    attempt(preferL, preferT);
+    const reach = Math.max(maxTop - preferT, preferT - minTop);
+    for (let step = 8; step <= reach && !pos; step += 8) {
+      attempt(preferL, preferT + step);
+      attempt(preferL, preferT - step);
+    }
+    if (!pos) {
+      let floor = minTop;
+      for (const box of blocksRef.current) {
+        if (preferL < box.r && preferL + bw > box.l) floor = Math.max(floor, box.b + 2);
+      }
+      const l = Math.max(8, Math.min(preferL, maxLeft));
+      const t = Math.max(minTop, Math.min(floor, maxTop));
+      pos = { l, t };
+    }
+    bubble.style.transform = `translate(${Math.round(pos.l)}px, ${Math.round(pos.t)}px)`;
+  }, []);
 
   const placeOnRoad = useCallback((v: number) => {
     const path = pathRef.current;
@@ -63,7 +148,8 @@ export function Day() {
       "transform",
       `translate(${pt.x - BOT_CX} ${pt.y - BOT_CHIN_Y}) scale(${BOT_SCALE})`,
     );
-  }, [tipX, tipY]);
+    placeBubble();
+  }, [tipX, tipY, placeBubble]);
 
   useLayoutEffect(() => {
     const path = pathRef.current;
@@ -76,8 +162,28 @@ export function Day() {
         return { x: pt.x, y: pt.y };
       })
     );
+    measureBlocks();
     placeOnRoad(tip.get());
-  }, [i, tip, placeOnRoad]);
+    placeBubble();
+  }, [i, tip, placeOnRoad, placeBubble, measureBlocks]);
+
+  useEffect(() => {
+    const settle = () => {
+      measureBlocks();
+      placeBubble();
+    };
+    const id = window.setTimeout(settle, 480);
+    window.addEventListener("resize", settle);
+    const bubble = bubbleRef.current;
+    const observer = bubble ? new ResizeObserver(settle) : null;
+    if (bubble) observer?.observe(bubble);
+    document.fonts?.ready.then(settle);
+    return () => {
+      window.clearTimeout(id);
+      window.removeEventListener("resize", settle);
+      observer?.disconnect();
+    };
+  }, [i, measureBlocks, placeBubble]);
 
   useMotionValueEvent(tip, "change", placeOnRoad);
   useMotionValueEvent(scrollYProgress, "change", (v) => {
@@ -94,7 +200,7 @@ export function Day() {
 
   return (
     <section id="day" ref={ref} className="relative z-0 h-[340vh] scroll-mt-28 isolate overflow-x-clip bg-cream">
-      <div className="sticky top-0 z-0 flex h-screen items-start overflow-hidden bg-cream px-4 pt-24 pb-3 sm:items-center sm:px-8 sm:pt-20 sm:pb-8 lg:pt-24">
+      <div ref={stickyRef} className="sticky top-0 z-0 flex h-screen items-start overflow-hidden bg-cream px-4 pt-24 pb-3 sm:items-center sm:px-8 sm:pt-20 sm:pb-8 lg:pt-24">
         <div className="relative mx-auto grid w-full max-w-7xl grid-cols-1 items-center gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-16 xl:gap-20">
           <div className="mx-auto flex w-full max-w-3xl items-start gap-3 sm:gap-8 lg:ml-auto lg:mr-0 lg:max-w-none lg:gap-10">
             {/* Road + mascot on every breakpoint — slim on mobile, tall on desktop.
@@ -135,7 +241,7 @@ export function Day() {
             </svg>
             </div>
 
-            <div className="min-w-0 flex-1 space-y-4 sm:space-y-6 lg:space-y-8">
+            <div ref={copyRef} data-day-copy className="min-w-0 flex-1 space-y-4 sm:space-y-6 lg:space-y-8">
               <p className="text-[0.7rem] font-medium uppercase tracking-[0.2em] text-ink-soft sm:text-sm sm:tracking-[0.24em] md:text-base">
                 {i + 1} / {CHAPTERS.length} · {c.place}
               </p>
@@ -168,7 +274,7 @@ export function Day() {
             </div>
           </div>
 
-          <div className="relative mx-auto h-[min(16svh,140px)] w-full max-w-[360px] self-center overflow-hidden rounded-t-[999px] rounded-b-[40px] shadow-lift sm:h-[min(26vh,240px)] sm:max-w-[460px] lg:mx-0 lg:h-[min(84vh,800px)] lg:max-w-[580px] lg:justify-self-end">
+          <div ref={photoRef} className="relative mx-auto h-[min(22svh,180px)] w-full max-w-[360px] self-center overflow-hidden rounded-t-[999px] rounded-b-[40px] shadow-lift sm:h-[min(26vh,240px)] sm:max-w-[460px] lg:mx-0 lg:h-[min(84vh,800px)] lg:max-w-[580px] lg:justify-self-end">
             <AnimatePresence initial={false} mode="sync">
               <motion.div
                 key={c.key}
@@ -190,6 +296,14 @@ export function Day() {
             </AnimatePresence>
           </div>
         </div>
+        <p
+          ref={bubbleRef}
+          data-road-say
+          className="pointer-events-none absolute top-0 left-0 z-20 max-w-[min(15rem,calc(100vw-2rem))] rounded-2xl rounded-bl-md bg-paper px-3 py-2 text-[13px] font-medium leading-snug text-ink shadow-lift sm:text-sm"
+          aria-live="polite"
+        >
+          {SAY[i]}
+        </p>
       </div>
     </section>
   );
