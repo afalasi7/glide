@@ -3,12 +3,15 @@
 import React, { createContext, useContext } from "react";
 import Image from "next/image";
 import { BotArt } from "@/components/GlideBot";
-import { CHAPTERS } from "@/components/story/data";
+import { CHAPTERS, clock } from "@/components/story/data";
 import { MessageComposer } from "./MessageComposer";
 import { GlassPanel, GlassTag, useGlassColorScheme } from "@/components/ui/glass";
 
-export const [depart, jais, hotel, dinner] = CHAPTERS;
-export const clock = (t: string) => t.replace(/^Day \d • /, "");
+export const depart = CHAPTERS.find((chapter) => chapter.key === "depart")!;
+export const jais = CHAPTERS.find((chapter) => chapter.key === "jais")!;
+export const hotel = CHAPTERS.find((chapter) => chapter.key === "hotel")!;
+export const dinner = CHAPTERS.find((chapter) => chapter.key === "dinner")!;
+export { clock };
 
 /** Thin ink bezel; `punch` swaps the iPhone island for a Galaxy camera dot. */
 export function Phone({ children, punch = false, className = "" }: { children: React.ReactNode; punch?: boolean; className?: string }) {
@@ -76,9 +79,9 @@ export function PlanScreen() {
     <div className="flex h-full flex-col">
       <Status />
       <div className="px-5 pt-2">
-        <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-ink-soft">Friday · +75 min</p>
+        <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-ink-soft">Your trip · updated plan</p>
         <h3 className="mt-1 text-[34px] leading-[0.95] tracking-[-0.02em]">
-          Your day, <em className="text-violet">re-planned.</em>
+          Every detail, <em className="text-violet">in sync.</em>
         </h3>
       </div>
       <div className="relative mx-5 mt-3 h-[118px] overflow-hidden rounded-t-[70px] rounded-b-[14px]">
@@ -87,9 +90,9 @@ export function PlanScreen() {
       </div>
       <ul className="glass-panel mx-4 mt-3 rounded-xl px-3">
         <Row time={clock(depart.time)} was={depart.was} label="Leave Dubai Marina" note="Route re-timed" />
-        <Row time={clock(jais.time)} label="Jebel Jais" note="Moved to tomorrow morning" hot />
         <Row time={clock(hotel.time)} was={hotel.was} label="InterContinental RAK" note="Hotel told · key ready" />
         <Row time={clock(dinner.time)} was={dinner.was} label="Levant & Nar" note="Table saved · no fee" hot />
+        <Row time={clock(jais.time)} label="Jebel Jais" note="Day 2 · moved to morning" hot />
       </ul>
       <div className="mt-auto flex items-center gap-2 px-5 pb-5">
         <div className="h-8 w-8"><BotArt mood="happy" small /></div>
@@ -116,16 +119,17 @@ export function ChatScreen() {
         </div>
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto overscroll-contain px-4 py-4 text-[12px] leading-snug" data-lenis-prevent>
-        <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">You are 75 minutes behind. I moved the mountain to tomorrow at {clock(jais.time)}.</p>
+        <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">The day shifted, so I reshaped the rest of your trip. Jebel Jais is now tomorrow at {clock(jais.time)}.</p>
         <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">I kept your table. Levant &amp; Nar is now {clock(dinner.time)}, no fee.</p>
+        <p className="max-w-[88%] text-[11px] text-ink-soft">Guided demo: messages appear here, but live replies are not connected.</p>
         <GlassPanel className="max-w-[92%] p-2">
           <div className="relative h-20 overflow-hidden rounded-xl">
             <Image src={dinner.photo} alt="" fill sizes="240px" className="object-cover" />
             <span className="absolute bottom-1.5 left-2 font-display text-lg italic text-white">Levant &amp; Nar</span>
             <span className="num absolute bottom-1.5 right-2 text-xl text-white">{clock(dinner.time)}</span>
           </div>
-          <p className="mt-2 px-1 font-mono text-[10.5px]">levant-nar-2115.pkpass</p>
-          <p className="px-1 text-[10px] text-ink-soft">Copied from your updated reservation</p>
+          <p className="mt-2 px-1 text-[12px] font-semibold">Dinner at Levant &amp; Nar</p>
+          <p className="px-1 text-[10px] text-ink-soft">Updated for {clock(dinner.time)} · no fee</p>
         </GlassPanel>
         <div className="flex flex-wrap gap-1.5">
           {["Apple Wallet", "Google Wallet", "Samsung Wallet"].map((w) => (

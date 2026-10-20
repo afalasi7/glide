@@ -1,61 +1,78 @@
 "use client";
 
-import React, { useRef } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion } from "framer-motion";
 import { GlideBot } from "@/components/GlideBot";
 import { WalletPass, BRAND_LABEL, type WalletBrand } from "./WalletPass";
 import { TIMES } from "./data";
 import { GlassPanel, GlassTag } from "@/components/ui/glass";
 
 const BRANDS: WalletBrand[] = ["apple", "google", "samsung"];
-
 /** Glide copies the updated reservation's wallet file and sends it to you in the chat. */
 export function Wallet() {
-  const ref = useRef<HTMLElement>(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ["start 85%", "center 55%"] });
-  const x = [useTransform(scrollYProgress, [0, 1], [300, -20]), useTransform(scrollYProgress, [0, 1], [0, 0]), useTransform(scrollYProgress, [0, 1], [-300, 20])];
-  const rot = [useTransform(scrollYProgress, [0, 1], [8, -4]), useTransform(scrollYProgress, [0, 1], [0, 0]), useTransform(scrollYProgress, [0, 1], [-8, 4])];
-
   return (
-    <section ref={ref} data-say="I copy your new dinner pass and send it to you here." className="overflow-hidden bg-cream py-28 sm:py-40">
+    <section data-say="I copy your new dinner pass and send it to you here." className="relative z-10 overflow-hidden bg-cream py-28 sm:py-40">
       <div className="mx-auto max-w-7xl px-5 sm:px-8">
         <div className="grid items-end gap-12 lg:grid-cols-[1.1fr_1fr]">
           <div className="space-y-6">
-            <h2 className="max-w-[12ch] text-[clamp(3rem,8vw,6.5rem)] leading-[0.92] tracking-[-0.02em]">
+            <motion.h2
+              initial={{ opacity: 0, y: 42 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: false, amount: 0.5 }}
+              transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }}
+              className="glide-motion-entry max-w-[12ch] text-[clamp(3rem,8vw,6.5rem)] leading-[0.92] tracking-[-0.02em]"
+            >
               Your trip details, <em className="text-violet">within reach.</em>
-            </h2>
+            </motion.h2>
             <p className="max-w-[50ch] text-xl font-light leading-relaxed text-ink-soft">
-              When a booking changes, Glide keeps the updated details and pass close at hand. Here, dinner moves to {TIMES.dinner.replace("Day 1 • ", "")}, and the new pass is ready in your chat. Add it to Apple, Google or Samsung Wallet.
+              When a booking changes, Glide keeps the updated details and pass close at hand. Here, dinner moves to {TIMES.dinner}, and the new pass is ready in your chat. Add it to Apple, Google or Samsung Wallet.
             </p>
           </div>
 
-          <GlassPanel className="p-5 sm:p-6">
-            <div className="flex items-start gap-3">
-              <GlideBot size={40} />
-              <div className="space-y-3">
-                <p className="rounded-[20px] rounded-tl-md bg-cream px-4 py-3 text-base leading-snug">
-                  Dinner at Levant &amp; Nar is now <b>{TIMES.dinner.replace("Day 1 • ", "")}</b>. Here is the updated pass.
-                </p>
-                <div className="flex items-center gap-3 rounded-2xl border-2 border-dashed border-ink/20 bg-white px-4 py-3">
-                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-violet font-mono text-[11px] font-semibold text-paper">PASS</span>
-                  <div className="leading-tight">
-                    <p className="font-mono text-sm font-medium">levant-nar-2115.pkpass</p>
-                    <p className="text-xs text-ink-soft">Copied from reservation SR-994182-MOD</p>
+          <motion.div
+            className="glide-motion-entry"
+            initial={{ opacity: 0, x: 65, y: 24 }}
+            whileInView={{ opacity: 1, x: 0, y: 0 }}
+            viewport={{ once: false, amount: 0.3 }}
+            transition={{ type: "spring", stiffness: 115, damping: 22 }}
+          >
+            <GlassPanel className="p-5 sm:p-6">
+              <div className="flex items-start gap-3">
+                <GlideBot size={40} />
+                <div className="space-y-3">
+                  <p className="glide-wallet-note rounded-[20px] rounded-tl-md bg-paper px-4 py-3 text-base leading-snug text-ink">
+                    Dinner at Levant &amp; Nar is now <b>{TIMES.dinner}</b>. Here is the updated pass.
+                  </p>
+                  <div className="glide-pass-file flex items-center gap-3 rounded-2xl border-2 border-dashed border-ink/20 bg-white px-4 py-3 text-ink">
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-violet text-[11px] font-semibold tracking-wide text-paper">Pass</span>
+                    <div className="leading-tight">
+                      <p className="text-sm font-semibold">Dinner at Levant &amp; Nar</p>
+                      <p className="text-xs text-ink-soft">Updated for {TIMES.dinner} · no fee</p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {BRANDS.map((b) => (
-                    <GlassTag key={b} className="px-4 py-2 tracking-wide">Add to {BRAND_LABEL[b]}</GlassTag>
-                  ))}
+                  <ul className="flex flex-wrap gap-2" aria-label="Wallet destinations in the demo">
+                    {BRANDS.map((b) => (
+                      <li key={b}>
+                        <GlassTag className="px-4 py-2 tracking-wide">{BRAND_LABEL[b]}</GlassTag>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
-            </div>
-          </GlassPanel>
+            </GlassPanel>
+          </motion.div>
         </div>
 
         <ul className="mt-20 flex flex-col items-center gap-10 lg:flex-row lg:justify-center lg:gap-6">
           {BRANDS.map((b, i) => (
-            <motion.li key={b} style={{ x: x[i], rotate: rot[i], zIndex: i === 1 ? 2 : 1 }} className="max-lg:!transform-none">
+            <motion.li
+              key={b}
+              style={{ zIndex: i === 1 ? 2 : 1 }}
+              initial={{ opacity: 0, x: i === 0 ? -150 : i === 2 ? 150 : 0, y: i === 1 ? 64 : 24, rotate: i === 0 ? -6 : i === 2 ? 6 : 0, scale: 0.94 }}
+              whileInView={{ opacity: 1, x: 0, y: 0, rotate: 0, scale: 1 }}
+              viewport={{ once: false, amount: 0.2 }}
+              transition={{ type: "spring", stiffness: 110, damping: 20, delay: i * 0.08 }}
+              className="glide-motion-entry"
+            >
               <WalletPass brand={b} />
             </motion.li>
           ))}

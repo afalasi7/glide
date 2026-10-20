@@ -2,6 +2,7 @@
 
 import React, { useRef } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { GlideBot } from "@/components/GlideBot";
 import { TIMES } from "./data";
@@ -13,23 +14,40 @@ export function Finale() {
 
   return (
     <>
-      <section ref={ref} data-say="Your plans are in place. Go enjoy the trip." className="relative flex min-h-[90svh] items-end overflow-hidden bg-ink text-paper">
+      <section ref={ref} data-say="Your plans are in place. Go enjoy the trip." className="relative z-20 flex min-h-[90svh] items-end overflow-hidden bg-ink text-paper">
         <motion.div style={{ y }} className="absolute inset-x-0 -inset-y-[14%]">
           <Image src="/images/hd/levant_nar_dining.jpg" alt="Dinner on the terrace at Levant & Nar" fill sizes="100vw" className="object-cover" />
         </motion.div>
-        <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/40 to-ink/10" aria-hidden />
+        <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/50 to-ink/15" aria-hidden />
         <div className="relative z-10 mx-auto w-full max-w-7xl space-y-8 px-5 pb-20 sm:px-8 sm:pb-28">
-          <h2 className="max-w-[12ch] text-[clamp(3.4rem,10vw,8rem)] leading-[0.9] tracking-[-0.025em]">
+          <motion.h2
+            initial={{ opacity: 0, y: 58 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false, amount: 0.3 }}
+            transition={{ duration: 0.9, ease: [0.23, 1, 0.32, 1] }}
+            className="glide-motion-entry max-w-[12ch] text-[clamp(3.4rem,10vw,8rem)] leading-[0.9] tracking-[-0.025em] text-paper drop-shadow-[0_2px_28px_rgba(0,0,0,0.6)]"
+          >
             Dinner is at <em className="text-sun">{TIMES.dinner}.</em> Enjoy the trip.
-          </h2>
+          </motion.h2>
         </div>
       </section>
-      <footer className="bg-ink py-10 text-paper">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 sm:px-8">
-          <span className="inline-flex items-center gap-2.5">
-            <GlideBot size={44} />
-            <span className="font-display text-2xl font-semibold italic">Glide</span>
-          </span>
+      <footer className="relative z-20 border-t border-white/10 bg-ink py-12 text-paper">
+        <div className="mx-auto flex max-w-7xl flex-col gap-8 px-5 sm:px-8">
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
+            <Link href="/" className="inline-flex items-center gap-2.5 text-paper" aria-label="Glide home">
+              <GlideBot size={44} />
+              <span className="font-display text-2xl font-semibold italic text-paper">Glide</span>
+            </Link>
+            <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-paper/80">
+              <Link href="/terms" className="transition-colors hover:text-paper">
+                Terms and conditions
+              </Link>
+              <Link href="/privacy" className="transition-colors hover:text-paper">
+                Privacy policy
+              </Link>
+            </nav>
+          </div>
+          <p className="text-sm text-paper/60">© 2026 Glide. All rights reserved.</p>
         </div>
       </footer>
     </>

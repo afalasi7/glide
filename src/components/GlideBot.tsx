@@ -13,6 +13,8 @@ interface ArtProps {
   blink?: boolean;
   /** Bigger pupils with a highlight so they read at nav size. */
   small?: boolean;
+  /** Nested inside another SVG (e.g. Day road) — fixed user units, not % sizing. */
+  embedded?: boolean;
 }
 
 function Pupil({ cx, cy, radius, px, py, blink = false, small }: ArtProps & { cx: number; cy: number; radius: number }) {
@@ -37,10 +39,18 @@ function Pupil({ cx, cy, radius, px, py, blink = false, small }: ArtProps & { cx
 }
 
 /** Glide's road-marked mascot, drawn in SVG for every screen size. */
-export function BotArt({ mood = "idle", px, py, blink = false, small = false }: ArtProps) {
+export function BotArt({ mood = "idle", px, py, blink = false, small = false, embedded = false }: ArtProps) {
   const uid = useId().replace(/:/g, "");
   return (
-    <svg viewBox="0 0 120 124" role="img" aria-label="Glide, your trip agent" className="h-full w-full overflow-visible" style={{ colorScheme: "only light" }}>
+    <svg
+      viewBox="0 0 120 124"
+      width={embedded ? 120 : undefined}
+      height={embedded ? 124 : undefined}
+      role="img"
+      aria-label="Glide, your trip agent"
+      className={embedded ? "overflow-visible" : "h-full w-full overflow-visible"}
+      style={{ colorScheme: "only light" }}
+    >
       <defs>
         <clipPath id={`body-${uid}`}>
           <rect x="12" y="24" width="96" height="86" rx="36" />

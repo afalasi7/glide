@@ -1,42 +1,33 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Glide
 
-## Getting Started
+Glide is an interactive travel-agent demo for the Dubai Chamber Create AI Agents Championship. Its sample trip runs from Dubai Marina to Ras Al Khaimah. A 75-minute departure delay triggers a deterministic itinerary repair shown in the story and app.
 
-First, run the development server:
+## Run locally
+
+Requires Bun 1.3.14 and a supported Node.js runtime for Next.js 16.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+bun install
+bun run dev --port 3456
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://127.0.0.1:3456/`. The default `bun run dev` port is 3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Pages
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to load Bodoni Moda, Jost, and Geist Mono.
+- `/` and `/how-it-works`: travel-agent guide and sample trip story
+- `/app`: interactive onboarding and trip demo
+- `/previews`: phone and foldable presentation
+- `/privacy` and `/terms`: demo policies
 
-## Glide UI
+The iOS and Android Capacitor shells load `/app` from the local Next.js server. See [capacitor.config.ts](capacitor.config.ts) for the host setting.
 
-The story landing page is at `/`, the trip flow at `/app`, the how-it-works guide followed by the full traffic and itinerary story at `/how-it-works`, and device previews at `/previews`.
-Glide uses Bodoni Moda and Jost, with the upstream [Solid Glass](https://github.com/deeplethe/solid-glass) stylesheet for its controls and panels.
-See [integration notes](src/styles/SOLID_GLASS.md) and [DESIGN.md](DESIGN.md) for the material tokens, shared components, and update procedure. The upstream MIT license is preserved in `public/licenses/solid-glass-MIT.txt`.
+## Checks
 
-## Learn More
+```bash
+bun run test
+bunx eslint src next.config.ts capacitor.config.ts eslint.config.mjs
+bun run build
+```
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The solver lives in `src/lib/agent/`. Its provider tools use an in-memory mock world. Account screens are a guided demo: they do not create accounts or verify credentials. The Google button is a demo shortcut. No live calendar, booking, hotel, or wallet provider is connected. See [PRODUCT.md](PRODUCT.md) and [DESIGN.md](DESIGN.md) for product and visual context.

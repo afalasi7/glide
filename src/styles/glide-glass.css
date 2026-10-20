@@ -41,13 +41,17 @@
 .glide-glass-screen.dark {
   --violet: #B4A6FF;
   --focus-line: var(--violet);
+  --ink-soft: oklch(0.78 0 0);
 }
 
 .glide-glass-screen .text-ink { color: var(--foreground); }
-.glide-glass-screen .text-ink-soft { color: var(--muted-foreground); }
+.glide-glass-screen .text-ink-soft,
+.glide-glass-screen .text-muted-foreground { color: var(--muted-foreground); }
 .glide-glass-screen .bg-cream { background-color: var(--background); }
 .glide-glass-screen .bg-paper { background-color: var(--card); }
 .glide-glass-screen .border-ink\/10 { border-color: var(--border); }
+.glide-glass-screen [data-variant="ghost"] { color: var(--muted-foreground); }
+.glide-glass-screen [data-variant="ghost"]:hover { color: var(--foreground); }
 .glide-glass-screen input,
 .glide-glass-screen textarea { caret-color: var(--foreground); font-size: 16px; }
 .glide-glass-screen :focus-visible { outline-color: var(--focus-line); }
@@ -67,6 +71,11 @@
 .glide-chat-bubble { overflow-wrap: anywhere; color: var(--foreground); }
 .glide-chat-bubble-user { color: var(--primary-foreground); }
 
+@media (max-width: 639px) {
+  .glide-glass-screen * { scrollbar-width: none; }
+  .glide-glass-screen *::-webkit-scrollbar { width: 0; height: 0; }
+}
+
 @keyframes glide-glass-breathe {
   from { opacity: 0.45; }
   to { opacity: 1; }
@@ -78,4 +87,117 @@
 
 @media (prefers-reduced-motion: reduce) {
   .glide-glass-screen::before { animation: none; opacity: 0.6; }
+  .glide-motion-entry { opacity: 1 !important; transform: none !important; transition: none !important; }
+  .glide-step-card img { transition: none !important; }
+}
+
+/* Marketing dark theme. Keep --paper light so text-paper stays readable on ink bands. */
+html.glide-theme-dark {
+  color-scheme: dark;
+  --cream: #141218;
+  --popover: #1a1622;
+  --card: #1c1824;
+  --background: #141218;
+  --foreground: #fff6ea;
+  --muted-foreground: #c9c0d6;
+  --violet: #b4a6ff;
+  --secondary: oklch(1 0 0 / 10%);
+  --secondary-foreground: #fff6ea;
+}
+html.glide-theme-dark body {
+  background-color: #141218;
+  color: #fff6ea;
+  scrollbar-color: #c9c0d6 #141218;
+}
+html.glide-theme-dark .bg-cream { background-color: #141218; }
+html.glide-theme-dark .bg-paper,
+html.glide-theme-dark .bg-card,
+html.glide-theme-dark .bg-popover,
+html.glide-theme-dark .bg-white { background-color: #1c1824; }
+html.glide-theme-dark .bg-ink { background-color: #0e0c14; }
+html.glide-theme-dark .text-ink { color: #fff6ea; }
+html.glide-theme-dark .text-ink-soft { color: #c9c0d6; }
+html.glide-theme-dark .text-paper { color: #fffbf3; }
+html.glide-theme-dark .border-ink\/10,
+html.glide-theme-dark .border-ink\/15,
+html.glide-theme-dark .border-ink\/20,
+html.glide-theme-dark .border-ink\/25 {
+  border-color: rgb(255 246 234 / 16%);
+}
+
+/* Header pill: dark glass, readable wordmark */
+html.glide-theme-dark .glide-glass-header {
+  background: color-mix(in oklch, #1a1622 92%, transparent);
+  color: #fff6ea;
+  box-shadow: 0 10px 30px -18px rgb(0 0 0 / 55%);
+}
+html.glide-theme-dark .glide-glass-header .font-display { color: #fff6ea; }
+/* Theme switch: violet (day) / ink (night) thumb; icons share the thumb's 24px box. */
+.glide-theme-switch {
+  isolation: isolate;
+}
+.glide-theme-switch::before {
+  content: "";
+  position: absolute;
+  inset: 6px 0;
+  border-radius: 999px;
+  background: rgb(28 18 48 / 12%);
+  box-shadow: inset 0 0 0 1px rgb(28 18 48 / 18%);
+}
+.glide-theme-switch-thumb {
+  background: #5b3df5 !important;
+  z-index: 1;
+  color: #fffbf3 !important;
+  box-shadow: 0 2px 8px rgb(28 18 48 / 22%);
+}
+.glide-theme-switch-thumb svg {
+  display: block;
+  margin: 0 auto;
+}
+html.glide-theme-dark .glide-theme-switch::before {
+  background: rgb(0 0 0 / 35%);
+  box-shadow: inset 0 0 0 1px rgb(255 246 234 / 22%);
+}
+html.glide-theme-dark .glide-theme-switch-thumb {
+  background: #5b3df5 !important;
+  color: #fffbf3 !important;
+  box-shadow: 0 2px 10px rgb(0 0 0 / 45%);
+}
+
+/* CTAs on photography / ink bands */
+.glide-cta-solid {
+  background: #fffbf3;
+  color: #1c1230;
+}
+.glide-cta-solid:hover { background: #fff3df; }
+html.glide-theme-dark .glide-cta-solid {
+  background: #5b3df5;
+  color: #fff6ea;
+}
+html.glide-theme-dark .glide-cta-solid:hover { background: #6e54f7; }
+/* Step badges, tickets, wallet chrome */
+html.glide-theme-dark .glide-step-badge {
+  background: #1c1824;
+  color: #fff6ea;
+  box-shadow: 0 8px 24px -14px rgb(0 0 0 / 60%);
+}
+html.glide-theme-dark .glide-ticket {
+  background: #1c1824;
+  color: #fff6ea;
+}
+/* Keep brand wallet chrome as designed (Apple/Google/Samsung templates). */
+html.glide-theme-dark .glide-wallet-note {
+  background: #141218;
+  color: #fff6ea;
+}
+html.glide-theme-dark .glide-pass-file {
+  background: #141218;
+  color: #fff6ea;
+  border-color: rgb(255 246 234 / 18%);
+}
+
+html.glide-theme-dark ::-webkit-scrollbar-track { background: #141218; }
+html.glide-theme-dark ::-webkit-scrollbar-thumb {
+  background: #c9c0d6;
+  border-color: #141218;
 }

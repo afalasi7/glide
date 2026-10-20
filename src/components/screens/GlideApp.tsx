@@ -8,7 +8,7 @@ import { useGlassColorScheme } from "@/components/ui/glass";
 
 type Step = "welcome" | "signup" | "signin" | "intro" | "connect" | "agent" | "route" | "plan" | "chat";
 const TABS: { id: Extract<Step, "route" | "plan" | "chat">; label: string }[] = [
-  { id: "route", label: "Where to go" },
+  { id: "route", label: "Trip" },
   { id: "plan", label: "Plan" },
   { id: "chat", label: "Glide" },
 ];
@@ -43,7 +43,7 @@ export function GlideApp() {
 
   return (
     <BareContext.Provider value>
-      <div className={`glide-glass-screen ${dark ? "dark" : ""}`}>
+      <div className={`glide-glass-screen min-h-[100dvh] w-full ${dark ? "dark" : ""}`}>
         <div ref={appRef} className="mx-auto flex h-[100dvh] max-w-[480px] flex-col overflow-hidden" data-lenis-prevent>
           <div className="relative min-h-0 flex-1">
             <AnimatePresence initial={false} mode="wait">

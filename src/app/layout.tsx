@@ -40,6 +40,11 @@ export default function RootLayout({
       className={`${bodoni.variable} ${jost.variable} ${geistMono.variable} antialiased`}
     >
       <body className="min-h-screen bg-cream text-ink font-sans">
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var d=localStorage.getItem("glide-theme")==="dark";document.documentElement.classList.toggle("glide-theme-dark",d);document.documentElement.dataset.theme=d?"dark":"light"}catch(e){}`,
+          }}
+        />
         <LenisProvider>{children}</LenisProvider>
         <AgentCompanion />
       </body>

@@ -18,10 +18,10 @@ export function WelcomeScreen({ onNext, onSignIn }: { onNext?: () => void; onSig
       <div className="flex flex-1 flex-col items-center justify-center px-7 text-center">
         <div className="h-36 w-36"><BotArt mood="happy" /></div>
         <h3 className="mt-6 text-[40px] leading-[0.95] tracking-[-0.02em]">
-          Your trip, <em className="text-violet">handled.</em>
+          Your personal <em className="text-violet">travel agent.</em>
         </h3>
         <p className="mt-4 max-w-[26ch] text-[14px] font-light leading-snug text-ink-soft">
-          Glide watches your plans and fixes them when you run late.
+          Plan the whole trip in one place. Glide keeps every detail together as your day unfolds.
         </p>
       </div>
       <div className="px-6 pb-7">
@@ -51,11 +51,17 @@ export function AuthScreen({ mode = "signup", onSubmit, onSwitch }: { mode?: "si
         <h3 className="mt-3 text-[36px] leading-[0.95] tracking-[-0.02em]">
           {up ? <>Make your <em className="text-violet">account.</em></> : <>Welcome <em className="text-violet">back.</em></>}
         </h3>
-        <p className="mt-2 text-[13px] font-light text-ink-soft">{up ? "So Glide can keep your trip safe and in sync." : "Sign in to pick up your trip."}</p>
+        <p className="mt-2 text-[13px] font-light text-ink-soft">{up ? "Bring your route, stays and reservations together with Glide." : "Sign in to pick up your trip."}</p>
+        <p className="mt-3 rounded-xl bg-violet/10 px-3 py-2 text-[12px] leading-snug text-ink-soft">Demo only: no account is created. Use a sample password, not one you use elsewhere.</p>
       </div>
       <div className="mt-5 space-y-2.5 px-6">
-        {/* Google authentication will be connected separately. */}
-        <GlassButton variant="secondary" className={`${btn} gap-3`}>
+        {/* Demo shortcut: Google auth is not wired yet, so this continues with a sample name. */}
+        <GlassButton
+          type="button"
+          variant="secondary"
+          className={`${btn} gap-3`}
+          onClick={() => onSubmit?.(name.trim() || "Traveler")}
+        >
           <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0" aria-hidden="true">
             <path fill="#4285F4" d="M21.6 12.23c0-.71-.06-1.39-.18-2.05H12v3.88h5.38a4.6 4.6 0 0 1-2 3.02v2.51h3.24c1.9-1.75 2.98-4.33 2.98-7.36Z" />
             <path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.62-2.41l-3.24-2.51c-.9.6-2.04.96-3.38.96-2.6 0-4.81-1.76-5.6-4.12H3.06v2.59A10 10 0 0 0 12 22Z" />
@@ -75,7 +81,7 @@ export function AuthScreen({ mode = "signup", onSubmit, onSwitch }: { mode?: "si
       </div>
       <div className="mt-auto shrink-0 px-6 pb-7">
         <GlassButton type="submit" disabled={!ok} className={btn}>{up ? "Create account" : "Sign in"}</GlassButton>
-        <GlassButton variant="ghost" onClick={onSwitch} className="mt-3 w-full flex-wrap gap-x-1 text-center text-[13px]">
+        <GlassButton type="button" variant="ghost" onClick={onSwitch} className="mt-3 w-full flex-wrap gap-x-1 text-center text-[13px] text-muted-foreground">
           {up ? "Already have an account? " : "New to Glide? "}<span className="font-semibold text-violet">{up ? "Sign in" : "Sign up"}</span>
         </GlassButton>
       </div>
@@ -94,7 +100,7 @@ export function IntroScreen({ name, onNext }: { name?: string; onNext?: () => vo
           {name ? `Nice to meet you, ${name}.` : "Nice to meet you."} <em className="text-violet">One quick thing.</em>
         </h3>
         <p className="mt-4 text-[15px] font-light leading-snug text-ink-soft">
-          You have to connect your Google Calendar and your settings so I can see your trip. I&apos;m going to show you how in just a minute.
+          Add your route, dates and reservations once. Glide brings the details together and helps keep the plan in sync.
         </p>
       </div>
       <div className="px-6 pb-7">
@@ -105,16 +111,16 @@ export function IntroScreen({ name, onNext }: { name?: string; onNext?: () => vo
   );
 }
 
-/** Calendar access: connecting Google Calendar imports the trip date. */
+/** Trip details: this sample itinerary illustrates the information Glide keeps together. */
 export function ConnectScreen({ connected = true, onToggle, onNext }: { connected?: boolean; onToggle?: () => void; onNext?: () => void }) {
   const interactive = Boolean(onToggle);
   return (
     <div className="flex h-full flex-col">
       <Status time="9:42" />
       <div className="px-6 pt-3">
-        <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-ink-soft">Step 2 of 3 · Calendar access</p>
+        <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-ink-soft">Step 2 of 3 · Trip details</p>
         <h3 className="mt-1 text-[34px] leading-[0.95] tracking-[-0.02em]">
-          Let Glide <em className="text-violet">see your trip.</em>
+          Bring it all <em className="text-violet">together.</em>
         </h3>
       </div>
       <GlassPanel className="mx-6 mt-5 flex items-center gap-3 p-4">
@@ -124,8 +130,8 @@ export function ConnectScreen({ connected = true, onToggle, onNext }: { connecte
           </svg>
         </span>
         <div className="min-w-0 flex-1 leading-tight">
-          <p className="text-[15px] font-semibold">Google Calendar</p>
-          <p className="text-[12px] text-ink-soft">Only your trip date</p>
+          <p className="text-[15px] font-semibold">Your travel details</p>
+          <p className="text-[12px] text-ink-soft">Route, date and bookings</p>
         </div>
         <GlassButton
           variant={connected ? "secondary" : "primary"}
@@ -134,15 +140,15 @@ export function ConnectScreen({ connected = true, onToggle, onNext }: { connecte
           aria-pressed={connected}
           className="px-4 py-2 text-[12px]"
         >
-          {connected ? "Allowed" : "Allow"}
+          {connected ? "Added" : "Add"}
         </GlassButton>
       </GlassPanel>
       <GlassPanel thickness="panel" className={`mx-6 mt-4 p-5 transition-opacity ${connected ? "opacity-100" : "opacity-30"}`}>
-        <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">Imported from Google Calendar</p>
+        <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">Sample trip</p>
         <p className="num mt-1 text-[36px] leading-none text-violet">{connected ? TRIP_DATE : "- - -"}</p>
         <p className="mt-1 text-[12px] text-muted-foreground">Dubai Marina to Ras Al Khaimah</p>
       </GlassPanel>
-      <p className="mx-7 mt-4 text-[12px] font-light leading-snug text-ink-soft">Dinner and hotel settings are already set up for you.</p>
+      <p className="mx-7 mt-4 text-[12px] font-light leading-snug text-ink-soft">Your hotel, mountain stop and dinner sit in one connected itinerary.</p>
       <div className="mt-auto px-6 pb-7">
         <GlassButton onClick={onNext} disabled={!connected && interactive} className={btn}>Continue</GlassButton>
       </div>
@@ -168,9 +174,9 @@ export function AgentScreen({ onStart }: { onStart?: () => void }) {
         </div>
       </GlassPanel>
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto overscroll-contain px-4 py-4 text-[12.5px] leading-snug" data-lenis-prevent>
-        <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">Hi, I&apos;m Glide. I found your trip in Google Calendar: <b>{TRIP_DATE}</b>, Dubai Marina to Ras Al Khaimah.</p>
-        <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">Three stops: Jebel Jais at sunset, the InterContinental, and dinner at Levant &amp; Nar.</p>
-        <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">If you run late I&apos;ll move things and message you here. Ready?</p>
+        <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">I&apos;ve brought your <b>{TRIP_DATE}</b> drive from Dubai Marina to Ras Al Khaimah into one plan.</p>
+        <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">Jebel Jais, the InterContinental and dinner at Levant &amp; Nar are all connected.</p>
+        <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">Follow the sample route to see how the plan changes. Live replies are not connected in this demo.</p>
         {messages.map((message, index) => (
           <p key={index} ref={index === messages.length - 1 ? latestMessage : undefined} className="glide-chat-bubble-user glass-primary max-w-[88%] self-end break-words rounded-xl px-3 py-2">{message}</p>
         ))}
@@ -195,7 +201,7 @@ export function RouteScreen({ onLate }: { onLate?: () => void }) {
       <div className="px-5 pt-2">
         <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-ink-soft">{TRIP_DATE} · on schedule</p>
         <h3 className="mt-1 text-[32px] leading-[0.95] tracking-[-0.02em]">
-          Where <em className="text-violet">to go.</em>
+          Your <em className="text-violet">itinerary.</em>
         </h3>
       </div>
       <div className="relative mx-5 mt-3 h-[96px] overflow-hidden rounded-[28px]">
@@ -211,12 +217,12 @@ export function RouteScreen({ onLate }: { onLate?: () => void }) {
               <p className="font-display text-[15px] italic">{s.name}</p>
               <p className="text-[10.5px] text-ink-soft">{s.note}</p>
             </div>
-            <p className="num text-lg">{s.c.was}</p>
+            <p className="num text-lg">{s.c.was || clock(s.c.time)}</p>
           </li>
         ))}
       </ol>
       <div className="mt-auto px-5 pb-5">
-        <GlassButton variant="alert" onClick={onLate} className={btn}>I&apos;m running 75 min late</GlassButton>
+        <GlassButton variant="alert" onClick={onLate} className={btn}>See how a change reshapes the trip</GlassButton>
       </div>
     </div>
   );

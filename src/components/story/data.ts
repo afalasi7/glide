@@ -1,5 +1,8 @@
 import { buildRakRoadTrip, fmt, runShockAbsorber } from "@/lib/agent";
 
+/** Strip the Day N prefix so clocks can sit large in the UI. */
+export const clock = (t: string) => t.replace(/^Day \d • /, "");
+
 /** The +75 story is computed by the real solver, so every time on the page is the engine's own output. */
 const base = buildRakRoadTrip();
 const r = runShockAbsorber(base, 75);
@@ -30,7 +33,7 @@ export const CHAPTERS = [
     key: "jais",
     photo: "/images/hd/jebel_jais_sunset.jpg",
     place: "Jebel Jais Viewing Deck",
-    time: fmt(h.jais.startAt).replace("Day 2 • ", ""),
+    time: clock(fmt(h.jais.startAt)),
     was: fmt(b.jais.arriveAt - 75),
     problem: `You would arrive at ${fmt(b.jais.arriveAt)}, ${r.broken.violations[0].overByMin} minutes after the sun is gone.`,
     fix: "Moved to tomorrow morning, when the road and the light are both better.",
@@ -56,12 +59,12 @@ export const CHAPTERS = [
 ] as const;
 
 export const TICKETS = [
-  { tool: "resequence_node", title: "Fits the stops to your trip", result: "Day 2 · 08:30", photo: "/images/jebel_jais_sunset.jpg", ms: tool("resequence_node").latencyMs ?? 0 },
-  { tool: "modify_dining_reservation", title: "Moves your reservation", result: "21:15 · no fee", photo: "/images/levant_nar_dining.jpg", ms: tool("modify_dining_reservation").latencyMs ?? 0 },
-  { tool: "flag_hotel_late_arrival", title: "Updates your hotel", result: "Key ready", photo: "/images/ic_rak_resort.jpg", ms: tool("flag_hotel_late_arrival").latencyMs ?? 0 },
+  { tool: "resequence_node", title: "Fits the stops to your trip", result: "Day 2 · 08:30", photo: "/images/hd/jebel_jais_sunset.jpg", ms: tool("resequence_node").latencyMs ?? 0 },
+  { tool: "modify_dining_reservation", title: "Moves your reservation", result: "21:15 · no fee", photo: "/images/hd/levant_nar_dining.jpg", ms: tool("modify_dining_reservation").latencyMs ?? 0 },
+  { tool: "flag_hotel_late_arrival", title: "Updates your hotel", result: "Key ready", photo: "/images/hd/ic_rak_resort.jpg", ms: tool("flag_hotel_late_arrival").latencyMs ?? 0 },
 ] as const;
 
 export const TIMES = {
-  dinner: fmt(h.dinner.startAt),
-  hotel: fmt(h.hotel.arriveAt),
+  dinner: clock(fmt(h.dinner.startAt)),
+  hotel: clock(fmt(h.hotel.arriveAt)),
 };
