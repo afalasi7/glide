@@ -12,7 +12,21 @@ export function AgentCompanion() {
   const [hop, setHop] = useState(0);
   const [scrolling, setScrolling] = useState(false);
   const [happy, setHappy] = useState(false);
+  const [roadOnScreen, setRoadOnScreen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => {
+    if (pathname !== "/" && pathname !== "/how-it-works") return;
+    const day = document.getElementById("day");
+    if (!day) return;
+    // The day section is several viewports tall, so a filled screen is only ~30% of it.
+    const io = new IntersectionObserver(
+      ([entry]) => setRoadOnScreen(entry.isIntersecting && entry.intersectionRatio >= 0.12),
+      { threshold: [0, 0.12, 0.2] },
+    );
+    io.observe(day);
+    return () => io.disconnect();
+  }, [pathname]);
 
   useEffect(() => {
     if (pathname !== "/" && pathname !== "/how-it-works") return;
@@ -62,6 +76,8 @@ export function AgentCompanion() {
   }, [pathname]);
 
   if (pathname !== "/" && pathname !== "/how-it-works") return null;
+  // The road already draws a mascot. A second one in the corner covers the headline on narrow windows.
+  if (roadOnScreen) return null;
 
   const mood: BotMood = happy ? "happy" : scrolling ? "working" : "idle";
 
@@ -69,8 +85,8 @@ export function AgentCompanion() {
 
   return (
     <div
-      className={`pointer-events-none fixed right-3 z-40 hidden items-end gap-2 transition-[bottom,opacity] duration-300 sm:right-5 sm:flex ${
-        onFinale ? "bottom-[5.5rem] opacity-90 sm:bottom-28" : "bottom-3 sm:bottom-5"
+      className={`pointer-events-none fixed right-3 z-40 hidden items-end gap-2 transition-[bottom,opacity] duration-300 xl:right-5 xl:flex ${
+        onFinale ? "bottom-[5.5rem] opacity-90 xl:bottom-28" : "bottom-3 xl:bottom-5"
       }`}
     >
       <AnimatePresence mode="wait">

@@ -6,6 +6,9 @@ import Link from "next/link";
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 
 const GREETING = "Hi, I'm Glide, your personal travel agent. I keep your trip together and help when plans change.";
+/** 32px-wide frame of the hero photo, so the first paint is the mountain instead of the ink field. */
+const HERO_PLACEHOLDER =
+  "data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAFxQWgAAD//gAQTGF2YzYwLjMxLjEwMgD/2wBDAAgYGBwYHCEhISEhISckJygoKCcnJycoKCgrKyszMzMrKysoKCsrMDAzMzc5NzQ0MzQ5OTw8PEhIRUVUVFdnZ3z/xABcAAEBAQEAAAAAAAAAAAAAAAAFAwYCAQEBAAAAAAAAAAAAAAAAAAADBRAAAgEEAwEBAAAAAAAAAAAAAAEDMSERAlEUEgSREQEBAQEAAAAAAAAAAAAAAAAAARFh/8AAEQgADgAgAwEiAAIRAAMRAP/aAAwDAQACEQMRAD8AxTnlar+WLr6pVbOQ7Tg5a8uxM4p9L9uXlF+9sqmaerxUL2TQ2QO1/9k=";
 
 /** Full-bleed opening for the trip guide: photo, brand line, and one clear next step. */
 export function GuideHero() {
@@ -27,7 +30,10 @@ export function GuideHero() {
       data-say={GREETING}
       className="relative flex min-h-svh items-end overflow-hidden bg-ink text-paper"
     >
-      <motion.div style={{ y, scale }} className="absolute inset-0">
+      <motion.div
+        style={{ y, scale, backgroundImage: `url("${HERO_PLACEHOLDER}")` }}
+        className="absolute inset-0 bg-[#6a4a38] bg-cover bg-center"
+      >
         <Image
           src="/images/hd/jebel_jais_sunset.jpg"
           alt="A mountain road at sunset"

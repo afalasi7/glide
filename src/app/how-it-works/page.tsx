@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { preload } from "react-dom";
 import Link from "next/link";
 import { Header } from "@/components/Header";
 import { GuideHero } from "@/components/story/GuideHero";
@@ -14,6 +15,7 @@ export const metadata: Metadata = {
 };
 
 export function GlideLandingPage() {
+  preload("/images/hd/jebel_jais_sunset.jpg", { as: "image", fetchPriority: "high" });
   return (
     <>
       <Header />

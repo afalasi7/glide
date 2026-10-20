@@ -1,14 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { GlideBot } from "@/components/GlideBot";
 import { WalletPass, BRAND_LABEL, type WalletBrand } from "./WalletPass";
 import { TIMES } from "./data";
-import { GlassPanel, GlassTag } from "@/components/ui/glass";
+import { GlassButton, GlassPanel } from "@/components/ui/glass";
 
 const BRANDS: WalletBrand[] = ["apple", "google", "samsung"];
 /** Glide copies the updated reservation's wallet file and sends it to you in the chat. */
 export function Wallet() {
+  const [added, setAdded] = useState<WalletBrand | null>(null);
   return (
     <section data-say="I copy your new dinner pass and send it to you here." className="relative z-10 overflow-hidden bg-cream py-28 sm:py-40">
       <div className="mx-auto max-w-7xl px-5 sm:px-8">
@@ -52,10 +54,23 @@ export function Wallet() {
                   <ul className="flex flex-wrap gap-2" aria-label="Wallet destinations in the demo">
                     {BRANDS.map((b) => (
                       <li key={b}>
-                        <GlassTag className="px-4 py-2 tracking-wide">{BRAND_LABEL[b]}</GlassTag>
+                        <GlassButton
+                          type="button"
+                          variant={added === b ? "primary" : "secondary"}
+                          aria-pressed={added === b}
+                          onClick={() => setAdded(b)}
+                          className="min-h-11 px-4 py-2 text-sm tracking-wide"
+                        >
+                          {added === b ? `Added to ${BRAND_LABEL[b]}` : BRAND_LABEL[b]}
+                        </GlassButton>
                       </li>
                     ))}
                   </ul>
+                  {added && (
+                    <p className="text-sm leading-snug text-ink-soft" role="status">
+                      Demo only. Nothing was sent to {BRAND_LABEL[added]}.
+                    </p>
+                  )}
                 </div>
               </div>
             </GlassPanel>
