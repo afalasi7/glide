@@ -48,3 +48,6 @@ server.pid
 .freebuff
 skills-reference
 .gstack/
+
+# graphify generated map (build locally with: graphify .)
+graphify-out/
