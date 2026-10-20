@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useSyncExternalStore } from "react";
+import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { GlideBot } from "@/components/GlideBot";
 import { GlassPanel } from "@/components/ui/glass";
@@ -25,6 +25,25 @@ function subscribeTheme(notify: () => void) {
 /** Floating pill nav that stays legible over photography and cream alike. */
 export const Header: React.FC = () => {
   const dark = useSyncExternalStore(subscribeTheme, readDark, () => false);
+  const [hidden, setHidden] = useState(false);
+  const lastY = useRef(0);
+
+  useEffect(() => {
+    lastY.current = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      const delta = y - lastY.current;
+      lastY.current = y;
+      if (y < 48) {
+        setHidden(false);
+        return;
+      }
+      if (delta > 6) setHidden(true);
+      else if (delta < -6) setHidden(false);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const toggle = () => {
     const next = !readDark();
@@ -37,7 +56,11 @@ export const Header: React.FC = () => {
   };
 
   return (
-    <header className="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-4">
+    <header
+      className={`pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-4 transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none ${
+        hidden ? "pointer-events-none -translate-y-[120%] opacity-0" : "translate-y-0 opacity-100"
+      }`}
+    >
       <GlassPanel thickness="popover" className="glide-glass-header pointer-events-auto px-3 py-2 text-ink sm:px-4">
         <div className="flex items-center gap-3">
           <Link href="/" aria-label="Glide home" className="flex items-center gap-2 text-ink">

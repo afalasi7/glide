@@ -1,14 +1,28 @@
-import { buildRakRoadTrip, fmt, runShockAbsorber } from "@/lib/agent";
+import { buildRakRoadTrip, fmt, runShockAbsorber, type ToolResult, type Violation } from "@/lib/agent";
 
 /** Strip the Day N prefix so clocks can sit large in the UI. */
 export const clock = (t: string) => t.replace(/^Day \d • /, "");
+
+/** Look up a solver tool result without throwing when the tool never ran. */
+export function findToolResult(results: readonly ToolResult[], name: string): ToolResult | undefined {
+  return results.find((t) => t.tool === name);
+}
+
+/** Prefer the sunset constraint by id, then by arrive_before kind — never by index. */
+export function findSunsetViolation(violations: readonly Violation[]): Violation | undefined {
+  return (
+    violations.find((v) => v.constraintId === "jais-sunset") ??
+    violations.find((v) => v.kind === "arrive_before")
+  );
+}
 
 /** The +75 story is computed by the real solver, so every time on the page is the engine's own output. */
 const base = buildRakRoadTrip();
 const r = runShockAbsorber(base, 75);
 const b = r.broken.timings;
 const h = r.healed.timings;
-const tool = (name: string) => r.toolResults.find((t) => t.tool === name)!;
+const sunset = findSunsetViolation(r.broken.violations);
+const toolMs = (name: string) => findToolResult(r.toolResults, name)?.latencyMs ?? 0;
 
 export const CHAPTERS = [
   {
@@ -35,7 +49,9 @@ export const CHAPTERS = [
     place: "Jebel Jais Viewing Deck",
     time: clock(fmt(h.jais.startAt)),
     was: fmt(b.jais.arriveAt - 75),
-    problem: `You would arrive at ${fmt(b.jais.arriveAt)}, ${r.broken.violations[0].overByMin} minutes after the sun is gone.`,
+    problem: sunset
+      ? `You would arrive at ${fmt(b.jais.arriveAt)}, ${sunset.overByMin} minutes after the sun is gone.`
+      : `You would arrive at ${fmt(b.jais.arriveAt)}, after the sun is gone.`,
     fix: "Moved to tomorrow morning, when the road and the light are both better.",
   },
   {
@@ -59,12 +75,14 @@ export const CHAPTERS = [
 ] as const;
 
 export const TICKETS = [
-  { tool: "resequence_node", title: "Fits the stops to your trip", result: "Day 2 · 08:30", photo: "/images/hd/jebel_jais_sunset.jpg", ms: tool("resequence_node").latencyMs ?? 0 },
-  { tool: "modify_dining_reservation", title: "Moves your reservation", result: "21:15 · no fee", photo: "/images/hd/levant_nar_dining.jpg", ms: tool("modify_dining_reservation").latencyMs ?? 0 },
-  { tool: "flag_hotel_late_arrival", title: "Updates your hotel", result: "Key ready", photo: "/images/hd/ic_rak_resort.jpg", ms: tool("flag_hotel_late_arrival").latencyMs ?? 0 },
+  { tool: "resequence_node", title: "Fits the stops to your trip", result: "Day 2 · 08:30", photo: "/images/hd/jebel_jais_sunset.jpg", ms: toolMs("resequence_node") },
+  { tool: "modify_dining_reservation", title: "Moves your reservation", result: "21:15 · no fee", photo: "/images/hd/levant_nar_dining.jpg", ms: toolMs("modify_dining_reservation") },
+  { tool: "flag_hotel_late_arrival", title: "Updates your hotel", result: "Key ready", photo: "/images/hd/ic_rak_resort.jpg", ms: toolMs("flag_hotel_late_arrival") },
 ] as const;
 
 export const TIMES = {
   dinner: clock(fmt(h.dinner.startAt)),
   hotel: clock(fmt(h.hotel.arriveAt)),
+  /** Booked hotel arrival from the scenario graph — single source for original check-in copy. */
+  hotelBooked: clock(fmt(base.nodes.hotel.bookedArriveAt ?? 0)),
 };

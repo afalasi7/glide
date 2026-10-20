@@ -4,6 +4,8 @@
  * a MockWorld so repeated calls are idempotent and inspectable by tests.
  */
 
+import { scenarioHotelBookedArrive } from "./scenario";
+
 export type ToolName =
   | "resequence_node"
   | "modify_dining_reservation"
@@ -29,9 +31,10 @@ export interface MockWorld {
 }
 
 export function createMockWorld(): MockWorld {
+  const hotelEta = scenarioHotelBookedArrive();
   return {
     reservations: { "SR-994182": { time: "20:00", table: "Terrace #14", party: 2, feeCents: 0, revision: 0 } },
-    hotelBookings: { "IC-RAK-4089": { etaTime: "18:45", mobileKeyDispatched: false, status: "expected" } },
+    hotelBookings: { "IC-RAK-4089": { etaTime: hotelEta, mobileKeyDispatched: false, status: "expected" } },
     walletPasses: {
       "apple:SR-994182": { revision: 0, lastReason: "" },
       "apple:IC-RAK-4089": { revision: 0, lastReason: "" },
