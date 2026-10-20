@@ -45,11 +45,10 @@ export function Day() {
   const c = CHAPTERS[i];
 
   const pathRef = useRef<SVGPathElement>(null);
+  const botRef = useRef<SVGGElement>(null);
   const [stops, setStops] = useState(ROAD_STOPS.map((y) => ({ x: 40, y })));
   const tipX = useMotionValue(40);
   const tipY = useMotionValue(24);
-  const botX = useMotionValue(40 - BOT_CX);
-  const botY = useMotionValue(24 - BOT_CHIN_Y);
 
   const placeOnRoad = useCallback((v: number) => {
     const path = pathRef.current;
@@ -59,9 +58,12 @@ export function Day() {
     const pt = path.getPointAtLength(Math.max(0, Math.min(1, v)) * length);
     tipX.set(pt.x);
     tipY.set(pt.y);
-    botX.set(pt.x - BOT_CX);
-    botY.set(pt.y - BOT_CHIN_Y);
-  }, [tipX, tipY, botX, botY]);
+    // User units, not CSS pixels, so the body stays on the stroke when the viewBox is scaled.
+    botRef.current?.setAttribute(
+      "transform",
+      `translate(${pt.x - BOT_CX} ${pt.y - BOT_CHIN_Y}) scale(${BOT_SCALE})`,
+    );
+  }, [tipX, tipY]);
 
   useLayoutEffect(() => {
     const path = pathRef.current;
@@ -75,7 +77,7 @@ export function Day() {
       })
     );
     placeOnRoad(tip.get());
-  }, [tip, placeOnRoad]);
+  }, [i, tip, placeOnRoad]);
 
   useMotionValueEvent(tip, "change", placeOnRoad);
   useMotionValueEvent(scrollYProgress, "change", (v) => {
@@ -92,7 +94,7 @@ export function Day() {
 
   return (
     <section id="day" ref={ref} className="relative z-0 h-[340vh] scroll-mt-28 isolate overflow-x-clip bg-cream">
-      <div className="sticky top-0 z-0 flex h-screen items-center overflow-hidden bg-cream px-4 pt-20 pb-6 sm:px-8 sm:pb-8 lg:pt-24">
+      <div className="sticky top-0 z-0 flex h-screen items-start overflow-hidden bg-cream px-4 pt-24 pb-3 sm:items-center sm:px-8 sm:pt-20 sm:pb-8 lg:pt-24">
         <div className="relative mx-auto grid w-full max-w-7xl grid-cols-1 items-center gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-16 xl:gap-20">
           <div className="mx-auto flex w-full max-w-3xl items-start gap-3 sm:gap-8 lg:ml-auto lg:mr-0 lg:max-w-none lg:gap-10">
             {/* Road + mascot on every breakpoint — slim on mobile, tall on desktop.
@@ -127,11 +129,9 @@ export function Day() {
                 />
               ))}
               <motion.circle cx={tipX} cy={tipY} r="7" fill="var(--violet)" />
-              <motion.g style={{ x: botX, y: botY }}>
-                <g transform={`scale(${BOT_SCALE})`}>
-                  <BotArt mood={i >= 3 ? "happy" : "working"} small embedded />
-                </g>
-              </motion.g>
+              <g ref={botRef}>
+                <BotArt mood={i >= 3 ? "happy" : "working"} small embedded />
+              </g>
             </svg>
             </div>
 
@@ -168,7 +168,7 @@ export function Day() {
             </div>
           </div>
 
-          <div className="relative mx-auto h-[min(20vh,160px)] w-full max-w-[360px] self-center overflow-hidden rounded-t-[999px] rounded-b-[40px] shadow-lift sm:h-[min(26vh,240px)] sm:max-w-[460px] lg:mx-0 lg:h-[min(84vh,800px)] lg:max-w-[580px] lg:justify-self-end">
+          <div className="relative mx-auto h-[min(16svh,140px)] w-full max-w-[360px] self-center overflow-hidden rounded-t-[999px] rounded-b-[40px] shadow-lift sm:h-[min(26vh,240px)] sm:max-w-[460px] lg:mx-0 lg:h-[min(84vh,800px)] lg:max-w-[580px] lg:justify-self-end">
             <AnimatePresence initial={false} mode="sync">
               <motion.div
                 key={c.key}

@@ -12,24 +12,24 @@ export function AgentCompanion() {
   const [hop, setHop] = useState(0);
   const [scrolling, setScrolling] = useState(false);
   const [happy, setHappy] = useState(false);
-  const [clearOfCodes, setClearOfCodes] = useState(false);
+  const [roadOnScreen, setRoadOnScreen] = useState(false);
+  const [passOnScreen, setPassOnScreen] = useState(false);
 
   useEffect(() => {
     if (pathname !== "/" && pathname !== "/how-it-works") return;
     let frame = 0;
     const measure = () => {
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      // The corner the bubble occupies when it is pinned bottom-right.
-      const zoneLeft = Math.max(0, vw - 380);
-      const zoneTop = vh - 176;
-      let hit = false;
+      const road = document.querySelector(".glide-day-road");
+      const roadBox = road?.getBoundingClientRect();
+      const roadVisible = !!roadBox && roadBox.width > 2 && roadBox.bottom > 72 && roadBox.top < window.innerHeight - 24;
+      let pass = false;
       document.querySelectorAll("svg[aria-label^='Code']").forEach((node) => {
         const r = node.getBoundingClientRect();
         if (r.width < 2 || r.height < 2) return;
-        if (r.left < vw - 8 && r.right > zoneLeft && r.top < vh - 8 && r.bottom > zoneTop) hit = true;
+        if (r.bottom > 0 && r.top < window.innerHeight && r.right > 0 && r.left < window.innerWidth) pass = true;
       });
-      setClearOfCodes((prev) => (prev === hit ? prev : hit));
+      setRoadOnScreen((prev) => (prev === roadVisible ? prev : roadVisible));
+      setPassOnScreen((prev) => (prev === pass ? prev : pass));
     };
     const schedule = () => {
       cancelAnimationFrame(frame);
@@ -94,18 +94,17 @@ export function AgentCompanion() {
   }, [pathname]);
 
   if (pathname !== "/" && pathname !== "/how-it-works") return null;
+  // One mascot at a time: the road already draws one, and a pass code needs a clear corner.
+  // Below 640px the float stays off so it cannot cover the headline or the day copy.
+  if (roadOnScreen || passOnScreen) return null;
 
   const mood: BotMood = happy ? "happy" : scrolling ? "working" : "idle";
 
   const onFinale = text.startsWith("Your plans are in place");
-  const place = clearOfCodes
-    ? "top-[5.25rem]"
-    : onFinale
-      ? "bottom-[5.5rem] opacity-90 sm:bottom-28"
-      : "bottom-3 sm:bottom-5";
+  const place = onFinale ? "bottom-[5.5rem] opacity-90 sm:bottom-28" : "bottom-3 sm:bottom-5";
 
   return (
-    <div className={`pointer-events-none fixed right-4 z-40 flex w-max max-w-[calc(100vw-3rem)] items-end gap-2 sm:right-8 ${place}`}>
+    <div className={`pointer-events-none fixed right-4 z-40 hidden w-max max-w-[calc(100vw-3rem)] items-end gap-2 sm:right-8 sm:flex ${place}`}>
       <AnimatePresence mode="wait">
         {text && (
           <motion.p
