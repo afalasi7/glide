@@ -52,7 +52,7 @@ export function Wallet() {
                   <ul className="flex flex-wrap gap-2" aria-label="Wallet destinations in the demo">
                     {BRANDS.map((b) => (
                       <li key={b}>
-                        <GlassTag className="px-4 py-2 tracking-wide">{BRAND_LABEL[b]}</GlassTag>
+                        <GlassTag className="bg-[#FFFBF3] px-4 py-2 font-semibold tracking-wide text-[#1C1230]" style={{ backgroundColor: "#FFFBF3", color: "#1C1230" }}>{BRAND_LABEL[b]}</GlassTag>
                       </li>
                     ))}
                   </ul>

@@ -117,6 +117,11 @@ button:disabled { cursor: not-allowed; }
 }
 .drift { animation: drift 16s ease-in-out infinite; }
 
+/* Clear the fixed Glide pill (top-4 + ~4rem). Lenis already honors scroll-margin. */
+h1, h2, h3 {
+  scroll-margin-top: 7rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

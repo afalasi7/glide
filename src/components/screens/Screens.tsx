@@ -47,6 +47,31 @@ export function Fold({ left, right, className = "" }: { left: React.ReactNode; r
 /** In the real app the OS draws its own status bar, so screens drop the fake one. */
 export const BareContext = createContext(false);
 
+/** Solid paper chip so a label on photography stays readable. Glass tags were washing out to an empty pill. */
+export function PhotoLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="absolute bottom-2 left-2 z-10 max-w-[calc(100%-1rem)] truncate rounded-full bg-[#FFFBF3] px-3 py-1.5 text-xs font-semibold leading-none text-[#1C1230] shadow-[0_8px_18px_-12px_rgba(28,18,48,0.75)]">
+      {children}
+    </span>
+  );
+}
+
+const WALLET_CHIPS = ["Apple Wallet", "Google Wallet", "Samsung Wallet"] as const;
+
+function replyFor(message: string) {
+  const q = message.toLowerCase();
+  if (q.includes("dinner") || q.includes("table") || q.includes("nar") || q.includes("levant")) {
+    return `Dinner stays at Levant & Nar at ${clock(dinner.time)}, with no fee. The updated pass is just above.`;
+  }
+  if (q.includes("jebel") || q.includes("mountain") || q.includes("sunset")) {
+    return `Jebel Jais moved to tomorrow at ${clock(jais.time)}, so the mountain is still part of the trip.`;
+  }
+  if (q.includes("hotel") || q.includes("key") || q.includes("check")) {
+    return `The InterContinental knows you're arriving at ${clock(hotel.time)}. Your room key is on your phone.`;
+  }
+  return "I'm keeping the Dubai to Ras Al Khaimah plan together. This demo can't change live bookings, and the updated pass is above.";
+}
+
 export function Status({ time = "16:15" }: { time?: string }) {
   const bare = useContext(BareContext);
   if (bare) return <div className="pt-[max(env(safe-area-inset-top),12px)]" />;
@@ -85,8 +110,8 @@ export function PlanScreen() {
         </h3>
       </div>
       <div className="relative mx-5 mt-3 h-[118px] overflow-hidden rounded-t-[70px] rounded-b-[14px]">
-        <Image src={jais.photo} alt="" fill sizes="260px" className="object-cover" />
-        <GlassTag className="glide-glass-photo-label absolute bottom-2 left-2 bg-card text-[10px]">Jebel Jais · Day 2 {clock(jais.time)}</GlassTag>
+        <Image src={jais.photo} alt="Jebel Jais mountain road" fill sizes="(min-width: 768px) 720px, 100vw" className="object-cover" />
+        <PhotoLabel>Jebel Jais · tomorrow {clock(jais.time)}</PhotoLabel>
       </div>
       <ul className="glass-panel mx-4 mt-3 rounded-xl px-3">
         <Row time={clock(depart.time)} was={depart.was} label="Leave Dubai Marina" note="Route re-timed" />
@@ -103,7 +128,7 @@ export function PlanScreen() {
 }
 
 export function ChatScreen() {
-  const [messages, setMessages] = React.useState<string[]>([]);
+  const [messages, setMessages] = React.useState<{ from: "user" | "glide"; text: string }[]>([]);
   const latestMessage = React.useRef<HTMLParagraphElement>(null);
   React.useEffect(() => {
     if (messages.length) latestMessage.current?.scrollIntoView({ block: "nearest" });
@@ -121,7 +146,6 @@ export function ChatScreen() {
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto overscroll-contain px-4 py-4 text-[12px] leading-snug" data-lenis-prevent>
         <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">The day shifted, so I reshaped the rest of your trip. Jebel Jais is now tomorrow at {clock(jais.time)}.</p>
         <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">I kept your table. Levant &amp; Nar is now {clock(dinner.time)}, no fee.</p>
-        <p className="max-w-[88%] text-[11px] text-ink-soft">Guided demo: messages appear here, but live replies are not connected.</p>
         <GlassPanel className="max-w-[92%] p-2">
           <div className="relative h-20 overflow-hidden rounded-xl">
             <Image src={dinner.photo} alt="" fill sizes="240px" className="object-cover" />
@@ -131,16 +155,27 @@ export function ChatScreen() {
           <p className="mt-2 px-1 text-[12px] font-semibold">Dinner at Levant &amp; Nar</p>
           <p className="px-1 text-[10px] text-ink-soft">Updated for {clock(dinner.time)} · no fee</p>
         </GlassPanel>
-        <div className="flex flex-wrap gap-1.5">
-          {["Apple Wallet", "Google Wallet", "Samsung Wallet"].map((w) => (
-            <GlassTag key={w} className="text-[10px]">{w}</GlassTag>
+        <ul className="flex flex-wrap gap-1.5" aria-label="Wallet passes in the demo">
+          {WALLET_CHIPS.map((w) => (
+            <li key={w}>
+              <span className="inline-flex min-h-8 items-center rounded-full bg-[#FFFBF3] px-3 py-1 text-xs font-semibold text-[#1C1230] ring-1 ring-[#1C1230]/20">{w}</span>
+            </li>
           ))}
-        </div>
+        </ul>
         {messages.map((message, index) => (
-          <p key={index} ref={index === messages.length - 1 ? latestMessage : undefined} className="glide-chat-bubble-user glass-primary max-w-[88%] self-end break-words rounded-xl px-3 py-2">{message}</p>
+          <p
+            key={index}
+            ref={index === messages.length - 1 ? latestMessage : undefined}
+            aria-live={message.from === "glide" && index === messages.length - 1 ? "polite" : undefined}
+            className={message.from === "user"
+              ? "glide-chat-bubble-user glass-primary max-w-[88%] self-end break-words rounded-xl px-3 py-2"
+              : "glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2"}
+          >
+            {message.text}
+          </p>
         ))}
       </div>
-      <MessageComposer onSend={(message) => setMessages((previous) => [...previous, message])} />
+      <MessageComposer onSend={(message) => setMessages((previous) => [...previous, { from: "user", text: message }, { from: "glide", text: replyFor(message) }])} />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { permanentRedirect } from "next/navigation";
 import Link from "next/link";
 import { Header } from "@/components/Header";
 import { GuideHero } from "@/components/story/GuideHero";
@@ -49,5 +50,5 @@ export function GlideLandingPage() {
 }
 
 export default function HowItWorksPage() {
-  return <GlideLandingPage />;
+  permanentRedirect("/");
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { BareContext, PlanScreen, ChatScreen } from "./Screens";
 import { WelcomeScreen, AuthScreen, IntroScreen, ConnectScreen, AgentScreen, RouteScreen } from "./Onboarding";
 import { useGlassColorScheme } from "@/components/ui/glass";
@@ -16,7 +15,6 @@ const TABS: { id: Extract<Step, "route" | "plan" | "chat">; label: string }[] = 
 /** The real flow: onboarding, then the trip. Runs full-screen in the simulators. */
 export function GlideApp() {
   const dark = useGlassColorScheme();
-  const reducedMotion = useReducedMotion();
   const appRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const viewport = window.visualViewport;
@@ -34,6 +32,7 @@ export function GlideApp() {
   const [step, setStep] = useState<Step>("welcome");
   const [connected, setConnected] = useState(false);
   const [name, setName] = useState("");
+  const [reshaped, setReshaped] = useState(false);
   const done = (n: string) => {
     setName(n);
     try { localStorage.setItem("glide-user", JSON.stringify({ name: n })); } catch {}
@@ -44,30 +43,29 @@ export function GlideApp() {
   return (
     <BareContext.Provider value>
       <div className={`glide-glass-screen min-h-[100dvh] w-full ${dark ? "dark" : ""}`}>
-        <div ref={appRef} className="mx-auto flex h-[100dvh] max-w-[480px] flex-col overflow-hidden" data-lenis-prevent>
+        <div ref={appRef} className="mx-auto flex h-[100dvh] w-full max-w-[480px] flex-col overflow-hidden md:max-w-[760px]" data-lenis-prevent>
           <div className="relative min-h-0 flex-1">
-            <AnimatePresence initial={false} mode="wait">
-              <motion.div
-                key={step}
-                initial={reducedMotion ? false : { opacity: 0, x: 24 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={reducedMotion ? { opacity: 1 } : { opacity: 0, x: -24 }}
-                transition={{ duration: reducedMotion ? 0 : 0.22 }}
-                className="absolute inset-0"
-              >
-                {step === "welcome" && <WelcomeScreen onNext={() => setStep("signup")} onSignIn={() => setStep("signin")} />}
-                {step === "signup" && <AuthScreen mode="signup" onSubmit={done} onSwitch={() => setStep("signin")} />}
-                {step === "signin" && <AuthScreen mode="signin" onSubmit={done} onSwitch={() => setStep("signup")} />}
-                {step === "intro" && <IntroScreen name={name} onNext={() => setStep("connect")} />}
-                {step === "connect" && (
-                  <ConnectScreen connected={connected} onToggle={() => setConnected((c) => !c)} onNext={() => setStep("agent")} />
-                )}
-                {step === "agent" && <AgentScreen onStart={() => setStep("route")} />}
-                {step === "route" && <RouteScreen onLate={() => setStep("plan")} />}
-                {step === "plan" && <PlanScreen />}
-                {step === "chat" && <ChatScreen />}
-              </motion.div>
-            </AnimatePresence>
+            <div key={step} className="absolute inset-0">
+              {step === "welcome" && <WelcomeScreen onNext={() => setStep("signup")} onSignIn={() => setStep("signin")} />}
+              {step === "signup" && <AuthScreen mode="signup" onSubmit={done} onSwitch={() => setStep("signin")} />}
+              {step === "signin" && <AuthScreen mode="signin" onSubmit={done} onSwitch={() => setStep("signup")} />}
+              {step === "intro" && <IntroScreen name={name} onNext={() => setStep("connect")} />}
+              {step === "connect" && (
+                <ConnectScreen connected={connected} onToggle={() => setConnected((c) => !c)} onNext={() => setStep("agent")} />
+              )}
+              {step === "agent" && <AgentScreen onStart={() => setStep("route")} />}
+              {step === "route" && (
+                <RouteScreen
+                  updated={reshaped}
+                  onLate={() => {
+                    setReshaped(true);
+                    setStep("plan");
+                  }}
+                />
+              )}
+              {step === "plan" && <PlanScreen />}
+              {step === "chat" && <ChatScreen />}
+            </div>
           </div>
           {inTrip && (
             <nav aria-label="Trip" data-slot="tabs-list" data-variant="default" className="glide-glass glide-trip-nav glass-panel flex shrink-0 gap-1">
