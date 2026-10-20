@@ -45,10 +45,11 @@ export function Day() {
   const c = CHAPTERS[i];
 
   const pathRef = useRef<SVGPathElement>(null);
-  const botRef = useRef<SVGGElement>(null);
   const [stops, setStops] = useState(ROAD_STOPS.map((y) => ({ x: 40, y })));
   const tipX = useMotionValue(40);
   const tipY = useMotionValue(24);
+  const botX = useMotionValue(40 - BOT_CX);
+  const botY = useMotionValue(24 - BOT_CHIN_Y);
 
   const placeOnRoad = useCallback((v: number) => {
     const path = pathRef.current;
@@ -58,13 +59,9 @@ export function Day() {
     const pt = path.getPointAtLength(Math.max(0, Math.min(1, v)) * length);
     tipX.set(pt.x);
     tipY.set(pt.y);
-    // Keep the mascot in SVG user units. Motion x/y is CSS pixels and lifts the
-    // body off the stroke once the viewBox is scaled, most visibly at the lower stops.
-    botRef.current?.setAttribute(
-      "transform",
-      `translate(${pt.x - BOT_CX} ${pt.y - BOT_CHIN_Y}) scale(${BOT_SCALE})`,
-    );
-  }, [tipX, tipY]);
+    botX.set(pt.x - BOT_CX);
+    botY.set(pt.y - BOT_CHIN_Y);
+  }, [tipX, tipY, botX, botY]);
 
   useLayoutEffect(() => {
     const path = pathRef.current;
@@ -78,7 +75,7 @@ export function Day() {
       })
     );
     placeOnRoad(tip.get());
-  }, [placeOnRoad, tip]);
+  }, [tip, placeOnRoad]);
 
   useMotionValueEvent(tip, "change", placeOnRoad);
   useMotionValueEvent(scrollYProgress, "change", (v) => {
@@ -95,18 +92,21 @@ export function Day() {
 
   return (
     <section id="day" ref={ref} className="relative z-0 h-[340vh] scroll-mt-28 isolate overflow-x-clip bg-cream">
-      <div className="sticky top-0 z-0 flex h-screen items-start overflow-hidden bg-cream px-4 pt-28 pb-6 sm:px-8 sm:pt-32 sm:pb-8 lg:items-center lg:pt-24">
+      <div className="sticky top-0 z-0 flex h-screen items-center overflow-hidden bg-cream px-4 pt-20 pb-6 sm:px-8 sm:pb-8 lg:pt-24">
         <div className="relative mx-auto grid w-full max-w-7xl grid-cols-1 items-center gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-16 xl:gap-20">
           <div className="mx-auto flex w-full max-w-3xl items-start gap-3 sm:gap-8 lg:ml-auto lg:mr-0 lg:max-w-none lg:gap-10">
-            {/* Road + mascot on every breakpoint — slim on mobile, tall on desktop. */}
+            {/* Road + mascot on every breakpoint — slim on mobile, tall on desktop.
+                The phone frame scales this svg; mascot x/y stay the owner's values. */}
+            <div className="glide-day-road-frame sm:contents">
             <svg
               viewBox="-28 0 130 520"
-              className="h-[min(38vh,320px)] w-[52px] shrink-0 overflow-visible sm:h-[min(42vh,400px)] sm:w-[88px] lg:h-[min(72vh,640px)]"
+              className="glide-day-road h-[min(38vh,320px)] w-[52px] shrink-0 overflow-visible sm:h-[min(42vh,400px)] sm:w-[88px] lg:h-[min(72vh,640px)]"
               aria-hidden
             >
               <path ref={pathRef} d={ROAD_PATH} fill="none" stroke="transparent" strokeWidth="7" />
-              <path d={ROAD_PATH} fill="none" stroke="var(--foreground)" opacity="0.12" strokeWidth="7" strokeLinecap="round" />
+              <path className="glide-day-track" d={ROAD_PATH} fill="none" stroke="var(--foreground)" opacity="0.12" strokeWidth="7" strokeLinecap="round" />
               <motion.path
+                className="glide-day-line"
                 d={ROAD_PATH}
                 fill="none"
                 stroke="var(--violet)"
@@ -117,6 +117,7 @@ export function Day() {
               {stops.map((stop, k) => (
                 <circle
                   key={ROAD_STOPS[k]}
+                  className="glide-day-stop"
                   cx={stop.x}
                   cy={stop.y}
                   r={k <= i ? 12 : 7.5}
@@ -126,10 +127,13 @@ export function Day() {
                 />
               ))}
               <motion.circle cx={tipX} cy={tipY} r="7" fill="var(--violet)" />
-              <g ref={botRef}>
-                <BotArt mood={i >= 3 ? "happy" : "working"} small embedded />
-              </g>
+              <motion.g style={{ x: botX, y: botY }}>
+                <g transform={`scale(${BOT_SCALE})`}>
+                  <BotArt mood={i >= 3 ? "happy" : "working"} small embedded />
+                </g>
+              </motion.g>
             </svg>
+            </div>
 
             <div className="min-w-0 flex-1 space-y-4 sm:space-y-6 lg:space-y-8">
               <p className="text-[0.7rem] font-medium uppercase tracking-[0.2em] text-ink-soft sm:text-sm sm:tracking-[0.24em] md:text-base">
@@ -164,32 +168,26 @@ export function Day() {
             </div>
           </div>
 
-          <div className="mx-auto flex w-full max-w-[360px] flex-col gap-3 self-center sm:max-w-[460px] lg:mx-0 lg:max-w-[580px] lg:justify-self-end">
-            <div className="relative h-[min(20vh,160px)] w-full overflow-hidden rounded-t-[999px] rounded-b-[40px] shadow-lift sm:h-[min(26vh,240px)] lg:h-[min(84vh,800px)]">
-              <AnimatePresence initial={false} mode="sync">
-                <motion.div
-                  key={c.key}
-                  initial={reduce ? false : { opacity: 0, scale: 1.05 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={reduce ? undefined : { opacity: 0 }}
-                  transition={{ duration: 0.55, ease: [0.23, 1, 0.32, 1] }}
-                  className="absolute inset-0"
-                >
-                  <Image
-                    src={c.photo}
-                    alt={c.place}
-                    fill
-                    sizes="(min-width:1024px) 560px, 85vw"
-                    className="object-cover object-[50%_28%]"
-                    priority={i === 0}
-                  />
-                </motion.div>
-              </AnimatePresence>
-            </div>
-            {/* Phones keep the line in the page. The floating companion is hidden here so it cannot cover this copy. */}
-            <p className="rounded-2xl rounded-bl-md bg-paper px-3.5 py-2.5 text-[13px] font-medium leading-snug text-ink lg:hidden" aria-live="polite">
-              {SAY[i]}
-            </p>
+          <div className="relative mx-auto h-[min(20vh,160px)] w-full max-w-[360px] self-center overflow-hidden rounded-t-[999px] rounded-b-[40px] shadow-lift sm:h-[min(26vh,240px)] sm:max-w-[460px] lg:mx-0 lg:h-[min(84vh,800px)] lg:max-w-[580px] lg:justify-self-end">
+            <AnimatePresence initial={false} mode="sync">
+              <motion.div
+                key={c.key}
+                initial={reduce ? false : { opacity: 0, scale: 1.05 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={reduce ? undefined : { opacity: 0 }}
+                transition={{ duration: 0.55, ease: [0.23, 1, 0.32, 1] }}
+                className="absolute inset-0"
+              >
+                <Image
+                  src={c.photo}
+                  alt={c.place}
+                  fill
+                  sizes="(min-width:1024px) 560px, 85vw"
+                  className="object-cover object-[50%_28%]"
+                  priority={i === 0}
+                />
+              </motion.div>
+            </AnimatePresence>
           </div>
         </div>
       </div>
