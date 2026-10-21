@@ -52,7 +52,12 @@ function guestCount(request: PlanTripRequest): number {
   return Math.max(1, adults + kids);
 }
 
-/** Timeline rows: travel → hotel → day plans (deduped). */
+function parseHmm(value: string): number {
+  const [h, m] = value.split(":").map(Number);
+  return (h ?? 0) * 60 + (m ?? 0);
+}
+
+/** Deduped trip items (travel, hotel, day plans). */
 function timelineItems(trip: Trip): TripItem[] {
   const out: TripItem[] = [];
   const seen = new Set<string>();
@@ -62,6 +67,23 @@ function timelineItems(trip: Trip): TripItem[] {
     out.push(item);
   }
   return out;
+}
+
+/** Group by day, sort each day by startTime — UI-only; planning data unchanged. */
+function timelineByDay(trip: Trip): { day: number; date?: string; items: TripItem[] }[] {
+  const byDay = new Map<number, TripItem[]>();
+  for (const item of timelineItems(trip)) {
+    const list = byDay.get(item.day) ?? [];
+    list.push(item);
+    byDay.set(item.day, list);
+  }
+  return [...byDay.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([day, items]) => ({
+      day,
+      date: trip.days.find((d) => d.day === day)?.date,
+      items: [...items].sort((a, b) => parseHmm(a.startTime) - parseHmm(b.startTime)),
+    }));
 }
 
 export function proposalSummary(trip: Trip): string {
@@ -254,7 +276,8 @@ export function ProposeTripScreen({
   const [options, setOptions] = React.useState<SwapOption[]>([]);
   const [swapNote, setSwapNote] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState<ApplySwapResult | null>(null);
-  const items = timelineItems(trip);
+  const days = timelineByDay(trip);
+  const items = days.flatMap((d) => d.items);
   const people = trip.travellers + (trip.kids ?? 0);
 
   const openSwap = (itemId: string) => {
@@ -319,28 +342,38 @@ export function ProposeTripScreen({
         </span>
       </div>
       <ol className="glass-panel relative mx-5 mt-3 min-h-0 flex-1 overflow-y-auto rounded-xl px-4" data-lenis-prevent>
-        {items.map((item, i) => (
-          <li key={item.id} className="relative flex items-center gap-3 border-b border-ink/10 py-2.5 last:border-0">
-            <span className={`z-10 grid h-5 w-5 place-items-center rounded-full text-[10px] font-bold ${i === 0 ? "bg-violet text-paper" : "bg-paper text-ink ring-2 ring-ink/20"}`}>
-              {i + 1}
-            </span>
-            <div className="min-w-0 flex-1 leading-tight">
-              <p className="truncate font-display text-[15px] italic">{item.title}</p>
-              <p className="truncate text-[10.5px] text-ink-soft">
-                {item.startTime}
-                {item.costAED ? ` · ${formatAed(item.costAED)}` : ""}
-              </p>
-            </div>
-            {item.kind !== "travel" ? (
-              <button
-                type="button"
-                className="min-h-11 shrink-0 px-2 text-[12px] font-semibold text-violet"
-                onClick={() => openSwap(item.id)}
-              >
-                Swap
-              </button>
-            ) : null}
-            <p className="num w-12 shrink-0 text-right text-lg leading-none">{item.startTime}</p>
+        {days.map((day) => (
+          <li key={day.day} className="border-b border-ink/10 py-2 last:border-0">
+            <p className="px-0.5 text-[10px] font-medium uppercase tracking-[0.18em] text-ink-soft">
+              Day {day.day}
+              {day.date ? ` · ${day.date}` : ""}
+            </p>
+            <ol>
+              {day.items.map((item, i) => (
+                <li key={item.id} className="relative flex items-center gap-3 py-2">
+                  <span className={`z-10 grid h-5 w-5 place-items-center rounded-full text-[10px] font-bold ${day.day === 1 && i === 0 ? "bg-violet text-paper" : "bg-paper text-ink ring-2 ring-ink/20"}`}>
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0 flex-1 leading-tight">
+                    <p className="truncate font-display text-[15px] italic">{item.title}</p>
+                    <p className="truncate text-[10.5px] text-ink-soft">
+                      {item.startTime}
+                      {item.costAED ? ` · ${formatAed(item.costAED)}` : ""}
+                    </p>
+                  </div>
+                  {item.kind !== "travel" ? (
+                    <button
+                      type="button"
+                      className="min-h-11 shrink-0 px-2 text-[12px] font-semibold text-violet"
+                      onClick={() => openSwap(item.id)}
+                    >
+                      Swap
+                    </button>
+                  ) : null}
+                  <p className="num w-12 shrink-0 text-right text-lg leading-none">{item.startTime}</p>
+                </li>
+              ))}
+            </ol>
           </li>
         ))}
       </ol>
@@ -431,7 +464,7 @@ export function ReviewBookScreen({
   /** Shown when returning from demo checkout redirect — explicit confirm only. */
   onDemoConfirm?: () => void;
 }) {
-  const items = timelineItems(trip);
+  const days = timelineByDay(trip);
   return (
     <div className="flex h-full flex-col">
       <Status />
@@ -441,15 +474,22 @@ export function ReviewBookScreen({
         </h3>
       </div>
       <ul className="glass-panel mx-5 mt-4 min-h-0 flex-1 overflow-y-auto rounded-xl px-3" data-lenis-prevent>
-        {items.map((s) => (
-          <li key={s.id} className="flex items-center justify-between gap-3 border-b border-ink/10 py-2.5 last:border-0">
-            <div className="min-w-0">
-              <p className="truncate text-[13px] font-semibold">{s.title}</p>
-              <p className="truncate text-[10.5px] text-ink-soft">
-                Day {s.day} · {s.startTime}
-              </p>
-            </div>
-            <p className="num shrink-0 text-[13px]">{s.costAED ? formatAed(s.costAED) : "—"}</p>
+        {days.map((day) => (
+          <li key={day.day} className="border-b border-ink/10 py-2 last:border-0">
+            <p className="px-0.5 text-[10px] font-medium uppercase tracking-[0.18em] text-ink-soft">
+              Day {day.day}
+            </p>
+            <ul>
+              {day.items.map((s) => (
+                <li key={s.id} className="flex items-center justify-between gap-3 py-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-semibold">{s.title}</p>
+                    <p className="truncate text-[10.5px] text-ink-soft">{s.startTime}</p>
+                  </div>
+                  <p className="num shrink-0 text-[13px]">{s.costAED ? formatAed(s.costAED) : "—"}</p>
+                </li>
+              ))}
+            </ul>
           </li>
         ))}
         <li className="flex items-center justify-between py-3">
