@@ -6,6 +6,7 @@ import { BotArt } from "@/components/GlideBot";
 import { PhotoLabel, Status, clock, dinner, hotel, jais, depart } from "./Screens";
 import { MessageComposer } from "./MessageComposer";
 import { GlassButton, GlassInput, GlassPanel } from "@/components/ui/glass";
+import type { PlanTripRequest } from "@/lib/planning";
 
 export const TRIP_DATE = "Fri 13 Nov";
 
@@ -157,8 +158,38 @@ export function ConnectScreen({ connected = true, onToggle, onNext }: { connecte
 }
 
 /** The agent area: Glide speaks first, the composer is live, and Start begins the trip. */
-export function AgentScreen({ onStart }: { onStart?: () => void }) {
-  const [messages, setMessages] = React.useState<string[]>([]);
+function parseAgentIntent(message: string): PlanTripRequest | null {
+  const q = message.toLowerCase().trim();
+  if (!q) return null;
+  const looks =
+    /\b(book|plan|weekend|trip|getaway|night|budget)\b/.test(q) ||
+    /ras al khaimah|rak|hatta|muscat/.test(q);
+  if (!looks) return null;
+  let destination: PlanTripRequest["destination"] = "ras-al-khaimah";
+  if (q.includes("hatta")) destination = "hatta";
+  if (q.includes("muscat")) destination = "muscat";
+  let travellers = 2;
+  const forMatch = q.match(/\bfor\s+(\d+|two|three|four|one)\b/);
+  if (forMatch) {
+    const token = forMatch[1]!;
+    const map: Record<string, number> = { one: 1, two: 2, three: 3, four: 4 };
+    const digits = Number(token);
+    travellers = map[token] ?? (Number.isFinite(digits) && digits > 0 ? digits : 2);
+  }
+  let budgetAED = 3000;
+  if (/\b(cheap|budget|1500)\b/.test(q)) budgetAED = 1500;
+  if (/\b(luxe|luxury|6000)\b/.test(q)) budgetAED = 6000;
+  return { destination, travellers, budgetAED };
+}
+
+export function AgentScreen({
+  onStart,
+  onPlanIntent,
+}: {
+  onStart?: () => void;
+  onPlanIntent?: (partial: PlanTripRequest) => void;
+}) {
+  const [messages, setMessages] = React.useState<{ from: "user" | "glide"; text: string }[]>([]);
   const latestMessage = React.useRef<HTMLParagraphElement>(null);
   React.useEffect(() => {
     if (messages.length) latestMessage.current?.scrollIntoView({ block: "nearest" });
@@ -176,12 +207,35 @@ export function AgentScreen({ onStart }: { onStart?: () => void }) {
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto overscroll-contain px-4 py-4 text-[12.5px] leading-snug" data-lenis-prevent>
         <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">I&apos;ve brought your <b>{TRIP_DATE}</b> drive from Dubai Marina to Ras Al Khaimah into one plan.</p>
         <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">Jebel Jais, the InterContinental and dinner at Levant &amp; Nar are all connected.</p>
-        <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">Follow the sample route to see how the plan changes. Live replies are not connected in this demo.</p>
+        <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">Follow the sample route, or type something like “a long weekend in Ras Al Khaimah for two” to plan a new demo trip.</p>
         {messages.map((message, index) => (
-          <p key={index} ref={index === messages.length - 1 ? latestMessage : undefined} className="glide-chat-bubble-user glass-primary max-w-[88%] self-end break-words rounded-xl px-3 py-2">{message}</p>
+          <p
+            key={index}
+            ref={index === messages.length - 1 ? latestMessage : undefined}
+            className={message.from === "user"
+              ? "glide-chat-bubble-user glass-primary max-w-[88%] self-end break-words rounded-xl px-3 py-2"
+              : "glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2"}
+          >
+            {message.text}
+          </p>
         ))}
       </div>
-      <MessageComposer onSend={(message) => setMessages((previous) => [...previous, message])} onStart={onStart} />
+      <MessageComposer
+        onSend={(message) => {
+          const intent = parseAgentIntent(message);
+          if (intent && onPlanIntent) {
+            setMessages((previous) => [
+              ...previous,
+              { from: "user", text: message },
+              { from: "glide", text: "Prefilling a demo plan from that. Continue with where, when, who, and budget." },
+            ]);
+            onPlanIntent(intent);
+            return;
+          }
+          setMessages((previous) => [...previous, { from: "user", text: message }]);
+        }}
+        onStart={onStart}
+      />
     </div>
   );
 }
