@@ -8,8 +8,10 @@ import { GlassButton, GlassPanel } from "@/components/ui/glass";
 import {
   BUDGET_PRESETS_AED,
   PAYMENT_TRUST_LINE,
+  applyCatalogPrices,
   applySwap,
   swapOptions,
+  withFacts,
   withPlanDefaults,
   type ApplySwapResult,
   type DestinationId,
@@ -19,10 +21,13 @@ import {
   type TripItem,
 } from "@/lib/planning";
 import {
+  LOWEST_PRICE_NOTICE,
+  adaptOverBudgetUi,
   formatAed,
-  overBudgetRecovery,
   proposalBudgetLine,
-  raiseBudgetButtonLabel,
+  setBudgetButtonLabel,
+  shortenTripOneNight,
+  type CheapestFix,
 } from "@/lib/proposal-copy";
 
 const btn = "w-full py-3.5 tracking-wide";
@@ -390,17 +395,14 @@ export function ProposeTripScreen({
   onChange,
   onBack,
   onReview,
-  onRaiseBudget,
-  onChangeDetails,
+  onSetBudget,
 }: {
   trip: Trip;
   onChange: (trip: Trip) => void;
   onBack?: () => void;
   onReview?: () => void;
-  /** Re-plan with the next budget chip when over budget and no cheaper hotel. */
-  onRaiseBudget?: (nextBudgetAED: number) => void;
-  /** Back to the Start (choose) step. */
-  onChangeDetails?: () => void;
+  /** Re-plan with a higher budget so the current total fits. */
+  onSetBudget?: (budgetAED: number) => void;
 }) {
   const [swapId, setSwapId] = React.useState<string | null>(null);
   const [options, setOptions] = React.useState<SwapOption[]>([]);
@@ -409,7 +411,7 @@ export function ProposeTripScreen({
   const days = timelineByDay(trip);
   const items = days.flatMap((d) => d.items);
   const people = trip.travellers + (trip.kids ?? 0);
-  const recovery = overBudgetRecovery(trip);
+  const recovery = adaptOverBudgetUi({ ...trip, hotelId: trip.hotel.id });
 
   const openSwap = (itemId: string) => {
     setPending(null);
@@ -438,25 +440,59 @@ export function ProposeTripScreen({
     setSwapId(null);
   };
 
-  const applyCheaperHotel = () => {
-    const suggestion = trip.facts.cheaperHotel;
-    if (!suggestion) return;
+  const applyCatalogFix = (fix: CheapestFix) => {
     try {
-      const hotelOpts = swapOptions(trip, trip.hotel.id);
-      const match = hotelOpts.find((o) => o.catalogId === suggestion.catalogId);
-      if (!match) return;
-      const result = applySwap(trip, trip.hotel.id, match.id);
-      if (!result.ok) {
-        setSwapNote(result.reason);
+      if (fix.kind === "swap-hotel" || fix.kind === "swap-meal") {
+        const itemId =
+          fix.apply?.itemId ?? (fix.kind === "swap-hotel" ? trip.hotel.id : undefined);
+        if (!itemId) return;
+        const opts = swapOptions(trip, itemId);
+        const match =
+          (fix.apply?.optionId ? opts.find((o) => o.id === fix.apply!.optionId) : undefined) ??
+          (fix.apply?.catalogId
+            ? opts.find((o) => o.catalogId === fix.apply!.catalogId)
+            : undefined) ??
+          (trip.facts.cheaperHotel
+            ? opts.find((o) => o.catalogId === trip.facts.cheaperHotel!.catalogId)
+            : undefined);
+        if (!match) {
+          setSwapNote("I couldn't apply that change — try Swap on the row.");
+          return;
+        }
+        const result = applySwap(trip, itemId, match.id);
+        if (!result.ok) {
+          setSwapNote(result.reason);
+          return;
+        }
+        if (result.lateItems.length > 0) {
+          setPending(result);
+          setSwapId(itemId);
+          return;
+        }
+        onChange(result.trip);
+        setSwapNote(null);
+        setSwapId(null);
+        setPending(null);
         return;
       }
-      onChange(result.trip);
-      setSwapNote(null);
-      setSwapId(null);
-      setPending(null);
+      if (fix.kind === "drop-item" && fix.apply?.itemId) {
+        const dropId = fix.apply.itemId;
+        const nextDays = trip.days.map((d) => ({
+          ...d,
+          plans: d.plans.filter((p) => p.id !== dropId),
+        }));
+        const priced = applyCatalogPrices({ ...trip, days: nextDays, status: "proposed" });
+        onChange(withFacts(priced));
+        setSwapNote(null);
+      }
     } catch {
-      /* leave plan unchanged if swap API rejects */
+      setSwapNote("I couldn't apply that change — try Swap on the row.");
     }
+  };
+
+  const applyShorten = () => {
+    const next = shortenTripOneNight(trip);
+    if (next) onChange(next);
   };
 
   const heroPhoto =
@@ -467,7 +503,7 @@ export function ProposeTripScreen({
   return (
     <div className="flex h-full flex-col">
       <Status />
-      {/* Sticky top: heading + budget + single recovery CTA stay put while the list scrolls. */}
+      {/* Sticky top: heading + budget + recovery CTA stay put while the list scrolls. */}
       <div className="sticky top-0 z-20 shrink-0 border-b border-ink/5 bg-cream/95 px-5 pb-3 pt-2 backdrop-blur-sm">
         <h3 className="font-display text-[30px] leading-[1.05] tracking-[-0.025em]">
           Your weekend in {trip.destinationLabel}.
@@ -475,50 +511,48 @@ export function ProposeTripScreen({
         <p className="mt-2 text-[14px] font-light leading-snug text-ink-soft">
           {proposalBudgetLine(trip)}
         </p>
-        {recovery?.kind === "cheaperHotel" ? (
+        {recovery?.mode === "catalogFix" ? (
           <GlassButton
             type="button"
             variant="secondary"
             className="mt-2 min-h-11 w-full tracking-wide"
-            onClick={applyCheaperHotel}
+            onClick={() => applyCatalogFix(recovery.fix)}
             data-testid="over-budget-action"
-            data-action="cheaper-hotel"
+            data-action={recovery.fix.kind}
           >
-            Want a cheaper hotel?
+            {recovery.buttonLabel}
           </GlassButton>
         ) : null}
-        {recovery?.kind === "raiseBudget" ? (
+        {recovery?.mode === "noCatalogFix" ? (
           <div className="mt-2 space-y-1.5">
-            <GlassButton
-              type="button"
-              variant="secondary"
-              className="min-h-11 w-full tracking-wide"
-              onClick={() => onRaiseBudget?.(recovery.nextBudgetAED)}
-              data-testid="over-budget-action"
-              data-action="raise-budget"
-            >
-              {raiseBudgetButtonLabel(recovery.nextBudgetAED)}
-            </GlassButton>
-            <button
-              type="button"
-              className="min-h-11 w-full text-center text-[13px] font-semibold text-violet underline-offset-4 transition-colors hover:underline"
-              onClick={onChangeDetails}
-              data-testid="change-trip-details"
-            >
-              Change trip details
-            </button>
+            <p className="text-[13px] font-light leading-snug text-ink-soft" data-testid="lowest-price-notice">
+              {LOWEST_PRICE_NOTICE}
+            </p>
+            {recovery.shorten ? (
+              <GlassButton
+                type="button"
+                variant="secondary"
+                className="min-h-11 w-full tracking-wide"
+                onClick={applyShorten}
+                data-testid="over-budget-action"
+                data-action="shorten-trip"
+              >
+                Make it one night shorter
+              </GlassButton>
+            ) : null}
+            {recovery.setBudgetAED != null ? (
+              <GlassButton
+                type="button"
+                variant={recovery.shorten ? "ghost" : "secondary"}
+                className="min-h-11 w-full tracking-wide"
+                onClick={() => onSetBudget?.(recovery.setBudgetAED!)}
+                data-testid={recovery.shorten ? "set-budget-action" : "over-budget-action"}
+                data-action="raise-budget"
+              >
+                {setBudgetButtonLabel(recovery.setBudgetAED)}
+              </GlassButton>
+            ) : null}
           </div>
-        ) : null}
-        {recovery?.kind === "changeDetailsOnly" ? (
-          <button
-            type="button"
-            className="mt-2 min-h-11 w-full text-center text-[13px] font-semibold text-violet underline-offset-4 transition-colors hover:underline"
-            onClick={onChangeDetails}
-            data-testid="over-budget-action"
-            data-action="change-details"
-          >
-            Change trip details
-          </button>
         ) : null}
         {trip.facts.highlight?.copy ? (
           <p className="mt-2 text-[13px] font-light leading-snug text-ink-soft">
