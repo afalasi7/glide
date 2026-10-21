@@ -146,7 +146,7 @@ export function Day() {
                   animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
                   exit={reduce ? undefined : { opacity: 0, y: -18, filter: "blur(4px)" }}
                   transition={{ duration: 0.45, ease: [0.23, 1, 0.32, 1] }}
-                  className="space-y-4 sm:space-y-6 lg:space-y-8"
+                  className="space-y-4 sm:space-y-6 lg:space-y-4"
                 >
                   <p className="num flex items-baseline gap-3 text-[clamp(3.5rem,15vw,9.5rem)] leading-[0.8] tracking-[-0.03em] text-ink sm:gap-5">
                     {c.time}
@@ -161,7 +161,7 @@ export function Day() {
                   </p>
                   <p
                     data-road-say
-                    className="max-w-[min(22rem,100%)] rounded-2xl rounded-bl-md bg-paper px-3 py-2 text-[13px] font-medium leading-snug text-ink shadow-lift sm:text-sm"
+                    className="max-w-[min(22rem,100%)] rounded-2xl rounded-bl-md bg-paper px-3 py-2 text-[13px] font-medium leading-snug text-ink shadow-lift sm:max-w-none sm:text-base lg:text-lg"
                     aria-live="polite"
                   >
                     {SAY[i]}
