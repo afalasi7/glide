@@ -4,7 +4,6 @@ import {
   applySwap,
   bookTrip,
   BUDGET_PRESETS_AED,
-  confirmBookingAfterPayment,
   demoConfirmBookingFromTrip,
   DEFAULT_BUDGET_AED,
   lateItemFlags,
@@ -38,11 +37,11 @@ describe("planTrip defaults", () => {
     expect(d.budgetAED).toBe(DEFAULT_BUDGET_AED);
     expect(BUDGET_PRESETS_AED).toEqual([1500, 3000, 6000]);
 
-    const fri = nextFridayIso(new Date("2026-10-21T12:00:00Z")); // Wed → Fri 23
+    const fri = nextFridayIso(new Date("2026-10-21T12:00:00Z"));
     expect(fri).toBe("2026-10-23");
     const trip = planTrip({ startDate: "2026-10-23" });
     expect(trip.startDate).toBe("2026-10-23");
-    expect(trip.endDate).toBe("2026-10-25"); // Sun
+    expect(trip.endDate).toBe("2026-10-25");
     expect(trip.destination).toBe("ras-al-khaimah");
     expect(trip.travellers).toBe(2);
     expect(trip.budgetAED).toBe(3000);
@@ -176,26 +175,25 @@ describe("bookTrip / payment gating", () => {
     expect(() => bookTrip(trip)).toThrow(/after payment/);
   });
 
-  test("confirmBookingAfterPayment issues confirmations", () => {
+  test("deterministic confirmation codes from session id", () => {
     const trip = planTrip({ startDate: "2026-10-23", endDate: "2026-10-25" });
-    const result = confirmBookingAfterPayment(trip.id);
-    expect(result.confirmations.length).toBeGreaterThan(0);
-    expect(result.trip.status).toBe("booked");
-    expect(result.confirmations[0].confirmationCode).toMatch(/^GLD-/);
-    expect(result.confirmations.some((c) => c.walletPass)).toBe(true);
+    const paid = { ...trip, status: "paid" as const };
+    const a = bookTrip(paid, { sessionId: "cs_test_abc" });
+    const b = bookTrip(paid, { sessionId: "cs_test_abc" });
+    expect(a.confirmations.map((c) => c.confirmationCode)).toEqual(
+      b.confirmations.map((c) => c.confirmationCode),
+    );
   });
 });
 
 describe("stateless demo mode (cold serverless instance)", () => {
   test("demoConfirmBookingFromTrip works with an empty store", () => {
     const trip = planTrip({ startDate: "2026-10-23", endDate: "2026-10-25" });
-    // Simulate a different Vercel instance: wipe all in-memory trips.
     resetTripStore();
     const result = demoConfirmBookingFromTrip(trip, { confirm: true });
     expect(result.confirmations.length).toBeGreaterThan(0);
     expect(result.trip.status).toBe("booked");
     expect(result.confirmations.some((c) => c.walletPass)).toBe(true);
-    // Total was recomputed from catalog, not trusted from a stale client claim.
     expect(result.trip.totalCostAED).toBe(validateAndRepriceTrip(trip).totalCostAED);
   });
 

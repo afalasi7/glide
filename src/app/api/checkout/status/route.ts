@@ -1,54 +1,94 @@
 import { NextResponse } from "next/server";
 import {
-  getPaymentStatusForSession,
-  getTrip,
-  validateAndRepriceTrip,
-  type Trip,
-} from "@/lib/planning";
-import { getStripeSecretKey } from "@/lib/stripe/server";
+  getBookingStore,
+  hasDurableBookingStore,
+  selectionFromMetadata,
+  tripFromSelection,
+} from "@/lib/booking";
+import { validateAndRepriceTrip, type Trip } from "@/lib/planning";
+import { getStripeSecretKey, requireStripe } from "@/lib/stripe/server";
 
 /**
  * GET /api/checkout/status?session_id=cs_…
- * Stripe path: session lookup (needs durable store before real multi-instance payments).
+ * Reads durable bookingStore first; if empty, retrieves the Checkout Session from Stripe
+ * and rebuilds the trip from metadata.
  *
- * POST /api/checkout/status  body: { trip: Trip }
- * Demo path (no Stripe key): validate trip from catalog; return status from the
- * client-supplied trip without server-memory lookup.
+ * POST /api/checkout/status  body: { trip } — demo (or client-held) status, stateless.
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const sessionId = url.searchParams.get("session_id") ?? undefined;
-  const tripIdParam = url.searchParams.get("trip_id") ?? undefined;
-
-  if (sessionId) {
-    const result = getPaymentStatusForSession(sessionId);
-    return NextResponse.json({
-      status: result.status,
-      tripId: result.tripId,
-      trip: result.trip,
-    });
+  if (!sessionId) {
+    return NextResponse.json({ error: "session_id required" }, { status: 400 });
   }
 
-  // trip_id alone only works if this instance still has the trip in memory (Stripe path).
-  if (tripIdParam) {
-    const trip = getTrip(tripIdParam);
-    if (!trip) {
-      return NextResponse.json(
-        {
-          status: "failed",
-          error:
-            "Unknown trip on this instance. In demo mode POST { trip } instead; Stripe path needs durable storage.",
-        },
-        { status: 404 },
-      );
+  if (hasDurableBookingStore()) {
+    try {
+      const store = getBookingStore();
+      const record = await store.get(sessionId);
+      if (record) {
+        const trip = record.selection ? tripFromSelection(record.selection) : undefined;
+        const status =
+          record.status === "booked"
+            ? "paid"
+            : record.status === "failed"
+              ? "failed"
+              : "pending";
+        return NextResponse.json({
+          status,
+          tripId: record.tripId,
+          trip: trip
+            ? {
+                ...trip,
+                status: record.status === "booked" ? "booked" : record.status === "failed" ? "payment_failed" : "pending_payment",
+                confirmations: record.confirmations,
+                paidAt: record.paidAt,
+                bookedAt: record.bookedAt,
+              }
+            : undefined,
+          confirmations: record.confirmations,
+        });
+      }
+    } catch (err) {
+      console.warn("[checkout/status] store read failed", err);
     }
-    return NextResponse.json({ status: statusFromTrip(trip), tripId: trip.id, trip });
   }
 
-  return NextResponse.json(
-    { error: "session_id required (Stripe), or POST { trip } in demo mode" },
-    { status: 400 },
-  );
+  // Fallback: Stripe session + metadata rebuild (no server memory of the trip).
+  if (!getStripeSecretKey()) {
+    return NextResponse.json(
+      { status: "failed", error: "No booking for session and Stripe is not configured" },
+      { status: 404 },
+    );
+  }
+
+  try {
+    const stripe = requireStripe();
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    let trip: Trip | undefined;
+    try {
+      const sel = selectionFromMetadata(session.metadata as Record<string, string> | null);
+      trip = tripFromSelection(sel);
+    } catch {
+      trip = undefined;
+    }
+    const payment = session.payment_status;
+    const status =
+      payment === "paid" || payment === "no_payment_required"
+        ? "paid"
+        : session.status === "expired"
+          ? "failed"
+          : "pending";
+    return NextResponse.json({
+      status,
+      tripId: trip?.id ?? session.metadata?.tripId,
+      trip,
+      source: "stripe",
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Stripe retrieve failed";
+    return NextResponse.json({ status: "failed", error: message }, { status: 404 });
+  }
 }
 
 export async function POST(request: Request) {
@@ -63,15 +103,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "trip required" }, { status: 400 });
   }
 
-  // When Stripe is configured, prefer session_id GET — but still allow trip validation.
   try {
     const trip = validateAndRepriceTrip(body.trip);
-    // Preserve client booking/payment flags after reprice for status reporting.
-    const status = statusFromTrip({
-      ...trip,
-      status: body.trip.status,
-      confirmations: body.trip.confirmations,
-    });
+    const status =
+      body.trip.status === "paid" || body.trip.status === "booked"
+        ? "paid"
+        : body.trip.status === "payment_failed"
+          ? "failed"
+          : "pending";
     return NextResponse.json({
       status,
       tripId: trip.id,
@@ -88,11 +127,4 @@ export async function POST(request: Request) {
     const message = err instanceof Error ? err.message : "Invalid trip";
     return NextResponse.json({ error: message, status: "failed" }, { status: 400 });
   }
-}
-
-function statusFromTrip(trip: Trip): "paid" | "pending" | "failed" {
-  if (trip.status === "paid" || trip.status === "booked") return "paid";
-  if (trip.status === "payment_failed") return "failed";
-  if (trip.status === "pending_payment") return "pending";
-  return "pending";
 }

@@ -1,11 +1,11 @@
 import { createMockWorld, executeTool } from "@/lib/agent";
 import { eachBookableItem } from "./pricing";
-import { getTrip, saveTrip, updateTrip } from "./store";
 import { validateAndRepriceTrip } from "./validate";
 import type {
   BookingConfirmation,
   BookingResult,
   Trip,
+  TripItem,
   WalletPassData,
 } from "./types";
 
@@ -14,7 +14,7 @@ function formatPassDate(iso: string): string {
   return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
 }
 
-function walletFor(trip: Trip, item: Trip["travel"], code: string): WalletPassData | undefined {
+function walletFor(trip: Trip, item: TripItem, code: string): WalletPassData | undefined {
   if (item.kind !== "dining" && item.kind !== "hotel" && item.kind !== "travel") return undefined;
   const day = trip.days.find((d) => d.day === item.day) ?? trip.days[0];
   return {
@@ -32,15 +32,31 @@ function walletFor(trip: Trip, item: Trip["travel"], code: string): WalletPassDa
   };
 }
 
+/** Deterministic confirmation id from Checkout session id + item identity. */
+export function deterministicConfirmationCode(sessionId: string, item: TripItem): string {
+  const seed = `${sessionId}|${item.catalogId}|${item.day}|${item.startTime}|${item.kind}`;
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  const hex = (h >>> 0).toString(16).padStart(8, "0");
+  return `GLD-${item.kind.slice(0, 3).toUpperCase()}-${hex}`;
+}
+
 export type BookTripOptions = {
-  /** Persist into the in-memory store (Stripe path). Default true. Demo sets false. */
+  /**
+   * @deprecated No-op kept for call-site compatibility. Stripe path uses bookingStore;
+   * demo path never persists server-side.
+   */
   persist?: boolean;
+  /** When set (Stripe Checkout session id), confirmation codes are deterministic. */
+  sessionId?: string;
 };
 
 /**
- * Issue demo confirmation codes + wallet passes for a trip that has already
- * cleared payment (Stripe webhook) or an explicit demo confirm.
- * Do NOT call this from a pay-button tap alone.
+ * Issue confirmation codes + wallet passes for a paid trip.
+ * Do NOT call from a pay-button tap alone.
  */
 export function bookTrip(trip: Trip, opts: BookTripOptions = {}): BookingResult {
   if (trip.status !== "paid" && trip.status !== "booked") {
@@ -84,7 +100,10 @@ export function bookTrip(trip: Trip, opts: BookTripOptions = {}): BookingResult 
   const passIds: string[] = [];
 
   for (const item of eachBookableItem(trip)) {
-    const confirmationCode = `GLD-${item.kind.slice(0, 3).toUpperCase()}-${item.id.slice(-8).toUpperCase()}`;
+    const confirmationCode = opts.sessionId
+      ? deterministicConfirmationCode(opts.sessionId, item)
+      : `GLD-${item.kind.slice(0, 3).toUpperCase()}-${item.id.slice(-8).toUpperCase()}`;
+
     if (item.kind === "hotel" && item.bookingRef) {
       executeTool(world, "flag_hotel_late_arrival", {
         reservation: item.bookingRef,
@@ -126,21 +145,8 @@ export function bookTrip(trip: Trip, opts: BookTripOptions = {}): BookingResult 
     bookedAt,
     confirmations,
   };
-  if (opts.persist !== false) saveTrip(next);
 
   return { tripId: next.id, confirmations, bookedAt, trip: next };
-}
-
-/**
- * Fulfillment after verified `checkout.session.completed` (or equivalent).
- * Marks paid in the in-memory store, then runs bookTrip.
- * Requires durable storage before real multi-instance payments.
- */
-export function confirmBookingAfterPayment(tripId: string, paidAt = new Date().toISOString()): BookingResult {
-  const trip = getTrip(tripId);
-  if (!trip) throw new Error(`Unknown trip ${tripId}`);
-  const paid = updateTrip(tripId, { status: "paid", paidAt }) ?? { ...trip, status: "paid" as const, paidAt };
-  return bookTrip(paid, { persist: true });
 }
 
 /**
@@ -161,26 +167,7 @@ export function demoConfirmBookingFromTrip(trip: Trip, opts: { confirm: true }):
 }
 
 /**
- * @deprecated Prefer {@link demoConfirmBookingFromTrip} for serverless demo mode.
- * tripId lookup only works when the trip is already in this process's memory.
- */
-export function demoConfirmBooking(tripId: string, opts: { confirm: true }): BookingResult {
-  if (opts.confirm !== true) {
-    throw new Error("demoConfirmBooking requires { confirm: true }");
-  }
-  const trip = getTrip(tripId);
-  if (!trip) throw new Error(`Unknown trip ${tripId}`);
-  return confirmBookingAfterPayment(tripId);
-}
-
-/** Mark payment failed in the store (Stripe path). */
-export function markPaymentFailed(tripId: string): Trip | undefined {
-  return updateTrip(tripId, { status: "payment_failed" });
-}
-
-/**
  * Stateless cancel for demo mode: reprice the client trip and return it as failed.
- * Plan stays with the client — nothing was booked.
  */
 export function demoCancelFromTrip(trip: Trip): Trip {
   const validated = validateAndRepriceTrip(trip);

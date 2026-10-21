@@ -3,7 +3,6 @@ import { DESTINATIONS, getCatalogOption } from "./catalog";
 import { withFacts } from "./facts";
 import { syncTripGraph } from "./graph";
 import { applyCatalogPrices, eachBookableItem, isPast2200 } from "./pricing";
-import { saveTrip } from "./store";
 import type { ApplySwapResult, LateItemFlag, SwapOption, Trip, TripItem } from "./types";
 
 function findItem(trip: Trip, itemId: string): TripItem | undefined {
@@ -118,10 +117,9 @@ export function applySwap(trip: Trip, itemId: string, optionId: string): ApplySw
   const evaluation = evaluate(next.graph);
   const violations: Violation[] = evaluation.violations;
   const lateItems = lateItemFlags(next);
-  const saved = saveTrip(next);
 
   return {
-    trip: saved,
+    trip: next,
     violations,
     timingsHold: violations.length === 0,
     lateItems,

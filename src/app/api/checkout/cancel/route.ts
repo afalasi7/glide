@@ -1,20 +1,15 @@
 import { NextResponse } from "next/server";
-import {
-  demoCancelFromTrip,
-  getTrip,
-  markPaymentFailed,
-  type Trip,
-} from "@/lib/planning";
-import { setSessionPaymentStatus } from "@/lib/planning/store";
+import { getBookingStore, hasDurableBookingStore, markSessionFailed } from "@/lib/booking";
+import { demoCancelFromTrip, type Trip } from "@/lib/planning";
 import { getStripeSecretKey } from "@/lib/stripe/server";
 
 /**
  * POST /api/checkout/cancel
- * Demo (no Stripe key): { trip } — validate from catalog, return failed status (stateless).
- * Stripe path: { tripId } — mark failed in store (needs durable storage for multi-instance).
+ * Demo: { trip } — validate from catalog, return failed (stateless).
+ * Stripe: { session_id } — mark failed in durable bookingStore.
  */
 export async function POST(request: Request) {
-  let body: { tripId?: string; trip?: Trip };
+  let body: { tripId?: string; trip?: Trip; session_id?: string; sessionId?: string };
   try {
     body = await request.json();
   } catch {
@@ -39,19 +34,25 @@ export async function POST(request: Request) {
     }
   }
 
-  if (!body.tripId) {
-    return NextResponse.json({ error: "tripId required when Stripe is configured" }, { status: 400 });
+  const sessionId = body.session_id ?? body.sessionId;
+  if (!sessionId) {
+    return NextResponse.json(
+      { error: "session_id required when Stripe is configured" },
+      { status: 400 },
+    );
   }
-  const trip = getTrip(body.tripId);
-  if (!trip) {
-    return NextResponse.json({ error: `Unknown trip ${body.tripId}` }, { status: 404 });
+  if (!hasDurableBookingStore()) {
+    return NextResponse.json(
+      {
+        error: "Storage is not configured",
+        code: "STORAGE_NOT_CONFIGURED",
+        message,
+      },
+      { status: 503 },
+    );
   }
-  if (trip.status === "paid" || trip.status === "booked") {
-    return NextResponse.json({ error: "Trip already paid", trip }, { status: 409 });
-  }
-  if (trip.checkoutSessionId) {
-    setSessionPaymentStatus(trip.checkoutSessionId, "failed");
-  }
-  const updated = markPaymentFailed(body.tripId);
-  return NextResponse.json({ status: "failed", message, trip: updated });
+
+  const store = getBookingStore();
+  const record = await markSessionFailed(store, sessionId);
+  return NextResponse.json({ status: "failed", message, tripId: record.tripId, record });
 }

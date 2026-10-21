@@ -3,7 +3,6 @@ import { withPlanDefaults } from "./defaults";
 import { withFacts } from "./facts";
 import { syncTripGraph } from "./graph";
 import { applyCatalogPrices, nightsBetween } from "./pricing";
-import { saveTrip } from "./store";
 import type { DestinationId, PlanTripRequest, Trip, TripDay, TripItem } from "./types";
 
 function assertResolved(req: ReturnType<typeof withPlanDefaults>): void {
@@ -250,5 +249,5 @@ export function planTrip(request: PlanTripRequest = {}): Trip {
   trip = syncTripGraph(trip);
   trip = withFacts(trip);
 
-  return saveTrip(trip);
+  return trip;
 }

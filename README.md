@@ -39,19 +39,24 @@ Pure planning helpers live in `src/lib/planning/`:
 - `planTrip(request?)` — curated Ras Al Khaimah (default), Muscat, or Hatta. Defaults: next Friday→Sunday, 2 adults, budget AED 3,000 (presets 1,500 / 3,000 / 6,000). Returns a `Trip` with travel, hotel, 2–3 plans per day, solver `graph`, and computed `facts` (`withinBudget`, `totalAED`, `overBudgetByAED`, destination `highlight`, optional `cheaperHotel`).
 - `swapOptions` / `applySwap` — alternatives plus `timingsHold` and `lateItems` (past 22:00).
 - Bookings are confirmed only after payment: Stripe webhook `checkout.session.completed`, or demo `confirmDemoCheckout(trip)` when Stripe is unset. Pay-button tap alone never books.
-- **Demo mode is stateless**: `demo-confirm`, status, and cancel accept the full `trip` from the client, re-validate against the catalog, and do not rely on in-memory `tripId` lookup (safe across Vercel serverless instances). The **Stripe path still uses an in-memory store** and needs durable storage before real payments.
+- **Demo mode is stateless**: `demo-confirm`, status, and cancel accept the full `trip` from the client (catalog re-validation; no server memory).
+- **Stripe path is durable**: Checkout Session `metadata` holds a compact trip selection; the webhook rebuilds the trip from metadata + catalog. Paid/booked state is stored in Upstash Redis (`booking:{sessionId}`) via `@upstash/redis`. Webhook fulfillment is idempotent (SET NX). Confirmation codes are deterministic from the session id.
 
 ### Stripe Checkout (server only)
 
+**Setup order for Abdulla:** configure Upstash first, then add Stripe test keys. Checkout returns **503 `STORAGE_NOT_CONFIGURED`** if Stripe is set without Redis — it will not take money it cannot record.
+
 | Variable | Where | Notes |
 | --- | --- | --- |
-| `STRIPE_SECRET_KEY` | Server only | `sk_test_…`. Never `NEXT_PUBLIC_`. |
-| `STRIPE_WEBHOOK_SECRET` | Server only | Signature verification for `/api/stripe/webhook`. |
-| `NEXT_PUBLIC_APP_URL` | Public | Base URL for success/cancel returns to `/app`. |
+| `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` | Server | Vercel Marketplace Upstash Redis |
+| `KV_REST_API_URL` + `KV_REST_API_TOKEN` | Server | Alt names from Vercel KV |
+| `STRIPE_SECRET_KEY` | Server only | `sk_test_…`. Never `NEXT_PUBLIC_`. Add **after** storage. |
+| `STRIPE_WEBHOOK_SECRET` | Server only | Signature verification for `/api/stripe/webhook` |
+| `NEXT_PUBLIC_APP_URL` | Public | Base URL for success/cancel returns to `/app` |
 
-Copy `.env.example` to `.env.local`. Checkout uses `mode=payment`, currency AED, one line item per payable booking. No `setup_future_usage`, no Customers, no saved payment methods. Paid state is stored in an in-memory map (`src/lib/planning/store.ts`) for the process lifetime.
+Copy `.env.example` to `.env.local`. Checkout uses `mode=payment`, currency AED, one line item per payable booking. No `setup_future_usage`, no Customers, no saved payment methods.
 
-- `POST /api/checkout` → `{ url }` (or **503** if the secret key is missing).
-- `GET /api/checkout/status?session_id=` → `paid` \| `pending` \| `failed`.
-- `POST /api/checkout/cancel` — mark failed while keeping the plan (cancel URL includes `trip_id`).
-- Client: `startCheckout(trip)` from `src/lib/checkout/startCheckout.ts`. Trust copy for the /app pay step: `PAYMENT_TRUST_LINE` (not shown on the landing page in test mode).
+- `POST /api/checkout` body `{ trip }` or `{ selection }` → `{ url }` (503 if Stripe missing, or Stripe without storage).
+- `GET /api/checkout/status?session_id=` → store first, else Stripe session + metadata rebuild.
+- `POST /api/stripe/webhook` → verify signature (400 on bad sig); missing metadata → **200** + warning (no retries); double delivery books once.
+- Client: `startCheckout(trip)` from `src/lib/checkout`. Trust copy for `/app`: `PAYMENT_TRUST_LINE`.
