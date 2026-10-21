@@ -13,7 +13,12 @@ export interface CatalogOption {
   durationMin?: number;
   notes?: string;
   tags?: string[];
-  /** When true, the same venue may appear on more than one day. Default false. */
+  /**
+   * Shared place key (e.g. `jebel-jais`, `hatta-dam`). A trip visits each
+   * non-repeatable area at most once, even across different catalog items.
+   */
+  area?: string;
+  /** When true, the same venue/area may appear more than once. Default false. */
   repeatable?: boolean;
 }
 
@@ -137,6 +142,7 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
         photo: RAK_PHOTOS.jais,
         notes: "Sunset hard cutoff ~17:48.",
         tags: ["scenic", "mountains", "sunset"],
+        area: "jebel-jais",
       },
       {
         catalogId: "rak-jais-morning",
@@ -149,6 +155,7 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
         photo: RAK_PHOTOS.jais,
         notes: "Cooler air, clearer Hajar views.",
         tags: ["scenic", "mountains"],
+        area: "jebel-jais",
       },
       {
         catalogId: "rak-zipline",
@@ -160,6 +167,31 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
         durationMin: 90,
         notes: "World’s longest zipline slot (demo price per traveller).",
         tags: ["adventure"],
+        area: "jebel-jais",
+      },
+      {
+        catalogId: "rak-dhayah-fort",
+        kind: "activity",
+        title: "Dhayah Fort hilltop visit",
+        location: "Dhayah, Ras Al Khaimah",
+        costAED: 0,
+        defaultStartTime: "09:00",
+        durationMin: 75,
+        notes: "18th-century fort above the palm oasis · city side.",
+        tags: ["culture", "city", "scenic"],
+        area: "dhayah-fort",
+      },
+      {
+        catalogId: "rak-national-museum",
+        kind: "activity",
+        title: "National Museum of Ras Al Khaimah",
+        location: "RAK National Museum, Old Town",
+        costAED: 25,
+        defaultStartTime: "10:00",
+        durationMin: 90,
+        notes: "Fort museum · archaeology and pearling history.",
+        tags: ["culture", "city"],
+        area: "rak-national-museum",
       },
       {
         catalogId: "rak-dinner-levant",
@@ -172,6 +204,7 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
         photo: RAK_PHOTOS.dinner,
         notes: "15-min table hold · kitchen last seat 21:30.",
         tags: ["dining", "evening"],
+        area: "levant-nar",
       },
       {
         catalogId: "rak-dinner-barn",
@@ -183,6 +216,7 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
         durationMin: 90,
         notes: "Casual grill · easier parking.",
         tags: ["dining"],
+        area: "the-barn",
       },
       {
         catalogId: "rak-dinner-saffron",
@@ -194,6 +228,7 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
         durationMin: 90,
         notes: "Curries and flatbreads · indoor seating.",
         tags: ["dining"],
+        area: "saffron-kitchen",
       },
       {
         catalogId: "rak-beach-club",
@@ -205,6 +240,7 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
         durationMin: 120,
         notes: "Sunbeds and shallow swimming.",
         tags: ["beach", "relax"],
+        area: "al-marjan",
       },
       {
         catalogId: "rak-corniche-evening",
@@ -216,6 +252,7 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
         durationMin: 60,
         notes: "Easy walk after check-in · marina lights.",
         tags: ["relax", "evening"],
+        area: "al-hamra-corniche",
       },
       {
         catalogId: "rak-suwaidi-pearls",
@@ -227,6 +264,7 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
         durationMin: 90,
         notes: "Short coastal culture stop.",
         tags: ["culture", "scenic"],
+        area: "suwaidi-pearls",
       },
       {
         catalogId: "rak-lunch-souk",
@@ -237,7 +275,20 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
         defaultStartTime: "12:30",
         durationMin: 60,
         notes: "Casual Emirati plates · good before the drive home.",
-        tags: ["dining", "value"],
+        tags: ["dining", "value", "lunch"],
+        area: "rak-old-souk",
+      },
+      {
+        catalogId: "rak-lunch-marina",
+        kind: "dining",
+        title: "Al Hamra Marina cafe lunch",
+        location: "Al Hamra Marina",
+        costAED: 120,
+        defaultStartTime: "12:00",
+        durationMin: 60,
+        notes: "Light lunch by the boats.",
+        tags: ["dining", "value", "lunch"],
+        area: "al-hamra-marina",
       },
     ],
   },
@@ -324,6 +375,7 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
         durationMin: 120,
         notes: "Souq and harbour in the cooler evening hours.",
         tags: ["culture", "city", "evening"],
+        area: "mutrah",
       },
       {
         catalogId: "mct-opera",
@@ -335,6 +387,7 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
         durationMin: 60,
         notes: "Photo stop · check performance calendar separately.",
         tags: ["culture"],
+        area: "royal-opera-house",
       },
       {
         catalogId: "mct-dinner-beach",
@@ -346,6 +399,7 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
         durationMin: 90,
         notes: "Grill and catch of the day.",
         tags: ["dining", "beach"],
+        area: "qurum-seafood",
       },
       {
         catalogId: "mct-dinner-mutrah",
@@ -357,6 +411,19 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
         durationMin: 75,
         notes: "Lighter bill · local flavours.",
         tags: ["dining", "value"],
+        area: "mutrah",
+      },
+      {
+        catalogId: "mct-dinner-opera",
+        kind: "dining",
+        title: "Opera District contemporary dinner",
+        location: "Shati Al Qurum",
+        costAED: 280,
+        defaultStartTime: "19:30",
+        durationMin: 90,
+        notes: "Near the Royal Opera House · indoor AC.",
+        tags: ["dining", "evening"],
+        area: "opera-district-dining",
       },
       {
         catalogId: "mct-wadi",
@@ -368,6 +435,7 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
         durationMin: 360,
         notes: "Long day out · swim in the canyon pools.",
         tags: ["adventure", "scenic"],
+        area: "wadi-shab",
       },
       {
         catalogId: "mct-grand-mosque",
@@ -379,6 +447,7 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
         durationMin: 90,
         notes: "Morning visit before midday heat.",
         tags: ["culture"],
+        area: "grand-mosque",
       },
       {
         catalogId: "mct-lunch-muttrah",
@@ -389,7 +458,44 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
         defaultStartTime: "12:00",
         durationMin: 60,
         notes: "Light seafood before the airport run.",
-        tags: ["dining", "value"],
+        tags: ["dining", "value", "lunch"],
+        area: "mutrah",
+      },
+      {
+        catalogId: "mct-lunch-qurum",
+        kind: "dining",
+        title: "Qurum Park cafe lunch",
+        location: "Qurum Natural Park",
+        costAED: 110,
+        defaultStartTime: "12:30",
+        durationMin: 60,
+        notes: "Shaded tables away from the corniche.",
+        tags: ["dining", "value", "lunch"],
+        area: "qurum-park",
+      },
+      {
+        catalogId: "mct-lunch-ruwi",
+        kind: "dining",
+        title: "Ruwi street-food lunch",
+        location: "Ruwi, Muscat",
+        costAED: 90,
+        defaultStartTime: "12:00",
+        durationMin: 45,
+        notes: "Quick plates before the airport transfer.",
+        tags: ["dining", "value", "lunch"],
+        area: "ruwi-lunch",
+      },
+      {
+        catalogId: "mct-bait-al-zubair",
+        kind: "activity",
+        title: "Bait Al Zubair museum morning",
+        location: "Old Muscat",
+        costAED: 35,
+        defaultStartTime: "09:30",
+        durationMin: 90,
+        notes: "Omani heritage collection near the harbour.",
+        tags: ["culture", "city"],
+        area: "bait-al-zubair",
       },
     ],
   },
@@ -479,6 +585,7 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
         photo: RAK_PHOTOS.jais,
         notes: "Golden-hour light on the reservoir.",
         tags: ["scenic", "sunset", "water"],
+        area: "hatta-dam",
       },
       {
         catalogId: "hatta-heritage",
@@ -490,6 +597,7 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
         durationMin: 90,
         notes: "Watchtowers and restored falaj.",
         tags: ["culture"],
+        area: "hatta-heritage",
       },
       {
         catalogId: "hatta-kayak",
@@ -501,6 +609,7 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
         durationMin: 90,
         notes: "Cooler water, quieter boats.",
         tags: ["adventure", "water"],
+        area: "hatta-dam",
       },
       {
         catalogId: "hatta-dinner-fort",
@@ -512,6 +621,7 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
         durationMin: 90,
         notes: "Terrace seating · last kitchen ~22:00.",
         tags: ["dining"],
+        area: "ja-hatta-fort-dining",
       },
       {
         catalogId: "hatta-dinner-grill",
@@ -523,6 +633,19 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
         durationMin: 75,
         notes: "Casual · wrap up before the cool night drop.",
         tags: ["dining", "value"],
+        area: "hatta-dam",
+      },
+      {
+        catalogId: "hatta-dinner-souk",
+        kind: "dining",
+        title: "Hatta souk terrace dinner",
+        location: "Hatta village square",
+        costAED: 140,
+        defaultStartTime: "19:15",
+        durationMin: 75,
+        notes: "Mountain air · away from the dam shore.",
+        tags: ["dining", "evening"],
+        area: "hatta-souk-dining",
       },
       {
         catalogId: "hatta-hiking",
@@ -534,6 +657,7 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
         durationMin: 90,
         notes: "Shaded morning trail before the heat builds.",
         tags: ["adventure", "scenic"],
+        area: "hatta-wadi-hub",
       },
       {
         catalogId: "hatta-lunch-hub",
@@ -544,7 +668,44 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
         defaultStartTime: "12:00",
         durationMin: 45,
         notes: "Quick bite before the drive back to Dubai.",
-        tags: ["dining", "value"],
+        tags: ["dining", "value", "lunch"],
+        area: "hatta-wadi-hub",
+      },
+      {
+        catalogId: "hatta-lunch-village",
+        kind: "dining",
+        title: "Heritage Village courtyard lunch",
+        location: "Hatta Old Village",
+        costAED: 85,
+        defaultStartTime: "12:30",
+        durationMin: 45,
+        notes: "Simple mountain fare before the afternoon.",
+        tags: ["dining", "value", "lunch"],
+        area: "hatta-village-lunch",
+      },
+      {
+        catalogId: "hatta-lunch-fort",
+        kind: "dining",
+        title: "JA Hatta Fort pool cafe lunch",
+        location: "JA Hatta Fort Hotel",
+        costAED: 110,
+        defaultStartTime: "12:00",
+        durationMin: 45,
+        notes: "Poolside bite before the Dubai drive.",
+        tags: ["dining", "value", "lunch"],
+        area: "ja-hatta-fort-lunch",
+      },
+      {
+        catalogId: "hatta-pottery",
+        kind: "activity",
+        title: "Hatta traditional pottery workshop",
+        location: "Hatta Cultural Centre",
+        costAED: 60,
+        defaultStartTime: "09:30",
+        durationMin: 75,
+        notes: "Short hands-on stop in the village.",
+        tags: ["culture"],
+        area: "hatta-pottery",
       },
     ],
   },

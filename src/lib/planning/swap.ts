@@ -9,7 +9,9 @@ import {
   dayWindow,
   defaultReturnDepartMinutes,
   fitsWindow,
+  isOptionAvailable,
   minutesToHm,
+  usedAreas,
   usedCatalogIds,
 } from "./schedule";
 import type { ApplySwapResult, LateItemFlag, SwapOption, Trip, TripItem } from "./types";
@@ -89,25 +91,27 @@ export function swapOptions(trip: Trip, itemId: string): SwapOption[] {
         ? dest.hotels
         : dest.plans.filter((p) => p.kind === item.kind);
 
-  const used = usedCatalogIds(trip);
-  used.delete(item.catalogId);
+  const usedIds = usedCatalogIds(trip);
+  const usedAreaKeys = usedAreas(trip);
+  const currentOpt = getCatalogOption(item.catalogId);
+  const freeing = { catalogId: item.catalogId, area: currentOpt?.area };
   const { earliest, latest } = windowForItem(trip, item);
 
   const eligible = pool.filter((p) => {
     if (p.catalogId === item.catalogId) return false;
-    if (used.has(p.catalogId) && !p.repeatable) return false;
+    if (!isOptionAvailable(p, usedIds, usedAreaKeys, freeing)) return false;
     if (item.kind === "activity" || item.kind === "dining") {
       return Boolean(fitsWindow(p, earliest, latest) || clampStart(p, earliest, latest));
     }
     return true;
   });
 
-  let alts = eligible.slice(0, 3);
+  const alts = eligible.slice(0, 3);
   if (alts.length < 2) {
     const broader = (item.kind === "activity" || item.kind === "dining" ? dest.plans : pool).filter(
       (p) => {
         if (p.catalogId === item.catalogId) return false;
-        if (used.has(p.catalogId) && !p.repeatable) return false;
+        if (!isOptionAvailable(p, usedIds, usedAreaKeys, freeing)) return false;
         if (item.kind === "activity" || item.kind === "dining") {
           return Boolean(fitsWindow(p, earliest, latest) || clampStart(p, earliest, latest));
         }
@@ -157,10 +161,20 @@ export function applySwap(trip: Trip, itemId: string, optionId: string): ApplySw
   if (!catalog) throw new Error(`Unknown catalogId ${option.catalogId}`);
 
   const item = findItem(trip, itemId)!;
-  const used = usedCatalogIds(trip);
-  used.delete(item.catalogId);
-  if (used.has(catalog.catalogId) && !catalog.repeatable) {
-    throw new Error(`Venue ${catalog.catalogId} is already on this trip`);
+  const usedIds = usedCatalogIds(trip);
+  const usedAreaKeys = usedAreas(trip);
+  const currentOpt = getCatalogOption(item.catalogId);
+  if (
+    !isOptionAvailable(catalog, usedIds, usedAreaKeys, {
+      catalogId: item.catalogId,
+      area: currentOpt?.area,
+    })
+  ) {
+    throw new Error(
+      catalog.area
+        ? `Area ${catalog.area} is already on this trip`
+        : `Venue ${catalog.catalogId} is already on this trip`,
+    );
   }
 
   const { earliest, latest } = windowForItem(trip, item);

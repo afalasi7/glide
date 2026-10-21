@@ -9,7 +9,10 @@ import {
   dayWindow,
   defaultReturnDepartMinutes,
   fitsWindow,
+  isEveningDining,
   isFullDayWindow,
+  isLunchOption,
+  isOptionAvailable,
   minutesToHm,
 } from "./schedule";
 import type { DestinationId, PlanTripRequest, Trip, TripDay, TripItem } from "./types";
@@ -140,7 +143,8 @@ function pickHighlightDay(args: {
  * Schedule rules:
  * - Day 1 plans start at/after arrival (departure + drive/flight).
  * - Last day plans end before the return departure.
- * - Each non-repeatable venue appears at most once; meals rotate.
+ * - Each non-repeatable venue/area appears at most once; meals rotate.
+ * - Full days and the departure day get a lunch slot.
  * - Destination highlight sits on a full day inside its time window.
  */
 export function planTrip(request: PlanTripRequest = {}): Trip {
@@ -193,7 +197,8 @@ export function planTrip(request: PlanTripRequest = {}): Trip {
     refFor(hotelOpt, tripId),
   );
 
-  const used = new Set<string>([travel.catalogId, hotel.catalogId]);
+  const usedIds = new Set<string>([travel.catalogId, hotel.catalogId]);
+  const usedAreaKeys = new Set<string>();
   const highlight = catalog.plans.find((p) => p.catalogId === catalog.highlight.catalogId);
   const highlightDay = highlight
     ? pickHighlightDay({
@@ -204,6 +209,13 @@ export function planTrip(request: PlanTripRequest = {}): Trip {
       })
     : 0;
 
+  // Reserve the highlight venue/area up front so earlier days' dinners cannot
+  // steal Mutrah / Hatta Dam / Jebel Jais before the highlight day is filled.
+  if (highlight && highlightDay > 0) {
+    usedIds.add(highlight.catalogId);
+    if (highlight.area) usedAreaKeys.add(highlight.area);
+  }
+
   const tripDays: TripDay[] = [];
   for (let d = 1; d <= days; d++) {
     const { earliest, latest } = dayWindow({
@@ -212,71 +224,95 @@ export function planTrip(request: PlanTripRequest = {}): Trip {
       arrivalMin,
       returnDepartMin,
     });
+    const fullDay = isFullDayWindow(earliest, latest);
+    const lastDay = d === days && days > 1;
     const chosen: { opt: CatalogOption; start: string }[] = [];
 
-    const available = (opt: CatalogOption) => !used.has(opt.catalogId) || Boolean(opt.repeatable);
+    const available = (opt: CatalogOption) => isOptionAvailable(opt, usedIds, usedAreaKeys);
 
-    const take = (opt: CatalogOption | undefined) => {
-      if (!opt) return;
-      if (!available(opt)) return;
-      // Prefer natural fit; allow a small clamp (≤90 min) via clampStart.
+    const take = (opt: CatalogOption | undefined): boolean => {
+      if (!opt) return false;
+      if (!available(opt)) return false;
       const start = fitsWindow(opt, earliest, latest)
         ? (opt.defaultStartTime ?? "10:00")
         : clampStart(opt, earliest, latest);
-      if (!start) return;
-      // Avoid stacking two items at the exact same minute.
+      if (!start) return false;
       let startMin = timeToMinutes(start);
       while (chosen.some((c) => timeToMinutes(c.start) === startMin)) {
         startMin += 30;
       }
-      if (startMin > latest) return;
+      if (startMin > latest) return false;
       chosen.push({ opt, start: minutesToHm(startMin) });
-      used.add(opt.catalogId);
+      usedIds.add(opt.catalogId);
+      if (opt.area) usedAreaKeys.add(opt.area);
+      return true;
     };
 
+    const fits = (p: CatalogOption) =>
+      fitsWindow(p, earliest, latest) || Boolean(clampStart(p, earliest, latest));
+
     if (d === highlightDay && highlight) {
-      take(highlight);
+      // Already reserved in usedIds/usedAreaKeys — force-add without re-checking availability.
+      const start = fitsWindow(highlight, earliest, latest)
+        ? (highlight.defaultStartTime ?? "17:00")
+        : clampStart(highlight, earliest, latest);
+      if (start) {
+        chosen.push({ opt: highlight, start });
+      }
     }
 
-    const diningPool = catalog.plans.filter((p) => p.kind === "dining" && available(p));
-    const activityPool = catalog.plans.filter(
-      (p) =>
-        p.kind === "activity" &&
-        p.catalogId !== highlight?.catalogId &&
-        available(p),
-    );
+    // Lunch on every full day and on the departure day (before the drive home).
+    if (fullDay || lastDay || days === 1) {
+      const lunchPool = catalog.plans.filter(
+        (p) => isLunchOption(p) && available(p) && fits(p),
+      );
+      take(pickBest(lunchPool, resolved.interests, budgetPressure));
+    }
 
-    // Last day: skip evening dinner (leave before evening). Prefer evening venues
-    // on other days so lunch options stay available for departure mornings.
-    if (d < days || days === 1) {
-      const fitsDining = (p: CatalogOption) =>
-        fitsWindow(p, earliest, latest) || clampStart(p, earliest, latest);
-      const evening = diningPool.filter(
+    // Evening dinner on nights that are not the departure morning.
+    if (!lastDay || days === 1) {
+      const dinnerPool = catalog.plans.filter(
+        (p) => isEveningDining(p) && available(p) && fits(p),
+      );
+      take(pickBest(dinnerPool, resolved.interests, budgetPressure));
+    }
+
+    const activityPool = () =>
+      catalog.plans.filter(
         (p) =>
-          fitsDining(p) && timeToMinutes(p.defaultStartTime ?? "19:00") >= 17 * 60,
+          p.kind === "activity" &&
+          p.catalogId !== highlight?.catalogId &&
+          available(p) &&
+          fits(p) &&
+          !chosen.some((c) => c.opt.catalogId === p.catalogId),
       );
-      const dinner = pickBest(
-        evening.length ? evening : diningPool.filter(fitsDining),
+
+    // Prefer a morning city/culture stop on full days (avoids re-visiting the highlight area).
+    if (fullDay || lastDay) {
+      const morning = pickBest(
+        activityPool().filter((p) => timeToMinutes(p.defaultStartTime ?? "10:00") < 12 * 60),
         resolved.interests,
         budgetPressure,
       );
-      take(dinner);
+      take(morning);
     }
 
-    // Target: 2 plans on arrival/departure, up to 3 on full middle days.
-    const target = isFullDayWindow(earliest, latest) ? 3 : 2;
-    while (chosen.length < target) {
-      const next = pickBest(
-        activityPool.filter(
-          (p) =>
-            !chosen.some((c) => c.opt.catalogId === p.catalogId) &&
-            (fitsWindow(p, earliest, latest) || clampStart(p, earliest, latest)),
-        ),
+    // Arrival evening: one light activity if time allows.
+    if (!fullDay && !lastDay) {
+      const eveningAct = pickBest(
+        activityPool().filter((p) => timeToMinutes(p.defaultStartTime ?? "18:00") >= 17 * 60),
         resolved.interests,
         budgetPressure,
       );
+      take(eveningAct);
+    }
+
+    // Full days: morning + lunch + highlight/act + dinner when the catalog allows.
+    const target = fullDay ? 4 : lastDay ? 2 : 2;
+    while (chosen.length < target) {
+      const next = pickBest(activityPool(), resolved.interests, budgetPressure);
       if (!next) break;
-      take(next);
+      if (!take(next)) break;
     }
 
     chosen.sort((a, b) => a.start.localeCompare(b.start));
