@@ -23,7 +23,12 @@ export function nightsBetween(startDate: string, endDate: string): number {
 }
 
 export function eachBookableItem(trip: Trip): TripItem[] {
-  return [trip.travel, trip.hotel, ...trip.days.flatMap((d) => d.plans)];
+  return [
+    trip.travel,
+    ...(trip.returnTravel ? [trip.returnTravel] : []),
+    trip.hotel,
+    ...trip.days.flatMap((d) => d.plans),
+  ];
 }
 
 /**
@@ -48,6 +53,7 @@ export function applyCatalogPrices(trip: Trip): Trip {
   const next: Trip = {
     ...trip,
     travel: price(trip.travel),
+    returnTravel: trip.returnTravel ? price(trip.returnTravel) : undefined,
     hotel: price(trip.hotel),
     days: trip.days.map((d) => ({ ...d, plans: d.plans.map(price) })),
   };

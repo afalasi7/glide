@@ -17,7 +17,13 @@ export type CompactTripSelection = {
   kids?: number;
   budgetAED: number;
   travel: string;
+  /** Outbound travel start HHMM */
+  travelAt?: string;
   hotel: string;
+  hotelAt?: string;
+  /** `catalogId:day:HHMM` for return leg, optional */
+  ret?: string;
+  retAt?: string;
   /** `catalogId:day:HHMM` joined by `|` */
   plans: string;
   tripId: string;
@@ -95,7 +101,11 @@ export function selectionFromTrip(trip: Trip): CompactTripSelection {
     kids: trip.kids,
     budgetAED: trip.budgetAED,
     travel: trip.travel.catalogId,
+    travelAt: hmToCompact(trip.travel.startTime),
     hotel: trip.hotel.catalogId,
+    hotelAt: hmToCompact(trip.hotel.startTime),
+    ret: trip.returnTravel?.catalogId,
+    retAt: trip.returnTravel ? hmToCompact(trip.returnTravel.startTime) : undefined,
     plans,
     tripId: trip.id,
   };
@@ -113,20 +123,30 @@ export function tripFromSelection(sel: CompactTripSelection): Trip {
   const travelOpt = getCatalogOption(sel.travel)!;
   const hotelOpt = getCatalogOption(sel.hotel)!;
 
+  const travelStart = sel.travelAt ? compactToHm(sel.travelAt) : travelOpt.defaultStartTime ?? "09:00";
   const travel = toItem(
     sel.travel,
     `${tripId}_travel`,
     1,
-    travelOpt.defaultStartTime ?? "09:00",
+    travelStart,
     travelOpt.mode === "flight" ? `FLT-${tripId.slice(-6).toUpperCase()}` : undefined,
   );
+  const hotelStart = sel.hotelAt ? compactToHm(sel.hotelAt) : hotelOpt.defaultStartTime ?? "15:00";
   const hotel = toItem(
     sel.hotel,
     `${tripId}_hotel`,
     1,
-    hotelOpt.defaultStartTime ?? "15:00",
+    hotelStart,
     refFor("hotel", tripId),
   );
+  const lastDay = Math.max(
+    1,
+    ...((sel.plans ? sel.plans.split("|").filter(Boolean) : []).map((p) => Number(p.split(":")[1])) || [1]),
+  );
+  const returnTravel =
+    sel.ret && sel.retAt
+      ? toItem(sel.ret, `${tripId}_return`, lastDay, compactToHm(sel.retAt), undefined)
+      : undefined;
 
   const byDay = new Map<number, TripItem[]>();
   const parts = sel.plans ? sel.plans.split("|").filter(Boolean) : [];
@@ -173,6 +193,7 @@ export function tripFromSelection(sel: CompactTripSelection): Trip {
     kids: sel.kids,
     budgetAED: sel.budgetAED,
     travel,
+    returnTravel,
     hotel,
     days,
     totalCostAED: 0,
@@ -209,6 +230,10 @@ export function selectionToMetadata(sel: CompactTripSelection): Record<string, s
     tripId: sel.tripId,
   };
   if (sel.kids !== undefined) meta.kids = String(sel.kids);
+  if (sel.travelAt) meta.travelAt = sel.travelAt;
+  if (sel.hotelAt) meta.hotelAt = sel.hotelAt;
+  if (sel.ret) meta.ret = sel.ret;
+  if (sel.retAt) meta.retAt = sel.retAt;
   for (const [k, v] of Object.entries(meta)) {
     if (v.length > META_MAX) throw new Error(`metadata.${k} exceeds ${META_MAX} characters`);
   }
@@ -238,7 +263,11 @@ export function selectionFromMetadata(
     kids: meta.kids !== undefined ? Number(meta.kids) : undefined,
     budgetAED,
     travel: meta.travel,
+    travelAt: meta.travelAt,
     hotel: meta.hotel,
+    hotelAt: meta.hotelAt,
+    ret: meta.ret,
+    retAt: meta.retAt,
     plans: meta.plans,
     tripId: meta.tripId,
   };

@@ -2,6 +2,7 @@ import { describe, expect, test, beforeEach } from "bun:test";
 import { evaluate } from "@/lib/agent";
 import {
   applySwap,
+  assertScheduleInvariants,
   bookTrip,
   BUDGET_PRESETS_AED,
   demoConfirmBookingFromTrip,
@@ -12,6 +13,7 @@ import {
   planTrip,
   resetTripStore,
   swapOptions,
+  timeToMinutes,
   validateAndRepriceTrip,
   withPlanDefaults,
 } from "./index";
@@ -63,7 +65,7 @@ describe("planTrip defaults", () => {
 });
 
 describe("highlights", () => {
-  test("RAK: Jebel Jais sunset item + copy", () => {
+  test("RAK: Jebel Jais sunset item + copy on a full day", () => {
     const trip = planTrip({
       destination: "ras-al-khaimah",
       startDate: "2026-10-23",
@@ -71,8 +73,12 @@ describe("highlights", () => {
       travellers: 2,
       budgetAED: 3000,
     });
-    const day1Ids = trip.days[0].plans.map((p) => p.catalogId);
-    expect(day1Ids).toContain("rak-jais-deck");
+    const highlightDay = trip.days.find((d) =>
+      d.plans.some((p) => p.catalogId === "rak-jais-deck"),
+    );
+    expect(highlightDay).toBeDefined();
+    // Full middle day for Fri–Sun (not arrival Friday).
+    expect(highlightDay!.day).toBe(2);
     expect(trip.facts.highlight).toBeDefined();
     expect(trip.facts.highlight!.catalogId).toBe("rak-jais-deck");
     expect(trip.facts.highlight!.itemId).toBeTruthy();
@@ -115,13 +121,61 @@ describe("highlights", () => {
       endDate: "2026-10-25",
       budgetAED: 3000,
     });
-    const jais = trip.days[0].plans.find((p) => p.catalogId === "rak-jais-deck")!;
+    const jais = trip.days
+      .flatMap((d) => d.plans)
+      .find((p) => p.catalogId === "rak-jais-deck")!;
     expect(trip.facts.highlight?.copy).toBe("Jebel Jais is timed for sunset.");
     const opts = swapOptions(trip, jais.id);
     const alt = opts.find((o) => o.catalogId !== "rak-jais-deck");
     expect(alt).toBeDefined();
     const swapped = applySwap(trip, jais.id, alt!.id);
     expect(swapped.trip.facts.highlight).toBeUndefined();
+  });
+});
+
+describe("schedule invariants", () => {
+  const destinations = ["ras-al-khaimah", "muscat", "hatta"] as const;
+
+  for (const destination of destinations) {
+    test(`${destination}: day-1 after arrival, unique venues, time order`, () => {
+      const trip = planTrip({
+        destination,
+        startDate: "2026-10-23",
+        endDate: "2026-10-25",
+        budgetAED: destination === "muscat" ? 6000 : 3000,
+      });
+      assertScheduleInvariants(trip);
+
+      const arrival =
+        timeToMinutes(trip.travel.startTime) + (trip.travel.durationMin ?? 0);
+      for (const p of trip.days[0].plans) {
+        expect(timeToMinutes(p.startTime)).toBeGreaterThanOrEqual(arrival);
+      }
+
+      const ids = trip.days.flatMap((d) => d.plans.map((p) => p.catalogId));
+      expect(new Set(ids).size).toBe(ids.length);
+
+      for (const day of trip.days) {
+        for (let i = 1; i < day.plans.length; i++) {
+          expect(day.plans[i].startTime >= day.plans[i - 1].startTime).toBe(true);
+        }
+      }
+    });
+  }
+
+  test("swaps keep arrival bounds and unique venues", () => {
+    const trip = planTrip({
+      destination: "ras-al-khaimah",
+      startDate: "2026-10-23",
+      endDate: "2026-10-25",
+      budgetAED: 3000,
+    });
+    const dinner = trip.days.flatMap((d) => d.plans).find((p) => p.kind === "dining");
+    expect(dinner).toBeDefined();
+    const opts = swapOptions(trip, dinner!.id);
+    expect(opts.length).toBeGreaterThanOrEqual(1);
+    const result = applySwap(trip, dinner!.id, opts[0].id);
+    assertScheduleInvariants(result.trip);
   });
 });
 

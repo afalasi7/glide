@@ -6,6 +6,7 @@ export * from "./facts";
 export * from "./graph";
 export * from "./validate";
 export * from "./planTrip";
+export * from "./schedule";
 export * from "./swap";
 export * from "./book";
 export { resetTripStore } from "./store";

@@ -44,11 +44,18 @@ export function validateAndRepriceTrip(raw: Trip): Trip {
 
   assertItemShape(raw.travel, "travel");
   assertItemShape(raw.hotel, "hotel");
+  if (raw.returnTravel) assertItemShape(raw.returnTravel, "returnTravel");
   if (raw.travel.kind !== "travel" && getCatalogOption(raw.travel.catalogId)?.kind !== "travel") {
     throw new Error("travel item must be a travel catalog option");
   }
   if (getCatalogOption(raw.hotel.catalogId)?.kind !== "hotel") {
     throw new Error("hotel item must be a hotel catalog option");
+  }
+  if (
+    raw.returnTravel &&
+    getCatalogOption(raw.returnTravel.catalogId)?.kind !== "travel"
+  ) {
+    throw new Error("returnTravel must be a travel catalog option");
   }
   if (!Array.isArray(raw.days) || raw.days.length < 1) throw new Error("days required");
 
@@ -85,6 +92,7 @@ export function validateAndRepriceTrip(raw: Trip): Trip {
     destination,
     destinationLabel: DESTINATIONS[destination].label,
     travel: enrich(raw.travel),
+    returnTravel: raw.returnTravel ? enrich(raw.returnTravel) : undefined,
     hotel: enrich(raw.hotel),
     days: raw.days.map((d) => ({
       ...d,

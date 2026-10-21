@@ -115,6 +115,8 @@ export interface Trip {
   budgetAED: number;
   interests?: string[];
   travel: TripItem;
+  /** Homebound leg on the last day (multi-day trips). */
+  returnTravel?: TripItem;
   hotel: TripItem;
   days: TripDay[];
   /** @deprecated Prefer facts.totalAED — kept equal for older callers. */

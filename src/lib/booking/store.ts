@@ -2,7 +2,10 @@ import { Redis } from "@upstash/redis";
 import type { BookingConfirmation } from "@/lib/planning/types";
 import type { CompactTripSelection } from "./selection";
 
-export type BookingRecordStatus = "pending" | "booked" | "failed";
+export type BookingRecordStatus = "pending" | "booked" | "failed" | "refunded";
+
+/** Pending claim TTL — backstop if a worker dies mid-fulfillment. */
+export const PENDING_CLAIM_TTL_SECONDS = 10 * 60;
 
 export interface BookingRecord {
   sessionId: string;
@@ -14,6 +17,10 @@ export interface BookingRecord {
   confirmations?: BookingConfirmation[];
   paidAt?: string;
   bookedAt?: string;
+  /** ISO time when a pending claim was taken (expiry backstop). */
+  claimedAt?: string;
+  /** Stripe refund id when a permanent failure triggered a full refund. */
+  refundId?: string;
 }
 
 /**
@@ -21,32 +28,56 @@ export interface BookingRecord {
  * Stripe path only — demo mode stays fully client-stateless.
  */
 export interface BookingStore {
-  /** SET NX — true if this call created the key. */
+  /**
+   * SET NX — true if this call created the key.
+   * Pending claims should expire after {@link PENDING_CLAIM_TTL_SECONDS}.
+   */
   claim(sessionId: string, record: BookingRecord): Promise<boolean>;
   get(sessionId: string): Promise<BookingRecord | null>;
   set(sessionId: string, record: BookingRecord): Promise<void>;
+  /** Remove the claim so Stripe can retry after a transient failure. */
+  delete(sessionId: string): Promise<void>;
 }
 
 const KEY = (sessionId: string) => `booking:${sessionId}`;
 
-/** In-memory fake for unit tests (simulates Upstash SET NX). */
+function isPendingExpired(record: BookingRecord, nowMs = Date.now()): boolean {
+  if (record.status !== "pending" || !record.claimedAt) return false;
+  const claimed = Date.parse(record.claimedAt);
+  if (!Number.isFinite(claimed)) return false;
+  return nowMs - claimed > PENDING_CLAIM_TTL_SECONDS * 1000;
+}
+
+/** In-memory fake for unit tests (simulates Upstash SET NX + TTL). */
 export class MemoryBookingStore implements BookingStore {
   private readonly data = new Map<string, BookingRecord>();
 
   async claim(sessionId: string, record: BookingRecord): Promise<boolean> {
     const k = KEY(sessionId);
-    if (this.data.has(k)) return false;
-    this.data.set(k, structuredClone(record));
+    const current = this.data.get(k);
+    if (current && !isPendingExpired(current)) return false;
+    // Expired pending (or missing) may be claimed.
+    this.data.set(k, structuredClone({ ...record, claimedAt: record.claimedAt ?? new Date().toISOString() }));
     return true;
   }
 
   async get(sessionId: string): Promise<BookingRecord | null> {
-    const v = this.data.get(KEY(sessionId));
-    return v ? structuredClone(v) : null;
+    const k = KEY(sessionId);
+    const v = this.data.get(k);
+    if (!v) return null;
+    if (isPendingExpired(v)) {
+      this.data.delete(k);
+      return null;
+    }
+    return structuredClone(v);
   }
 
   async set(sessionId: string, record: BookingRecord): Promise<void> {
     this.data.set(KEY(sessionId), structuredClone(record));
+  }
+
+  async delete(sessionId: string): Promise<void> {
+    this.data.delete(KEY(sessionId));
   }
 
   clear(): void {
@@ -81,7 +112,15 @@ function buildUpstashStore(env: { url: string; token: string }): BookingStore {
   const redis = new Redis({ url: env.url, token: env.token });
   return {
     async claim(sessionId, record) {
-      const result = await redis.set(KEY(sessionId), record, { nx: true });
+      const withClaim = {
+        ...record,
+        claimedAt: record.claimedAt ?? new Date().toISOString(),
+      };
+      // NX + EX: pending claims auto-expire if a worker dies mid-flight.
+      const result = await redis.set(KEY(sessionId), withClaim, {
+        nx: true,
+        ex: PENDING_CLAIM_TTL_SECONDS,
+      });
       return result === "OK";
     },
     async get(sessionId) {
@@ -89,7 +128,15 @@ function buildUpstashStore(env: { url: string; token: string }): BookingStore {
       return v ?? null;
     },
     async set(sessionId, record) {
-      await redis.set(KEY(sessionId), record);
+      // Booked/failed records should not inherit the short pending TTL.
+      if (record.status === "pending") {
+        await redis.set(KEY(sessionId), record, { ex: PENDING_CLAIM_TTL_SECONDS });
+      } else {
+        await redis.set(KEY(sessionId), record);
+      }
+    },
+    async delete(sessionId) {
+      await redis.del(KEY(sessionId));
     },
   };
 }

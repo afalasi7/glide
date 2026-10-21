@@ -72,18 +72,33 @@ export async function confirmDemoCheckout(trip: Trip): Promise<BookingResult & {
 /** Stripe path: poll by Checkout session id. */
 export async function getCheckoutStatus(params: {
   sessionId: string;
-}): Promise<{ status: "paid" | "pending" | "failed"; tripId?: string; trip?: Trip }>;
+}): Promise<{
+  status: "paid" | "pending" | "failed" | "refunded";
+  tripId?: string;
+  trip?: Trip;
+  message?: string;
+}>;
 
 /** Demo path: POST the full trip (stateless). */
 export async function getCheckoutStatus(params: {
   trip: Trip;
-}): Promise<{ status: "paid" | "pending" | "failed"; tripId?: string; trip?: Trip }>;
+}): Promise<{
+  status: "paid" | "pending" | "failed" | "refunded";
+  tripId?: string;
+  trip?: Trip;
+  message?: string;
+}>;
 
 export async function getCheckoutStatus(params: {
   sessionId?: string;
   tripId?: string;
   trip?: Trip;
-}): Promise<{ status: "paid" | "pending" | "failed"; tripId?: string; trip?: Trip }> {
+}): Promise<{
+  status: "paid" | "pending" | "failed" | "refunded";
+  tripId?: string;
+  trip?: Trip;
+  message?: string;
+}> {
   if (params.trip) {
     const res = await fetch("/api/checkout/status", {
       method: "POST",
@@ -128,3 +143,4 @@ export async function reportCheckoutCancelled(args: {
 }
 
 export { PAYMENT_TRUST_LINE } from "@/lib/planning";
+export { REFUND_MESSAGE } from "@/lib/booking";

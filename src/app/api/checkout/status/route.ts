@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   getBookingStore,
   hasDurableBookingStore,
+  REFUND_MESSAGE,
   selectionFromMetadata,
   tripFromSelection,
 } from "@/lib/booking";
@@ -27,7 +28,24 @@ export async function GET(request: Request) {
       const store = getBookingStore();
       const record = await store.get(sessionId);
       if (record) {
-        const trip = record.selection ? tripFromSelection(record.selection) : undefined;
+        const trip = record.selection
+          ? (() => {
+              try {
+                return tripFromSelection(record.selection!);
+              } catch {
+                return undefined;
+              }
+            })()
+          : undefined;
+        if (record.status === "refunded") {
+          return NextResponse.json({
+            status: "refunded",
+            message: REFUND_MESSAGE,
+            tripId: record.tripId,
+            refundId: record.refundId,
+            trip,
+          });
+        }
         const status =
           record.status === "booked"
             ? "paid"
@@ -40,7 +58,12 @@ export async function GET(request: Request) {
           trip: trip
             ? {
                 ...trip,
-                status: record.status === "booked" ? "booked" : record.status === "failed" ? "payment_failed" : "pending_payment",
+                status:
+                  record.status === "booked"
+                    ? "booked"
+                    : record.status === "failed"
+                      ? "payment_failed"
+                      : "pending_payment",
                 confirmations: record.confirmations,
                 paidAt: record.paidAt,
                 bookedAt: record.bookedAt,

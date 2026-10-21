@@ -109,6 +109,119 @@ describe("idempotent fulfillCheckoutSession", () => {
     if (result.ok) return;
     expect(result.reason).toBe("invalid_metadata");
   });
+
+  test("orphaned pending claim is finished on retry", async () => {
+    const trip = planTrip({
+      startDate: "2026-10-23",
+      endDate: "2026-10-25",
+      budgetAED: 3000,
+    });
+    const sel = selectionFromTrip(trip);
+    const metadata = selectionToMetadata(sel);
+    const sessionId = "cs_test_pending_finish";
+    await store.set(sessionId, {
+      sessionId,
+      status: "pending",
+      selection: sel,
+      tripId: sel.tripId,
+      paidAt: new Date().toISOString(),
+      claimedAt: new Date().toISOString(),
+    });
+
+    const result = await fulfillCheckoutSession({ sessionId, metadata, store });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.record.status).toBe("booked");
+    expect(result.record.confirmations!.length).toBeGreaterThan(0);
+  });
+
+  test("unrebuildable trip is a permanent failure (refunded when PI present)", async () => {
+    const trip = planTrip({
+      startDate: "2026-10-23",
+      endDate: "2026-10-25",
+      budgetAED: 3000,
+    });
+    const metadata = selectionToMetadata(selectionFromTrip(trip));
+    const sessionId = "cs_test_rebuild_fail";
+    let refundCalls = 0;
+    const result = await fulfillCheckoutSession({
+      sessionId,
+      metadata,
+      store,
+      paymentIntentId: "pi_test_1",
+      deps: {
+        rebuild: () => {
+          throw new Error("Unknown catalogId forged");
+        },
+        refund: async ({ sessionId: sid }) => {
+          refundCalls += 1;
+          expect(sid).toBe(sessionId);
+          return { id: "re_test_1" };
+        },
+      },
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("invalid_metadata");
+    expect(result.refunded).toBe(true);
+    expect(result.record?.status).toBe("refunded");
+    expect(result.record?.refundId).toBe("re_test_1");
+    expect(refundCalls).toBe(1);
+  });
+
+  test("permanent failure is refunded once; repeated delivery does not refund twice", async () => {
+    const sessionId = "cs_test_refund_once";
+    let refundCalls = 0;
+    const refund = async () => {
+      refundCalls += 1;
+      return { id: "re_once" };
+    };
+
+    const first = await fulfillCheckoutSession({
+      sessionId,
+      metadata: { v: "1", dest: "ras-al-khaimah" },
+      store,
+      paymentIntentId: "pi_refund_1",
+      deps: { refund },
+    });
+    expect(first.ok).toBe(false);
+    if (first.ok) return;
+    expect(first.refunded).toBe(true);
+    expect(first.record?.refundId).toBe("re_once");
+    expect(refundCalls).toBe(1);
+
+    const second = await fulfillCheckoutSession({
+      sessionId,
+      metadata: { v: "1", dest: "ras-al-khaimah" },
+      store,
+      paymentIntentId: "pi_refund_1",
+      deps: { refund },
+    });
+    expect(second.ok).toBe(false);
+    if (second.ok) return;
+    expect(second.refunded).toBe(true);
+    expect(second.record?.refundId).toBe("re_once");
+    expect(refundCalls).toBe(1);
+  });
+
+  test("refund failure deletes claim and is transient (webhook 500)", async () => {
+    const sessionId = "cs_test_refund_fail";
+    const result = await fulfillCheckoutSession({
+      sessionId,
+      metadata: {},
+      store,
+      paymentIntentId: "pi_fail",
+      deps: {
+        refund: async () => {
+          throw new Error("stripe refund down");
+        },
+      },
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("transient");
+    expect(await store.get(sessionId)).toBeNull();
+  });
 });
 
 describe("checkout readiness", () => {
