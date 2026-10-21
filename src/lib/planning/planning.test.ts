@@ -7,6 +7,8 @@ import {
   BUDGET_PRESETS_AED,
   demoConfirmBookingFromTrip,
   DEFAULT_BUDGET_AED,
+  getCatalogOption,
+  isLunchOption,
   lateItemFlags,
   nextFridayIso,
   PAYMENT_TRUST_LINE,
@@ -161,9 +163,69 @@ describe("schedule invariants", () => {
         }
       }
     });
+
+    test(`${destination}: no area repeats unless marked repeatable`, () => {
+      const trip = planTrip({
+        destination,
+        startDate: "2026-10-23",
+        endDate: "2026-10-25",
+        budgetAED: destination === "muscat" ? 6000 : 3000,
+      });
+      const areas: string[] = [];
+      for (const day of trip.days) {
+        for (const p of day.plans) {
+          const opt = getCatalogOption(p.catalogId);
+          if (!opt?.area || opt.repeatable) continue;
+          expect(areas).not.toContain(opt.area);
+          areas.push(opt.area);
+        }
+      }
+      assertScheduleInvariants(trip);
+    });
+
+    test(`${destination}: full days and last day include lunch`, () => {
+      const trip = planTrip({
+        destination,
+        startDate: "2026-10-23",
+        endDate: "2026-10-25",
+        budgetAED: destination === "muscat" ? 6000 : 3000,
+      });
+      const last = trip.days[trip.days.length - 1];
+      const hasLunch = (day: (typeof trip.days)[0]) =>
+        day.plans.some((p) => {
+          const opt = getCatalogOption(p.catalogId);
+          return opt && isLunchOption(opt);
+        });
+      // Middle full day (day 2 on Fri–Sun).
+      expect(hasLunch(trip.days[1])).toBe(true);
+      expect(hasLunch(last)).toBe(true);
+      const returnMin = timeToMinutes(trip.returnTravel!.startTime);
+      for (const p of last.plans) {
+        expect(timeToMinutes(p.startTime)).toBeLessThan(returnMin);
+      }
+    });
   }
 
-  test("swaps keep arrival bounds and unique venues", () => {
+  test("RAK keeps a single Jebel Jais visit (sunset) and fills morning in the city", () => {
+    const trip = planTrip({
+      destination: "ras-al-khaimah",
+      startDate: "2026-10-23",
+      endDate: "2026-10-25",
+      budgetAED: 3000,
+    });
+    const jais = trip.days.flatMap((d) => d.plans).filter((p) => {
+      const opt = getCatalogOption(p.catalogId);
+      return opt?.area === "jebel-jais";
+    });
+    expect(jais).toHaveLength(1);
+    expect(jais[0].catalogId).toBe("rak-jais-deck");
+    const day2 = trip.days[1];
+    const morning = day2.plans.filter((p) => timeToMinutes(p.startTime) < 12 * 60);
+    expect(morning.length).toBeGreaterThanOrEqual(1);
+    expect(morning.every((p) => getCatalogOption(p.catalogId)?.area !== "jebel-jais")).toBe(true);
+  });
+
+  test("swaps keep arrival bounds and unique venues/areas", () => {
     const trip = planTrip({
       destination: "ras-al-khaimah",
       startDate: "2026-10-23",

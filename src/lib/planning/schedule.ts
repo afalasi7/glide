@@ -15,8 +15,13 @@ export function arrivalMinutes(travel: Pick<TripItem, "startTime" | "durationMin
 
 /** Last-day homebound departure (wall-clock minutes). */
 export function defaultReturnDepartMinutes(destTravelDefault?: string): number {
-  // Leave mid-afternoon so travellers reach Dubai before evening peak when possible.
-  if (destTravelDefault) return timeToMinutes(destTravelDefault);
+  // Prefer mid-afternoon so the last day still has a morning + lunch window.
+  // Morning outbound times (typical flights) must not become an 08:40 return.
+  if (destTravelDefault) {
+    const outbound = timeToMinutes(destTravelDefault);
+    if (outbound < 12 * 60) return 15 * 60;
+    return outbound;
+  }
   return 14 * 60;
 }
 
@@ -42,6 +47,17 @@ export function dayWindow(args: {
 /** True when the day window opens by mid-morning and runs through evening. */
 export function isFullDayWindow(earliest: number, latest: number): boolean {
   return earliest <= 9 * 60 && latest >= 18 * 60;
+}
+
+export function isLunchOption(opt: CatalogOption): boolean {
+  if (opt.kind !== "dining") return false;
+  const start = timeToMinutes(opt.defaultStartTime ?? "12:00");
+  return start >= 11 * 60 && start < 15 * 60;
+}
+
+export function isEveningDining(opt: CatalogOption): boolean {
+  if (opt.kind !== "dining") return false;
+  return timeToMinutes(opt.defaultStartTime ?? "19:00") >= 17 * 60;
 }
 
 export function fitsWindow(opt: CatalogOption, earliest: number, latest: number): boolean {
@@ -77,13 +93,40 @@ export function usedCatalogIds(trip: Trip): Set<string> {
   return ids;
 }
 
+/** Areas already claimed by plan items on the trip. */
+export function usedAreas(trip: Trip): Set<string> {
+  const areas = new Set<string>();
+  for (const d of trip.days) {
+    for (const p of d.plans) {
+      const opt = getCatalogOption(p.catalogId);
+      if (opt?.area) areas.add(opt.area);
+    }
+  }
+  return areas;
+}
+
+/** True when this option can be added without duplicating a catalog id or area. */
+export function isOptionAvailable(
+  opt: CatalogOption,
+  usedIds: Set<string>,
+  usedAreaKeys: Set<string>,
+  /** Catalog id being replaced (swap) — its id/area are treated as free. */
+  freeing?: { catalogId?: string; area?: string },
+): boolean {
+  if (opt.repeatable) return true;
+  if (usedIds.has(opt.catalogId) && opt.catalogId !== freeing?.catalogId) return false;
+  if (opt.area && usedAreaKeys.has(opt.area) && opt.area !== freeing?.area) return false;
+  return true;
+}
+
 export function assertScheduleInvariants(trip: Trip): void {
   const arrival = arrivalMinutes(trip.travel);
   const returnMin = trip.returnTravel
     ? timeToMinutes(trip.returnTravel.startTime)
     : defaultReturnDepartMinutes();
   const totalDays = trip.days.length;
-  const seen = new Set<string>();
+  const seenIds = new Set<string>();
+  const seenAreas = new Set<string>();
 
   for (const day of trip.days) {
     for (let i = 1; i < day.plans.length; i++) {
@@ -105,10 +148,14 @@ export function assertScheduleInvariants(trip: Trip): void {
   for (const day of trip.days) {
     for (const p of day.plans) {
       const opt = getCatalogOption(p.catalogId);
-      if (seen.has(p.catalogId) && !opt?.repeatable) {
+      if (seenIds.has(p.catalogId) && !opt?.repeatable) {
         throw new Error(`Duplicate venue ${p.catalogId}`);
       }
-      seen.add(p.catalogId);
+      seenIds.add(p.catalogId);
+      if (opt?.area && seenAreas.has(opt.area) && !opt.repeatable) {
+        throw new Error(`Duplicate area ${opt.area}`);
+      }
+      if (opt?.area) seenAreas.add(opt.area);
     }
   }
 }
