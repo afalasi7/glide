@@ -26,7 +26,12 @@ export function buildGraphFromTrip(trip: Trip): TripGraph {
 
   const hotelId = trip.hotel.id;
 
-  const all: TripItem[] = [trip.travel, trip.hotel, ...trip.days.flatMap((d) => d.plans)];
+  const all: TripItem[] = [
+    trip.travel,
+    trip.hotel,
+    ...trip.days.flatMap((d) => d.plans),
+    ...(trip.returnTravel ? [trip.returnTravel] : []),
+  ];
 
   for (const item of all) {
     const constraints: Constraint[] = [];
