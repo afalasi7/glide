@@ -10,6 +10,10 @@ import {
   type CheapestFix,
 } from "@/lib/booking/client";
 import {
+  applyDestinationDefaultBudget,
+  muscatBudgetChipHint,
+} from "@/lib/ask-budget";
+import {
   BUDGET_PRESETS_AED,
   applySwap,
   swapOptions,
@@ -283,6 +287,10 @@ export function AskPrefsScreen({
 }) {
   const resolved = withPlanDefaults(request);
   const step = ASK[Math.min(ASK.length - 1, Math.max(0, index))]!;
+  /** Once the user taps a budget chip, destination changes no longer overwrite it. */
+  const [budgetManual, setBudgetManual] = React.useState(false);
+  const muscatHint = step === "budget" ? muscatBudgetChipHint(resolved) : null;
+
   return (
     <div className="flex h-full flex-col">
       <Status />
@@ -300,10 +308,13 @@ export function AskPrefsScreen({
             <button
               key={d.id}
               type="button"
-              onClick={() => onChange({ ...request, destination: d.id })}
+              onClick={() =>
+                onChange(applyDestinationDefaultBudget(request, d.id, { budgetManual }))
+              }
               className={`glass-control w-full rounded-xl px-4 py-3.5 text-left text-[15px] font-semibold transition-colors hover:bg-accent ${
                 resolved.destination === d.id ? "ring-2 ring-violet" : ""
               }`}
+              data-testid={`dest-chip-${d.id}`}
             >
               {d.label}
             </button>
@@ -362,19 +373,35 @@ export function AskPrefsScreen({
             </GlassPanel>
           </>
         )}
-        {step === "budget" &&
-          BUDGET_PRESETS_AED.map((amount) => (
-            <button
-              key={amount}
-              type="button"
-              onClick={() => onChange({ ...request, budgetAED: amount })}
-              className={`glass-control w-full rounded-xl px-4 py-3.5 text-left text-[15px] font-semibold transition-colors hover:bg-accent ${
-                resolved.budgetAED === amount ? "ring-2 ring-violet" : ""
-              }`}
-            >
-              {formatAed(amount)}
-            </button>
-          ))}
+        {step === "budget" ? (
+          <>
+            {BUDGET_PRESETS_AED.map((amount) => (
+              <button
+                key={amount}
+                type="button"
+                onClick={() => {
+                  setBudgetManual(true);
+                  onChange({ ...request, budgetAED: amount });
+                }}
+                className={`glass-control w-full rounded-xl px-4 py-3.5 text-left text-[15px] font-semibold transition-colors hover:bg-accent ${
+                  resolved.budgetAED === amount ? "ring-2 ring-violet" : ""
+                }`}
+                data-testid={`budget-chip-${amount}`}
+                data-selected={resolved.budgetAED === amount ? "true" : "false"}
+              >
+                {formatAed(amount)}
+              </button>
+            ))}
+            {muscatHint ? (
+              <p
+                className="pt-1 text-[12px] font-light leading-snug text-ink-soft"
+                data-testid="muscat-air-budget-hint"
+              >
+                {muscatHint}
+              </p>
+            ) : null}
+          </>
+        ) : null}
       </div>
       <div className="flex gap-2 px-6 pb-7 pt-3">
         {onBack ? (
