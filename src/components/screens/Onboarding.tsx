@@ -6,6 +6,7 @@ import { BotArt } from "@/components/GlideBot";
 import { PhotoLabel, Status, clock, dinner, hotel, jais, depart } from "./Screens";
 import { MessageComposer } from "./MessageComposer";
 import { GlassButton, GlassInput, GlassPanel } from "@/components/ui/glass";
+import { defaultPrefs, parseTripIntent, type TripPrefs } from "@/lib/booking";
 
 export const TRIP_DATE = "Fri 13 Nov";
 
@@ -157,8 +158,14 @@ export function ConnectScreen({ connected = true, onToggle, onNext }: { connecte
 }
 
 /** The agent area: Glide speaks first, the composer is live, and Start begins the trip. */
-export function AgentScreen({ onStart }: { onStart?: () => void }) {
-  const [messages, setMessages] = React.useState<string[]>([]);
+export function AgentScreen({
+  onStart,
+  onPlanIntent,
+}: {
+  onStart?: () => void;
+  onPlanIntent?: (prefs: TripPrefs) => void;
+}) {
+  const [messages, setMessages] = React.useState<{ from: "user" | "glide"; text: string }[]>([]);
   const latestMessage = React.useRef<HTMLParagraphElement>(null);
   React.useEffect(() => {
     if (messages.length) latestMessage.current?.scrollIntoView({ block: "nearest" });
@@ -176,12 +183,35 @@ export function AgentScreen({ onStart }: { onStart?: () => void }) {
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto overscroll-contain px-4 py-4 text-[12.5px] leading-snug" data-lenis-prevent>
         <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">I&apos;ve brought your <b>{TRIP_DATE}</b> drive from Dubai Marina to Ras Al Khaimah into one plan.</p>
         <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">Jebel Jais, the InterContinental and dinner at Levant &amp; Nar are all connected.</p>
-        <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">Follow the sample route to see how the plan changes. Live replies are not connected in this demo.</p>
+        <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">Follow the sample route, or type something like “a long weekend in Ras Al Khaimah for two” to plan a new demo trip.</p>
         {messages.map((message, index) => (
-          <p key={index} ref={index === messages.length - 1 ? latestMessage : undefined} className="glide-chat-bubble-user glass-primary max-w-[88%] self-end break-words rounded-xl px-3 py-2">{message}</p>
+          <p
+            key={index}
+            ref={index === messages.length - 1 ? latestMessage : undefined}
+            className={message.from === "user"
+              ? "glide-chat-bubble-user glass-primary max-w-[88%] self-end break-words rounded-xl px-3 py-2"
+              : "glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2"}
+          >
+            {message.text}
+          </p>
         ))}
       </div>
-      <MessageComposer onSend={(message) => setMessages((previous) => [...previous, message])} onStart={onStart} />
+      <MessageComposer
+        onSend={(message) => {
+          const intent = parseTripIntent(message);
+          if (intent && onPlanIntent) {
+            setMessages((previous) => [
+              ...previous,
+              { from: "user", text: message },
+              { from: "glide", text: "Prefilling a demo plan from that. Continue with where, when, who, and budget." },
+            ]);
+            onPlanIntent(defaultPrefs(intent));
+            return;
+          }
+          setMessages((previous) => [...previous, { from: "user", text: message }]);
+        }}
+        onStart={onStart}
+      />
     </div>
   );
 }

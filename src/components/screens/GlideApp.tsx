@@ -4,7 +4,25 @@ import React, { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { BareContext, PlanScreen, ChatScreen } from "./Screens";
 import { WelcomeScreen, AuthScreen, IntroScreen, ConnectScreen, AgentScreen, RouteScreen } from "./Onboarding";
+import {
+  AskPrefsScreen,
+  BookedPlanScreen,
+  BookedRouteScreen,
+  BookingConfirmScreen,
+  ChooseTripScreen,
+  ProposeTripScreen,
+  ReviewBookScreen,
+  buildProposedTrip,
+  defaultPrefs,
+} from "./Booking";
 import { useGlassColorScheme } from "@/components/ui/glass";
+import {
+  bookProposedTrip,
+  startCheckout,
+  type BookedTrip,
+  type ProposedTrip,
+  type TripPrefs,
+} from "@/lib/booking";
 import {
   clearPersistedGlideUser,
   readPersistedGlideUser,
@@ -15,7 +33,7 @@ import {
 } from "@/lib/glide-session";
 
 type Step = GlideStep;
-const TABS: { id: ResumableStep; label: string }[] = [
+const TABS: { id: Extract<ResumableStep, "route" | "plan" | "chat">; label: string }[] = [
   { id: "route", label: "Trip" },
   { id: "plan", label: "Plan" },
   { id: "chat", label: "Glide" },
@@ -26,18 +44,30 @@ type Session = {
   step: Step;
   connected: boolean;
   reshaped: boolean;
+  mode: "demo" | "booked" | "planning";
+  prefs: TripPrefs;
+  askIndex: number;
+  proposed: ProposedTrip | null;
+  booked: BookedTrip | null;
 };
 
-const EMPTY: Session = { name: "", step: "welcome", connected: false, reshaped: false };
+const EMPTY: Session = {
+  name: "",
+  step: "welcome",
+  connected: false,
+  reshaped: false,
+  mode: "planning",
+  prefs: defaultPrefs(),
+  askIndex: 0,
+  proposed: null,
+  booked: null,
+};
 
-/** Filled once on the client so storage is not re-read every render. */
 let persistedCache: PersistedGlideUser | null | undefined;
 const persistListeners = new Set<() => void>();
 
 function getPersistedSnapshot(): PersistedGlideUser | null {
-  if (persistedCache === undefined) {
-    persistedCache = readPersistedGlideUser();
-  }
+  if (persistedCache === undefined) persistedCache = readPersistedGlideUser();
   return persistedCache;
 }
 
@@ -51,16 +81,48 @@ function setPersistedCache(next: PersistedGlideUser | null) {
   persistListeners.forEach((notify) => notify());
 }
 
-function persistTrip(session: Session) {
+function sessionFromPersisted(p: PersistedGlideUser): Session {
+  const proposed =
+    p.proposedTrip && typeof p.proposedTrip === "object" ? (p.proposedTrip as ProposedTrip) : null;
+  return {
+    name: p.name,
+    step: p.step,
+    connected: true,
+    reshaped: p.reshaped,
+    mode: p.bookedTrip ? "booked" : p.mode === "demo" ? "demo" : "planning",
+    prefs: p.prefs ?? defaultPrefs(),
+    askIndex: p.askIndex ?? 0,
+    proposed,
+    booked: p.bookedTrip ?? null,
+  };
+}
+
+function persistSession(session: Session) {
   if (!session.name.trim()) return;
   const step: ResumableStep =
-    session.step === "route" || session.step === "plan" || session.step === "chat" ? session.step : "route";
-  const payload: PersistedGlideUser = { name: session.name.trim(), step, reshaped: session.reshaped };
+    session.step === "welcome" ||
+    session.step === "signup" ||
+    session.step === "signin" ||
+    session.step === "intro" ||
+    session.step === "connect" ||
+    session.step === "agent"
+      ? "choose"
+      : (session.step as ResumableStep);
+  const payload: PersistedGlideUser = {
+    name: session.name.trim(),
+    step,
+    reshaped: session.reshaped,
+    mode: session.mode === "booked" ? "booked" : session.mode === "demo" ? "demo" : undefined,
+    prefs: session.prefs,
+    askIndex: session.askIndex,
+    proposedTrip: session.proposed ?? undefined,
+    bookedTrip: session.booked,
+  };
   writePersistedGlideUser(payload);
   setPersistedCache(payload);
 }
 
-/** The real flow: onboarding, then the trip. Runs full-screen in the simulators. */
+/** The real flow: onboarding, plan/book, then the trip. */
 export function GlideApp() {
   const dark = useGlassColorScheme();
   const reducedMotion = useReducedMotion();
@@ -73,6 +135,8 @@ export function GlideApp() {
   const persisted = useSyncExternalStore(subscribePersisted, getPersistedSnapshot, () => null);
   const [override, setOverride] = useState<Session | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
+  const [testModeNote, setTestModeNote] = useState<string | null>(null);
 
   useEffect(() => {
     const viewport = window.visualViewport;
@@ -88,24 +152,19 @@ export function GlideApp() {
     };
   }, []);
 
-  const session: Session =
-    override ??
-    (persisted
-      ? { name: persisted.name, step: persisted.step, connected: true, reshaped: persisted.reshaped }
-      : EMPTY);
-
-  const { name, step, connected, reshaped } = session;
+  const session: Session = override ?? (persisted ? sessionFromPersisted(persisted) : EMPTY);
+  const { name, step, connected, reshaped, mode, prefs, askIndex, proposed, booked } = session;
 
   const patch = (next: Partial<Session>) => {
     const merged = { ...session, ...next };
-    if (merged.name.trim()) persistTrip(merged);
+    if (merged.name.trim()) persistSession(merged);
     setOverride(merged);
     setConfirmReset(false);
   };
 
   const done = (n: string) => {
-    const next: Session = { name: n, step: "intro", connected: false, reshaped: false };
-    persistTrip({ ...next, step: "route" });
+    const next: Session = { ...EMPTY, name: n, step: "intro" };
+    persistSession({ ...next, step: "choose" });
     setOverride(next);
     setConfirmReset(false);
   };
@@ -115,6 +174,41 @@ export function GlideApp() {
     setPersistedCache(null);
     setOverride(EMPTY);
     setConfirmReset(false);
+    setTestModeNote(null);
+  };
+
+  const beginPlan = (nextPrefs?: TripPrefs) => {
+    const prefsNext = nextPrefs ?? defaultPrefs();
+    patch({
+      mode: "planning",
+      prefs: prefsNext,
+      askIndex: 0,
+      proposed: null,
+      booked: null,
+      step: "ask",
+    });
+  };
+
+  const finishAsk = () => {
+    const trip = buildProposedTrip(prefs);
+    patch({ proposed: trip, step: "propose" });
+  };
+
+  const runCheckout = async () => {
+    if (!proposed || checkoutBusy) return;
+    setCheckoutBusy(true);
+    setTestModeNote(null);
+    const result = await startCheckout(proposed);
+    if (result.ok && result.mode === "stripe") {
+      setTestModeNote("Test mode · redirecting to Stripe Checkout");
+      window.location.href = result.url;
+      setCheckoutBusy(false);
+      return;
+    }
+    setTestModeNote("Test mode · /api/checkout unavailable, confirming as demo");
+    const bookedTrip = bookProposedTrip(proposed, "demo", { seed: proposed.id });
+    patch({ booked: bookedTrip, mode: "booked", step: "confirming", reshaped: false });
+    setCheckoutBusy(false);
   };
 
   const inTrip = step === "route" || step === "plan" || step === "chat";
@@ -128,7 +222,7 @@ export function GlideApp() {
             {ready ? (
               <AnimatePresence initial={false} mode="wait">
                 <motion.div
-                  key={step}
+                  key={step + (booked?.id ?? proposed?.id ?? mode)}
                   initial={reducedMotion ? false : { opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={reducedMotion ? { opacity: 1 } : { opacity: 0 }}
@@ -146,15 +240,66 @@ export function GlideApp() {
                       onNext={() => patch({ step: "agent" })}
                     />
                   )}
-                  {step === "agent" && <AgentScreen onStart={() => patch({ step: "route" })} />}
-                  {step === "route" && (
+                  {step === "agent" && (
+                    <AgentScreen
+                      onStart={() => patch({ step: "choose" })}
+                      onPlanIntent={(next) => beginPlan(next)}
+                    />
+                  )}
+                  {step === "choose" && (
+                    <ChooseTripScreen
+                      onDemo={() => patch({ mode: "demo", booked: null, step: "route", reshaped: false })}
+                      onPlan={() => beginPlan()}
+                    />
+                  )}
+                  {step === "ask" && (
+                    <AskPrefsScreen
+                      prefs={prefs}
+                      index={askIndex}
+                      onChange={(next) => patch({ prefs: next })}
+                      onBack={askIndex > 0 ? () => patch({ askIndex: askIndex - 1 }) : () => patch({ step: "choose" })}
+                      onNext={() => {
+                        if (askIndex >= 3) finishAsk();
+                        else patch({ askIndex: askIndex + 1 });
+                      }}
+                    />
+                  )}
+                  {step === "propose" && proposed && (
+                    <ProposeTripScreen
+                      trip={proposed}
+                      onChange={(trip) => patch({ proposed: trip })}
+                      onBack={() => patch({ step: "ask", askIndex: 3 })}
+                      onReview={() => patch({ step: "review" })}
+                    />
+                  )}
+                  {step === "review" && proposed && (
+                    <ReviewBookScreen
+                      trip={proposed}
+                      busy={checkoutBusy}
+                      testModeNote={testModeNote}
+                      onBack={() => patch({ step: "propose" })}
+                      onBook={() => setTestModeNote("Ready to pay · demo prices · nothing charged yet")}
+                      onPay={runCheckout}
+                    />
+                  )}
+                  {step === "confirming" && booked && (
+                    <BookingConfirmScreen booked={booked} onEnter={() => patch({ step: "route" })} />
+                  )}
+                  {step === "route" && mode === "booked" && booked && <BookedRouteScreen booked={booked} />}
+                  {step === "route" && mode !== "booked" && (
                     <RouteScreen
                       updated={reshaped}
                       onLate={() => patch({ reshaped: true, step: "plan" })}
                     />
                   )}
-                  {step === "plan" && <PlanScreen />}
-                  {step === "chat" && <ChatScreen />}
+                  {step === "plan" && mode === "booked" && booked && <BookedPlanScreen booked={booked} />}
+                  {step === "plan" && mode !== "booked" && <PlanScreen />}
+                  {step === "chat" && (
+                    <ChatScreen
+                      booked={mode === "booked" ? booked : null}
+                      onPlanIntent={(next) => beginPlan(next)}
+                    />
+                  )}
                 </motion.div>
               </AnimatePresence>
             ) : null}
