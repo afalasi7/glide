@@ -7,6 +7,8 @@ export * from "./graph";
 export * from "./validate";
 export * from "./planTrip";
 export * from "./schedule";
+export * from "./hours";
+export * from "./venues";
 export * from "./swap";
 export * from "./book";
 export { resetTripStore } from "./store";

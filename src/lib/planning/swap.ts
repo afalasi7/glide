@@ -2,15 +2,17 @@ import { evaluate, type Violation } from "@/lib/agent";
 import { DESTINATIONS, getCatalogOption } from "./catalog";
 import { withFacts } from "./facts";
 import { syncTripGraph } from "./graph";
+import { closedReason, isOpenAt } from "./hours";
 import { applyCatalogPrices, eachBookableItem, isPast2200, timeToMinutes } from "./pricing";
 import {
-  arrivalMinutes,
   clampStart,
   dayWindow,
   defaultReturnDepartMinutes,
   fitsWindow,
   isOptionAvailable,
+  mealBandFor,
   minutesToHm,
+  readyMinutes,
   usedAreas,
   usedCatalogIds,
 } from "./schedule";
@@ -25,6 +27,11 @@ function findItem(trip: Trip, itemId: string): TripItem | undefined {
     if (hit) return hit;
   }
   return undefined;
+}
+
+function itemDate(trip: Trip, item: TripItem): string {
+  const day = trip.days.find((d) => d.day === item.day);
+  return day?.date ?? trip.startDate;
 }
 
 function mapItem(trip: Trip, itemId: string, map: (item: TripItem) => TripItem): Trip {
@@ -43,11 +50,11 @@ function mapItem(trip: Trip, itemId: string, map: (item: TripItem) => TripItem):
 }
 
 function windowForItem(trip: Trip, item: TripItem): { earliest: number; latest: number } {
-  const arrivalMin = arrivalMinutes(trip.travel);
+  const travelOpt = getCatalogOption(trip.travel.catalogId);
+  const readyMin = readyMinutes(trip.travel);
   const returnDepartMin = trip.returnTravel
     ? timeToMinutes(trip.returnTravel.startTime)
-    : defaultReturnDepartMinutes();
-  const totalDays = trip.days.length;
+    : defaultReturnDepartMinutes(travelOpt);
   if (item.kind === "travel" && item.id === trip.travel.id) {
     return { earliest: 0, latest: 24 * 60 };
   }
@@ -56,9 +63,10 @@ function windowForItem(trip: Trip, item: TripItem): { earliest: number; latest: 
   }
   return dayWindow({
     dayIndex: item.day,
-    totalDays,
-    arrivalMin,
+    totalDays: trip.days.length,
+    readyMin,
     returnDepartMin,
+    travelOpt,
   });
 }
 
@@ -74,10 +82,26 @@ export function lateItemFlags(trip: Trip): LateItemFlag[] {
     }));
 }
 
+function areaSetsForSwap(trip: Trip, freeingCatalogId: string) {
+  const usedIds = usedCatalogIds(trip);
+  usedIds.delete(freeingCatalogId);
+  const current = getCatalogOption(freeingCatalogId);
+  const band = current ? mealBandFor(current) : "any";
+  const usedAreaKeys = usedAreas(trip, { mealBand: band === "any" ? "any" : band });
+  if (current?.area) usedAreaKeys.delete(current.area);
+  // Also free non-campus areas unconditionally
+  const allAreas = usedAreas(trip);
+  if (current?.area && !current.hotelCampus) allAreas.delete(current.area);
+  return {
+    usedIds,
+    usedAreaKeys: current?.hotelCampus ? usedAreaKeys : allAreas,
+    freeing: { catalogId: freeingCatalogId, area: current?.area },
+  };
+}
+
 /**
  * Return 2–3 alternative catalog options for the given trip item.
- * Filters out venues already on the trip (unless repeatable) and options that
- * cannot fit the item's day window (arrival / return bounds).
+ * Only includes venues open at the item's date/time that fit the day window.
  */
 export function swapOptions(trip: Trip, itemId: string): SwapOption[] {
   const item = findItem(trip, itemId);
@@ -91,17 +115,19 @@ export function swapOptions(trip: Trip, itemId: string): SwapOption[] {
         ? dest.hotels
         : dest.plans.filter((p) => p.kind === item.kind);
 
-  const usedIds = usedCatalogIds(trip);
-  const usedAreaKeys = usedAreas(trip);
-  const currentOpt = getCatalogOption(item.catalogId);
-  const freeing = { catalogId: item.catalogId, area: currentOpt?.area };
+  const { usedIds, usedAreaKeys, freeing } = areaSetsForSwap(trip, item.catalogId);
   const { earliest, latest } = windowForItem(trip, item);
+  const date = itemDate(trip, item);
 
   const eligible = pool.filter((p) => {
     if (p.catalogId === item.catalogId) return false;
     if (!isOptionAvailable(p, usedIds, usedAreaKeys, freeing)) return false;
     if (item.kind === "activity" || item.kind === "dining") {
-      return Boolean(fitsWindow(p, earliest, latest) || clampStart(p, earliest, latest));
+      const start = fitsWindow(p, earliest, latest)
+        ? (p.defaultStartTime ?? item.startTime)
+        : clampStart(p, earliest, latest);
+      if (!start) return false;
+      return isOpenAt(p, date, start);
     }
     return true;
   });
@@ -113,7 +139,11 @@ export function swapOptions(trip: Trip, itemId: string): SwapOption[] {
         if (p.catalogId === item.catalogId) return false;
         if (!isOptionAvailable(p, usedIds, usedAreaKeys, freeing)) return false;
         if (item.kind === "activity" || item.kind === "dining") {
-          return Boolean(fitsWindow(p, earliest, latest) || clampStart(p, earliest, latest));
+          const start = fitsWindow(p, earliest, latest)
+            ? (p.defaultStartTime ?? item.startTime)
+            : clampStart(p, earliest, latest);
+          if (!start) return false;
+          return isOpenAt(p, date, start);
         }
         return true;
       },
@@ -148,36 +178,51 @@ export function swapOptions(trip: Trip, itemId: string): SwapOption[] {
 }
 
 /**
- * Apply a swap option, re-price from catalog, rebuild the solver graph, and
- * re-run evaluate() (same constraint checks the reshape path uses).
- * Keeps arrival/return bounds, unique venues, and time-ordered day plans.
+ * Apply a swap option. Refuses (ok:false) when the venue is closed at the
+ * slot time or when no open alternative was available.
  */
 export function applySwap(trip: Trip, itemId: string, optionId: string): ApplySwapResult {
+  const item = findItem(trip, itemId);
+  if (!item) {
+    return { ok: false, reason: `Unknown itemId ${itemId}`, trip };
+  }
+
   const options = swapOptions(trip, itemId);
+  if (!options.length) {
+    return {
+      ok: false,
+      reason: `No open alternative for ${item.title} on ${itemDate(trip, item)} at ${item.startTime}`,
+      trip,
+    };
+  }
+
   const option = options.find((o) => o.id === optionId);
-  if (!option) throw new Error(`Unknown optionId ${optionId} for item ${itemId}`);
+  if (!option) {
+    return {
+      ok: false,
+      reason: `Unknown optionId ${optionId} for item ${itemId}`,
+      trip,
+    };
+  }
 
   const catalog = getCatalogOption(option.catalogId);
-  if (!catalog) throw new Error(`Unknown catalogId ${option.catalogId}`);
+  if (!catalog) {
+    return { ok: false, reason: `Unknown catalogId ${option.catalogId}`, trip };
+  }
 
-  const item = findItem(trip, itemId)!;
-  const usedIds = usedCatalogIds(trip);
-  const usedAreaKeys = usedAreas(trip);
-  const currentOpt = getCatalogOption(item.catalogId);
-  if (
-    !isOptionAvailable(catalog, usedIds, usedAreaKeys, {
-      catalogId: item.catalogId,
-      area: currentOpt?.area,
-    })
-  ) {
-    throw new Error(
-      catalog.area
+  const { usedIds, usedAreaKeys, freeing } = areaSetsForSwap(trip, item.catalogId);
+  if (!isOptionAvailable(catalog, usedIds, usedAreaKeys, freeing)) {
+    return {
+      ok: false,
+      reason: catalog.area
         ? `Area ${catalog.area} is already on this trip`
         : `Venue ${catalog.catalogId} is already on this trip`,
-    );
+      trip,
+    };
   }
 
   const { earliest, latest } = windowForItem(trip, item);
+  const date = itemDate(trip, item);
   let startTime = option.startTime ?? item.startTime;
   if (catalog.kind === "activity" || catalog.kind === "dining") {
     const clamped =
@@ -185,9 +230,12 @@ export function applySwap(trip: Trip, itemId: string, optionId: string): ApplySw
         ? (catalog.defaultStartTime ?? startTime)
         : clampStart(catalog, earliest, latest);
     if (!clamped) {
-      throw new Error(`${catalog.title} does not fit the day window`);
+      return { ok: false, reason: `${catalog.title} does not fit the day window`, trip };
     }
     startTime = clamped;
+    if (!isOpenAt(catalog, date, startTime)) {
+      return { ok: false, reason: closedReason(catalog, date, startTime), trip };
+    }
   }
 
   let next = mapItem(trip, itemId, (prev) => ({
@@ -207,7 +255,6 @@ export function applySwap(trip: Trip, itemId: string, optionId: string): ApplySw
     bookingRef: catalog.kind === prev.kind ? prev.bookingRef : undefined,
   }));
 
-  // Keep each day's plans in wall-clock order after a retime.
   next = {
     ...next,
     days: next.days.map((d) => ({
@@ -228,6 +275,7 @@ export function applySwap(trip: Trip, itemId: string, optionId: string): ApplySw
   const lateItems = lateItemFlags(next);
 
   return {
+    ok: true,
     trip: next,
     violations,
     timingsHold: violations.length === 0,

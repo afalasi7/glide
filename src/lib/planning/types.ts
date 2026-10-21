@@ -155,14 +155,22 @@ export interface LateItemFlag {
   past2200: boolean;
 }
 
-export interface ApplySwapResult {
-  trip: Trip;
-  violations: Violation[];
-  /** True when evaluate() reports zero violations after the swap. */
-  timingsHold: boolean;
-  /** Items whose start is after 22:00 — UI can prompt to shift dinner. */
-  lateItems: LateItemFlag[];
-}
+export type ApplySwapResult =
+  | {
+      ok: true;
+      trip: Trip;
+      violations: Violation[];
+      /** True when evaluate() reports zero violations after the swap. */
+      timingsHold: boolean;
+      /** Items whose start is after 22:00 — UI can prompt to shift dinner. */
+      lateItems: LateItemFlag[];
+    }
+  | {
+      ok: false;
+      /** Why the swap was refused (e.g. venue closed, no open alternative). */
+      reason: string;
+      trip: Trip;
+    };
 
 /** Wallet-pass payload compatible with the existing WalletPass demo shape. */
 export interface WalletPassData {
