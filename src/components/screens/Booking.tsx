@@ -57,11 +57,23 @@ function parseHmm(value: string): number {
   return (h ?? 0) * 60 + (m ?? 0);
 }
 
-/** Deduped trip items (travel, hotel, day plans). */
+function isLunchItem(item: TripItem): boolean {
+  if (item.kind !== "dining") return false;
+  if (item.catalogId.includes("lunch") || /\blunch\b/i.test(item.title)) return true;
+  return parseHmm(item.startTime) < 15 * 60;
+}
+
+/** Deduped trip items (travel, return, hotel, day plans — incl. lunches). */
 function timelineItems(trip: Trip): TripItem[] {
   const out: TripItem[] = [];
   const seen = new Set<string>();
-  for (const item of [trip.travel, trip.hotel, ...trip.days.flatMap((d) => d.plans)]) {
+  const source = [
+    trip.travel,
+    ...(trip.returnTravel ? [trip.returnTravel] : []),
+    trip.hotel,
+    ...trip.days.flatMap((d) => d.plans),
+  ];
+  for (const item of source) {
     if (seen.has(item.id)) continue;
     seen.add(item.id);
     out.push(item);
@@ -529,15 +541,69 @@ export function BookingConfirmScreen({
   onEnter?: () => void;
 }) {
   const tickets = React.useMemo(() => {
+    const plans = trip.days.flatMap((d) => d.plans);
+    const byId = new Map<string, TripItem>([
+      [trip.hotel.id, trip.hotel],
+      ...plans.map((p) => [p.id, p] as const),
+    ]);
+
+    // Prefer server confirmations so lunches/dinners each get a ticket when booked.
+    if (trip.confirmations?.length) {
+      const list: { key: string; title: string; photo?: string }[] = [];
+      const hotelC = trip.confirmations.find((c) => c.kind === "hotel" || c.itemId === trip.hotel.id);
+      if (hotelC) {
+        list.push({
+          key: hotelC.itemId,
+          title: "Hotel booked",
+          photo: byId.get(hotelC.itemId)?.photo ?? trip.hotel.photo,
+        });
+      }
+      const diningCs = trip.confirmations
+        .filter((c) => c.kind === "dining")
+        .sort((a, b) => {
+          const ia = byId.get(a.itemId);
+          const ib = byId.get(b.itemId);
+          return (ia?.day ?? 0) - (ib?.day ?? 0) || parseHmm(ia?.startTime ?? "00:00") - parseHmm(ib?.startTime ?? "00:00");
+        });
+      for (const c of diningCs) {
+        const item = byId.get(c.itemId);
+        const lunch = item ? isLunchItem(item) : /\blunch\b/i.test(c.title);
+        list.push({
+          key: c.itemId,
+          title: lunch ? "Lunch booked" : "Dinner booked",
+          photo: item?.photo ?? c.walletPass?.photo,
+        });
+      }
+      if (trip.facts.highlight) {
+        const h = trip.facts.highlight;
+        if (!list.some((t) => t.key === h.itemId)) {
+          list.push({
+            key: h.itemId,
+            title: `${h.title} booked`,
+            photo: byId.get(h.itemId)?.photo,
+          });
+        }
+      }
+      return list;
+    }
+
     const list: { key: string; title: string; photo?: string }[] = [];
     list.push({ key: "hotel", title: "Hotel booked", photo: trip.hotel.photo });
-    const dinner = trip.days.flatMap((d) => d.plans).find((p) => p.kind === "dining");
-    if (dinner) list.push({ key: "dinner", title: "Dinner booked", photo: dinner.photo });
+    const dinings = plans
+      .filter((p) => p.kind === "dining")
+      .sort((a, b) => a.day - b.day || parseHmm(a.startTime) - parseHmm(b.startTime));
+    for (const d of dinings) {
+      list.push({
+        key: d.id,
+        title: isLunchItem(d) ? "Lunch booked" : "Dinner booked",
+        photo: d.photo,
+      });
+    }
     if (trip.facts.highlight) {
       list.push({
         key: "highlight",
         title: `${trip.facts.highlight.title} booked`,
-        photo: trip.days.flatMap((d) => d.plans).find((p) => p.id === trip.facts.highlight!.itemId)?.photo,
+        photo: plans.find((p) => p.id === trip.facts.highlight!.itemId)?.photo,
       });
     }
     return list;
