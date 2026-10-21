@@ -18,6 +18,11 @@ export interface PlanTripRequest {
   travellers?: number;
   /** Optional kids count — reserved for UI; pricing uses adults for the demo. */
   kids?: number;
+  /**
+   * Ages of children in the party (years). When set, venues with `minAge`
+   * above any child's age are skipped by the planner and swaps.
+   */
+  children?: number[];
   /** Defaults to AED 3,000. Presets: 1,500 / 3,000 / 6,000. */
   budgetAED?: number;
   interests?: string[];
@@ -87,6 +92,31 @@ export interface CheaperHotelSuggestion {
   savesAED: number;
 }
 
+export type CheapestFixKind =
+  | "swap-hotel"
+  | "swap-meal"
+  | "drop-item"
+  | "shorten-trip"
+  | "raise-budget";
+
+/**
+ * Concrete next step when the trip is over budget — never null in that case.
+ * Shape matches Jordan's Trip screen. Pick the option that saves the most;
+ * fall back to raise-budget.
+ */
+export interface CheapestFix {
+  kind: CheapestFixKind;
+  /** Plain user copy, e.g. "Swap dinner at Farmhouse for Saffar to save AED 420." */
+  label: string;
+  /** AED this step would remove from the total (0 for raise-budget). */
+  savingAed: number;
+  /**
+   * For `raise-budget` only: set to the trip total so the UI can render
+   * "Set budget to AED {total}".
+   */
+  targetBudgetAed?: number;
+}
+
 /**
  * Computed facts for the Trip tab — never marketing claims.
  * `totalAED` matches `totalCostAED` and is the checkout recomputation input.
@@ -98,6 +128,10 @@ export interface TripFacts {
   /** Omitted when the highlight plan item is missing or not at the expected time. */
   highlight?: TripHighlight;
   cheaperHotel?: CheaperHotelSuggestion;
+  /**
+   * Always set when `withinBudget` is false — a concrete next step, never null.
+   */
+  cheapestFix?: CheapestFix;
 }
 
 /**
@@ -112,6 +146,8 @@ export interface Trip {
   endDate: string;
   travellers: number;
   kids?: number;
+  /** Ages of children travelling — used for minAge venue filters. */
+  children?: number[];
   budgetAED: number;
   interests?: string[];
   travel: TripItem;

@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "bun test ./src/lib"
+    "test": "bun test --preload=$PWD/test/preload.ts ./src/lib"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",
@@ -18,10 +18,12 @@
     "clsx": "^2.1.1",
     "framer-motion": "^14.1.0",
     "lenis": "^1.3.26",
+    "lightningcss": "^1.33.0",
     "lucide-react": "^1.55.0",
     "next": "16.4.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
+    "server-only": "^0.0.1",
     "stripe": "^23.0.0",
     "tailwind-merge": "^3.7.0"
   },
@@ -45,5 +47,9 @@
   "trustedDependencies": [
     "sharp",
     "unrs-resolver"
-  ]
+  ],
+  "optionalDependencies": {
+    "@tailwindcss/oxide-linux-x64-gnu": "^4.3.3",
+    "lightningcss-linux-x64-gnu": "^1.33.0"
+  }
 }

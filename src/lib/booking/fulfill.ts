@@ -1,3 +1,5 @@
+import "server-only";
+
 import { bookTrip } from "@/lib/planning/book";
 import type { Trip } from "@/lib/planning/types";
 import { REFUND_MESSAGE } from "./messages";

@@ -1,3 +1,5 @@
+import "server-only";
+
 import { Redis } from "@upstash/redis";
 import type { BookingConfirmation } from "@/lib/planning/types";
 import type { CompactTripSelection } from "./selection";

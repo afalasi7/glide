@@ -1,7 +1,9 @@
 import { DESTINATIONS, getCatalogOption } from "./catalog";
+import { isEveningDining, usedCatalogIds } from "./schedule";
 import { lineCostAED, nightsBetween, timeToMinutes } from "./pricing";
 import type {
   CheaperHotelSuggestion,
+  CheapestFix,
   Trip,
   TripFacts,
   TripHighlight,
@@ -70,6 +72,121 @@ export function cheaperHotelSuggestion(trip: Trip): CheaperHotelSuggestion | und
   return best;
 }
 
+function hotelSwapFix(trip: Trip): CheapestFix | undefined {
+  const cheaper = cheaperHotelSuggestion(trip);
+  if (!cheaper || cheaper.savesAED <= 0) return undefined;
+  return {
+    kind: "swap-hotel",
+    label: `Swap hotel to ${cheaper.title} to save AED ${cheaper.savesAED}.`,
+    savingAed: cheaper.savesAED,
+  };
+}
+
+function mealSwapFix(trip: Trip): CheapestFix | undefined {
+  const dest = DESTINATIONS[trip.destination];
+  const nights = nightsBetween(trip.startDate, trip.endDate);
+  const used = usedCatalogIds(trip);
+  let best: CheapestFix | undefined;
+
+  for (const day of trip.days) {
+    for (const item of day.plans) {
+      const current = getCatalogOption(item.catalogId);
+      if (!current || !isEveningDining(current)) continue;
+      const currentCost = lineCostAED(item.catalogId, trip.travellers, nights);
+      for (const alt of dest.plans) {
+        if (alt.kind !== "dining") continue;
+        if (!isEveningDining(alt)) continue;
+        if (alt.catalogId === item.catalogId) continue;
+        if (used.has(alt.catalogId) && alt.catalogId !== item.catalogId) continue;
+        const altCost = lineCostAED(alt.catalogId, trip.travellers, nights);
+        const saves = currentCost - altCost;
+        if (saves <= 0) continue;
+        if (!best || saves > best.savingAed) {
+          best = {
+            kind: "swap-meal",
+            label: `Swap dinner at ${current.title} for ${alt.title} to save AED ${saves}.`,
+            savingAed: saves,
+          };
+        }
+      }
+    }
+  }
+  return best;
+}
+
+function dropItemFix(trip: Trip): CheapestFix | undefined {
+  const nights = nightsBetween(trip.startDate, trip.endDate);
+  let best: CheapestFix | undefined;
+  for (const day of trip.days) {
+    for (const item of day.plans) {
+      const opt = getCatalogOption(item.catalogId);
+      if (!opt) continue;
+      const cost = lineCostAED(item.catalogId, trip.travellers, nights);
+      if (cost <= 0) continue;
+      if (opt.catalogId === DESTINATIONS[trip.destination].highlight.catalogId) continue;
+      if (!best || cost > best.savingAed) {
+        best = {
+          kind: "drop-item",
+          label: `Drop ${item.title} to save AED ${cost}.`,
+          savingAed: cost,
+        };
+      }
+    }
+  }
+  return best;
+}
+
+function shortenTripFix(trip: Trip): CheapestFix | undefined {
+  if (trip.days.length <= 1) return undefined;
+  const nights = nightsBetween(trip.startDate, trip.endDate);
+  const lastDay = trip.days[trip.days.length - 1]!;
+  let dayCost = 0;
+  for (const p of lastDay.plans) {
+    dayCost += lineCostAED(p.catalogId, trip.travellers, nights);
+  }
+  if (trip.returnTravel) {
+    dayCost += lineCostAED(trip.returnTravel.catalogId, trip.travellers, nights);
+  }
+  const hotelOpt = getCatalogOption(trip.hotel.catalogId);
+  if (hotelOpt) dayCost += hotelOpt.costAED;
+  if (dayCost <= 0) return undefined;
+  return {
+    kind: "shorten-trip",
+    label: "Make it one night shorter",
+    savingAed: dayCost,
+  };
+}
+
+function raiseBudgetFix(trip: Trip): CheapestFix {
+  return {
+    kind: "raise-budget",
+    label: `Set budget to AED ${trip.totalCostAED}.`,
+    savingAed: 0,
+    targetBudgetAed: trip.totalCostAED,
+  };
+}
+
+/**
+ * Always returns a concrete next step for over-budget trips.
+ * Prefers the option that saves the most AED; falls back to raise-budget.
+ */
+export function buildCheapestFix(trip: Trip): CheapestFix {
+  const candidates: CheapestFix[] = [];
+  const hotel = hotelSwapFix(trip);
+  if (hotel) candidates.push(hotel);
+  const meal = mealSwapFix(trip);
+  if (meal) candidates.push(meal);
+  const drop = dropItemFix(trip);
+  if (drop) candidates.push(drop);
+  const shorten = shortenTripFix(trip);
+  if (shorten) candidates.push(shorten);
+
+  candidates.sort((a, b) => b.savingAed - a.savingAed);
+  const best = candidates[0];
+  if (best && best.savingAed > 0) return best;
+  return raiseBudgetFix(trip);
+}
+
 /** Recompute facts from the priced trip. */
 export function buildFacts(trip: Trip): TripFacts {
   const totalAED = trip.totalCostAED;
@@ -84,6 +201,7 @@ export function buildFacts(trip: Trip): TripFacts {
   if (!withinBudget) {
     const cheaper = cheaperHotelSuggestion(trip);
     if (cheaper) facts.cheaperHotel = cheaper;
+    facts.cheapestFix = buildCheapestFix(trip);
   }
   return facts;
 }

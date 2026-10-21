@@ -143,4 +143,4 @@ export async function reportCheckoutCancelled(args: {
 }
 
 export { PAYMENT_TRUST_LINE } from "@/lib/planning";
-export { REFUND_MESSAGE } from "@/lib/booking";
+export { REFUND_MESSAGE } from "@/lib/booking/client";

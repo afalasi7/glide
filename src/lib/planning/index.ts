@@ -12,3 +12,5 @@ export * from "./venues";
 export * from "./swap";
 export * from "./book";
 export { resetTripStore } from "./store";
+// Re-export swap alias for product naming.
+export { getSwapOptions } from "./swap";

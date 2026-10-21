@@ -2,13 +2,14 @@ import { DESTINATIONS, getCatalogOption, resolveDestination, type CatalogOption 
 import { withPlanDefaults } from "./defaults";
 import { withFacts } from "./facts";
 import { syncTripGraph } from "./graph";
-import { isOpenAt } from "./hours";
+import { isAgeAllowed, isOpenAt, resolveStartTime } from "./hours";
 import { applyCatalogPrices, nightsBetween, timeToMinutes } from "./pricing";
 import {
   clampStart,
   dayWindow,
   defaultReturnDepartMinutes,
   fitsWindow,
+  hotelTierForBudget,
   isEveningDining,
   isFullDayWindow,
   isLunchOption,
@@ -28,6 +29,11 @@ function assertResolved(req: ReturnType<typeof withPlanDefaults>): void {
   if (req.kids !== undefined && (!Number.isInteger(req.kids) || req.kids < 0 || req.kids > 12)) {
     throw new Error("kids must be an integer from 0 to 12");
   }
+  if (req.children !== undefined) {
+    if (!Array.isArray(req.children) || req.children.some((a) => !Number.isInteger(a) || a < 0 || a > 17)) {
+      throw new Error("children must be an array of ages 0–17");
+    }
+  }
   if (!Number.isFinite(req.budgetAED) || req.budgetAED <= 0) {
     throw new Error("budgetAED must be a positive number");
   }
@@ -44,7 +50,12 @@ function dayCount(start: string, end: string): number {
   return nightsBetween(start, end) + 1;
 }
 
-function scoreOption(opt: CatalogOption, interests: string[] | undefined, budgetPressure: number): number {
+function scoreOption(
+  opt: CatalogOption,
+  interests: string[] | undefined,
+  budgetPressure: number,
+  hotelCampus?: string,
+): number {
   let score = 0;
   if (interests?.length && opt.tags?.length) {
     for (const tag of opt.tags) {
@@ -54,6 +65,10 @@ function scoreOption(opt: CatalogOption, interests: string[] | undefined, budget
     }
   }
   score -= (opt.costAED / 500) * budgetPressure;
+  if (budgetPressure >= 1 && opt.tags?.includes("value")) score += 2;
+  if (budgetPressure >= 1 && opt.tags?.includes("luxury")) score -= 4;
+  // Prefer on-campus dining when staying at that resort (e.g. Café Gazebo at JA Hatta Fort).
+  if (hotelCampus && opt.hotelCampus === hotelCampus) score += 2;
   return score;
 }
 
@@ -61,10 +76,13 @@ function pickBest(
   pool: CatalogOption[],
   interests: string[] | undefined,
   budgetPressure: number,
+  hotelCampus?: string,
 ): CatalogOption | undefined {
   if (!pool.length) return undefined;
   return [...pool].sort(
-    (a, b) => scoreOption(b, interests, budgetPressure) - scoreOption(a, interests, budgetPressure),
+    (a, b) =>
+      scoreOption(b, interests, budgetPressure, hotelCampus) -
+      scoreOption(a, interests, budgetPressure, hotelCampus),
   )[0];
 }
 
@@ -77,6 +95,35 @@ function pickTravel(
   const flights = pool.filter((t) => t.mode === "flight");
   const chosen = pickBest(flights.length ? flights : pool, interests, budgetPressure);
   if (!chosen) throw new Error("empty travel catalog");
+  return chosen;
+}
+
+function pickHotel(
+  pool: CatalogOption[],
+  budgetAED: number,
+  interests: string[] | undefined,
+  budgetPressure: number,
+): CatalogOption {
+  const tier = hotelTierForBudget(budgetAED);
+  const byTier = (t: string) => pool.filter((h) => (h.hotelTier ?? "mid") === t);
+  const tiered =
+    byTier(tier).length > 0
+      ? byTier(tier)
+      : tier === "luxury"
+        ? byTier("mid").length
+          ? byTier("mid")
+          : pool
+        : tier === "value"
+          ? byTier("mid").length
+            ? byTier("mid")
+            : pool
+          : pool;
+  // At luxury tier prefer the most expensive remaining; otherwise score normally.
+  const chosen =
+    tier === "luxury" && tiered.length
+      ? [...tiered].sort((a, b) => b.costAED - a.costAED)[0]
+      : pickBest(tiered, interests, budgetPressure);
+  if (!chosen) throw new Error("empty hotel catalog");
   return chosen;
 }
 
@@ -157,6 +204,8 @@ function pickHighlightDay(args: {
   return full ?? candidates[0];
 }
 
+type Chosen = { opt: CatalogOption; start: string };
+
 /**
  * Build one complete proposed trip from curated destination data.
  * Defaults: Ras Al Khaimah, next Fri→Sunday, 2 adults, AED 3,000.
@@ -170,12 +219,16 @@ export function planTrip(request: PlanTripRequest = {}): Trip {
   const days = dayCount(resolved.startDate, resolved.endDate);
   if (days > 5) throw new Error("Demo planner supports trips of at most 5 days");
 
+  const childrenAges = resolved.children;
   const roughFloor = destination === "muscat" ? 2800 : destination === "hatta" ? 900 : 1400;
   const budgetPressure = roughFloor / resolved.budgetAED;
 
   const tripId = `trip_${destination.slice(0, 3)}_${Date.now().toString(36)}`;
   const travelOpt = pickTravel(catalog.travel, resolved.interests, budgetPressure);
-  const hotelOpt = pickBest(catalog.hotels, resolved.interests, budgetPressure)!;
+  const hotelOpt = pickHotel(catalog.hotels, resolved.budgetAED, resolved.interests, budgetPressure);
+  const hotelCampus = hotelOpt.hotelCampus;
+  const pick = (pool: CatalogOption[]) =>
+    pickBest(pool, resolved.interests, budgetPressure, hotelCampus);
 
   const travel = toItem(
     travelOpt,
@@ -210,6 +263,7 @@ export function planTrip(request: PlanTripRequest = {}): Trip {
     minutesToHm(hotelStart),
     refFor(hotelOpt, tripId),
   );
+  const hotelEnd = hotelStart + (hotelOpt.durationMin ?? 40);
 
   const usedIds = new Set<string>([travel.catalogId, hotel.catalogId]);
   const usedAreaKeys = new Set<string>();
@@ -230,6 +284,8 @@ export function planTrip(request: PlanTripRequest = {}): Trip {
     if (highlight.area) usedAreaKeys.add(highlight.area);
   }
 
+  const ageOk = (opt: CatalogOption) => isAgeAllowed(opt, childrenAges);
+
   const tripDays: TripDay[] = [];
   for (let d = 1; d <= days; d++) {
     const date = addDays(resolved.startDate, d - 1);
@@ -242,12 +298,13 @@ export function planTrip(request: PlanTripRequest = {}): Trip {
     });
     const fullDay = isFullDayWindow(earliest, latest);
     const lastDay = d === days && days > 1;
-    const chosen: { opt: CatalogOption; start: string }[] = [];
+    const chosen: Chosen[] = [];
 
     const campusLunch = new Set<string>();
     const campusDinner = new Set<string>();
 
     const available = (opt: CatalogOption) => {
+      if (!ageOk(opt)) return false;
       if (opt.repeatable) return true;
       if (usedIds.has(opt.catalogId)) return false;
       if (!opt.area) return true;
@@ -283,10 +340,12 @@ export function planTrip(request: PlanTripRequest = {}): Trip {
       }
     }
 
-    /** Natural start time — do not chain onto other picks (avoids evening "lunch"). */
-    const naturalStart = (opt: CatalogOption): string | null => {
+    const naturalStart = (opt: CatalogOption, prefer?: string): string | null => {
+      if (opt.startSlots?.length) {
+        return resolveStartTime(opt, date, prefer ?? opt.defaultStartTime, earliest, latest);
+      }
       const start = fitsWindow(opt, earliest, latest)
-        ? (opt.defaultStartTime ?? "10:00")
+        ? (prefer ?? opt.defaultStartTime ?? "10:00")
         : clampStart(opt, earliest, latest);
       if (!start) return null;
       if (timeToMinutes(start) < earliest) return null;
@@ -294,9 +353,9 @@ export function planTrip(request: PlanTripRequest = {}): Trip {
       return start;
     };
 
-    const take = (opt: CatalogOption | undefined): boolean => {
+    const take = (opt: CatalogOption | undefined, prefer?: string): boolean => {
       if (!opt || !available(opt)) return false;
-      const start = naturalStart(opt);
+      const start = naturalStart(opt, prefer);
       if (!start) return false;
       if (chosen.some((c) => c.opt.catalogId === opt.catalogId)) return false;
       chosen.push({ opt, start });
@@ -306,129 +365,212 @@ export function planTrip(request: PlanTripRequest = {}): Trip {
 
     const fitsOpen = (p: CatalogOption) => Boolean(naturalStart(p));
 
-    // Morning first (museum / Dhayah / mosque), then highlight, lunch, dinner, afternoon.
-    if (fullDay || lastDay) {
-      take(
-        pickBest(
-          catalog.plans.filter(
-            (p) =>
-              p.kind === "activity" &&
-              available(p) &&
-              fitsOpen(p) &&
-              timeToMinutes(p.defaultStartTime ?? "10:00") < 12 * 60,
+    // RAK Saturday (full day): Suwaidi 10:00 → marina lunch → museum afternoon → Jais 17:15 → dinner.
+    const rakSaturday =
+      destination === "ras-al-khaimah" && fullDay && !lastDay && d === highlightDay;
+
+    if (rakSaturday) {
+      const suwaidi = catalog.plans.find((p) => p.catalogId === "rak-suwaidi-pearls");
+      const marina = catalog.plans.find((p) => p.catalogId === "rak-lunch-marina");
+      const museum = catalog.plans.find((p) => p.catalogId === "rak-national-museum");
+      take(suwaidi, "10:00");
+      if (marina && available(marina)) {
+        const afterSuwaidi = chosen.find((c) => c.opt.catalogId === "rak-suwaidi-pearls");
+        let lunchAt = marina.defaultStartTime ?? "12:30";
+        if (afterSuwaidi) {
+          const readyLunch =
+            timeToMinutes(afterSuwaidi.start) +
+            (afterSuwaidi.opt.durationMin ?? 150) +
+            transitMinutes(afterSuwaidi.opt, marina);
+          lunchAt = minutesToHm(Math.max(readyLunch, timeToMinutes(lunchAt)));
+        }
+        if (isOpenAt(marina, date, lunchAt) && timeToMinutes(lunchAt) <= latest) {
+          chosen.push({ opt: marina, start: lunchAt });
+          markUsed(marina);
+        }
+      }
+      if (museum && available(museum)) {
+        const prev = chosen[chosen.length - 1];
+        let museumAt = "14:30";
+        if (prev) {
+          const readyMus =
+            timeToMinutes(prev.start) +
+            (prev.opt.durationMin ?? 60) +
+            transitMinutes(prev.opt, museum);
+          museumAt = minutesToHm(Math.max(readyMus, timeToMinutes("14:00")));
+        }
+        if (isOpenAt(museum, date, museumAt) && timeToMinutes(museumAt) <= latest) {
+          chosen.push({ opt: museum, start: museumAt });
+          markUsed(museum);
+        }
+      }
+      if (highlight && d === highlightDay) {
+        const start = naturalStart(highlight, highlight.defaultStartTime ?? "17:15");
+        if (start && !chosen.some((c) => c.opt.catalogId === highlight.catalogId)) {
+          chosen.push({ opt: highlight, start });
+        }
+      }
+      take(pick(catalog.plans.filter((p) => isEveningDining(p) && available(p) && fitsOpen(p))));
+    } else {
+      const highlightIsMorning =
+        Boolean(highlight) &&
+        timeToMinutes(highlight!.defaultStartTime ?? "17:00") < 12 * 60;
+
+      // Place morning highlight first so we do not also consume the only other morning slot.
+      if (d === highlightDay && highlight && highlightIsMorning) {
+        const start = naturalStart(highlight);
+        if (start && !chosen.some((c) => c.opt.catalogId === highlight.catalogId)) {
+          chosen.push({ opt: highlight, start });
+        }
+      }
+
+      // Morning first (museum / Dhayah / mosque / dam viewpoint). Skip when the
+      // highlight already filled the morning so Day 3 still has a morning option.
+      const hasMorningActivity = chosen.some(
+        (c) => c.opt.kind === "activity" && timeToMinutes(c.start) < 12 * 60,
+      );
+      if ((fullDay || lastDay) && !hasMorningActivity) {
+        take(
+          pick(
+            catalog.plans.filter(
+              (p) =>
+                p.kind === "activity" &&
+                available(p) &&
+                fitsOpen(p) &&
+                timeToMinutes(p.defaultStartTime ?? "10:00") < 12 * 60,
+            ),
           ),
-          resolved.interests,
-          budgetPressure,
-        ),
-      );
-    }
+        );
+      }
 
-    if (d === highlightDay && highlight) {
-      const start = naturalStart(highlight);
-      if (start) {
-        chosen.push({ opt: highlight, start });
+      if (d === highlightDay && highlight && !highlightIsMorning) {
+        const start = naturalStart(highlight);
+        if (start && !chosen.some((c) => c.opt.catalogId === highlight.catalogId)) {
+          chosen.push({ opt: highlight, start });
+        }
+      }
+
+      // Lunch whenever the day window covers midday.
+      if (earliest < 14 * 60 && latest > 13 * 60) {
+        take(pick(catalog.plans.filter((p) => isLunchOption(p) && available(p) && fitsOpen(p))));
+      }
+
+      if (!lastDay || days === 1) {
+        take(pick(catalog.plans.filter((p) => isEveningDining(p) && available(p) && fitsOpen(p))));
+      }
+
+      const activityPool = (opts?: { morning?: boolean; afternoon?: boolean }) =>
+        catalog.plans.filter((p) => {
+          if (p.kind !== "activity") return false;
+          if (p.catalogId === highlight?.catalogId) return false;
+          if (!available(p) || !fitsOpen(p)) return false;
+          if (chosen.some((c) => c.opt.catalogId === p.catalogId)) return false;
+          const t = timeToMinutes(p.defaultStartTime ?? "14:00");
+          if (opts?.morning === false && t < 12 * 60) return false;
+          if (opts?.afternoon && (t < 12 * 60 || t >= 18 * 60)) return false;
+          return true;
+        });
+
+      if (!lastDay) {
+        take(pick(activityPool({ afternoon: true })));
+      }
+
+      if (!fullDay && !lastDay) {
+        take(
+          pick(
+            activityPool().filter((p) => timeToMinutes(p.defaultStartTime ?? "18:00") >= 17 * 60),
+          ),
+        );
+      }
+
+      // Full days always get dinner (arrival day may already have one).
+      if (fullDay && !lastDay) {
+        const hasDinner = chosen.some((c) => isEveningDining(c.opt));
+        if (!hasDinner) {
+          take(pick(catalog.plans.filter((p) => isEveningDining(p) && available(p) && fitsOpen(p))));
+        }
+      }
+
+      const morningFilled = chosen.some(
+        (c) => c.opt.kind === "activity" && timeToMinutes(c.start) < 12 * 60,
+      );
+      const target = fullDay ? 4 : lastDay ? 2 : 3;
+      while (chosen.length < target) {
+        // Do not steal Day 3's morning options when this day already has one.
+        const next = pick(activityPool({ morning: morningFilled ? false : undefined }));
+        if (!next || !take(next)) break;
       }
     }
 
-    // Lunch whenever the day window covers midday (arrival after morning flight, full days, departure).
-    if (earliest < 14 * 60 && latest > 13 * 60) {
-      take(
-        pickBest(
-          catalog.plans.filter((p) => isLunchOption(p) && available(p) && fitsOpen(p)),
-          resolved.interests,
-          budgetPressure,
-        ),
-      );
-    }
+    const resolveOverlaps = (): void => {
+      chosen.sort((a, b) => a.start.localeCompare(b.start));
+      for (let i = 0; i < chosen.length; i++) {
+        const cur = chosen[i]!;
+        let minStart = earliest;
+        if (d === 1) {
+          // Never overlap hotel check-in (include transit from hotel).
+          minStart = Math.max(minStart, hotelEnd + transitMinutes(hotelOpt, cur.opt));
+        }
+        if (i > 0) {
+          const prev = chosen[i - 1]!;
+          minStart = Math.max(
+            minStart,
+            timeToMinutes(prev.start) +
+              (prev.opt.durationMin ?? 60) +
+              transitMinutes(prev.opt, cur.opt),
+          );
+        }
 
-    if (!lastDay || days === 1) {
-      take(
-        pickBest(
-          catalog.plans.filter((p) => isEveningDining(p) && available(p) && fitsOpen(p)),
-          resolved.interests,
-          budgetPressure,
-        ),
-      );
-    }
+        let startMin = timeToMinutes(cur.start);
+        if (cur.opt.startSlots?.length) {
+          const slot = resolveStartTime(cur.opt, date, cur.start, minStart, latest);
+          if (!slot) {
+            chosen.splice(i, 1);
+            i -= 1;
+            continue;
+          }
+          startMin = timeToMinutes(slot);
+        } else if (startMin < minStart) {
+          startMin = minStart;
+        }
 
-    const activityPool = () =>
-      catalog.plans.filter(
-        (p) =>
-          p.kind === "activity" &&
-          p.catalogId !== highlight?.catalogId &&
-          available(p) &&
-          fitsOpen(p) &&
-          !chosen.some((c) => c.opt.catalogId === p.catalogId),
-      );
-
-    // Arrival / full-day afternoon filler (e.g. Qurum Beach after Friday Muscat landing).
-    if (!lastDay) {
-      take(
-        pickBest(
-          activityPool().filter((p) => {
-            const t = timeToMinutes(p.defaultStartTime ?? "14:00");
-            return t >= 12 * 60 && t < 18 * 60;
-          }),
-          resolved.interests,
-          budgetPressure,
-        ),
-      );
-    }
-
-    if (!fullDay && !lastDay) {
-      take(
-        pickBest(
-          activityPool().filter((p) => timeToMinutes(p.defaultStartTime ?? "18:00") >= 17 * 60),
-          resolved.interests,
-          budgetPressure,
-        ),
-      );
-    }
-
-    const target = fullDay ? 4 : lastDay ? 2 : 3;
-    while (chosen.length < target) {
-      const next = pickBest(activityPool(), resolved.interests, budgetPressure);
-      if (!next || !take(next)) break;
-    }
-
-    // Sort, then push forward for transit / overlap while keeping opening hours.
-    chosen.sort((a, b) => a.start.localeCompare(b.start));
-    for (let i = 1; i < chosen.length; i++) {
-      const prev = chosen[i - 1]!;
-      const cur = chosen[i]!;
-      const need =
-        timeToMinutes(prev.start) +
-        (prev.opt.durationMin ?? 60) +
-        transitMinutes(prev.opt, cur.opt);
-      let startMin = timeToMinutes(cur.start);
-      if (startMin < need) startMin = need;
-      if (startMin > latest) {
-        chosen.splice(i, 1);
-        i -= 1;
-        continue;
+        if (startMin > latest) {
+          chosen.splice(i, 1);
+          i -= 1;
+          continue;
+        }
+        const hm = minutesToHm(startMin);
+        if (!isOpenAt(cur.opt, date, hm)) {
+          if (cur.opt.startSlots?.length) {
+            const later = resolveStartTime(cur.opt, date, undefined, startMin + 1, latest);
+            if (later && isOpenAt(cur.opt, date, later)) {
+              cur.start = later;
+              continue;
+            }
+          }
+          // Dinner: if pushed too late for hours, drop; otherwise try keeping preferred when open.
+          chosen.splice(i, 1);
+          i -= 1;
+          continue;
+        }
+        cur.start = hm;
       }
-      const hm = minutesToHm(startMin);
-      if (!isOpenAt(cur.opt, date, hm)) {
-        chosen.splice(i, 1);
-        i -= 1;
-        continue;
-      }
-      cur.start = hm;
-    }
+    };
+
+    resolveOverlaps();
 
     // Close gaps > 3h.
     let guard = 0;
     while (guard++ < 6) {
       let inserted = false;
-      const anchorEnd =
-        d === 1 ? hotelStart + (hotelOpt.durationMin ?? 40) : earliest;
       const sequence: { start: number; end: number; opt?: CatalogOption }[] = [
         { start: d === 1 ? readyMin : earliest, end: d === 1 ? readyMin : earliest },
       ];
       if (d === 1) {
         sequence.push({
           start: hotelStart,
-          end: hotelStart + (hotelOpt.durationMin ?? 40),
+          end: hotelEnd,
+          opt: hotelOpt,
         });
       }
       for (const c of chosen) {
@@ -446,9 +588,12 @@ export function planTrip(request: PlanTripRequest = {}): Trip {
         const slotLatest = b.start - 20;
         if (slotLatest - slotEarliest < 40) continue;
         const startInSlot = (p: CatalogOption): string | null => {
-          // Gap-fill may retime within the hole (not limited to ±90 min of default).
-          let start = Math.max(slotEarliest, timeToMinutes(p.defaultStartTime ?? "10:00"));
-          if (start > slotLatest) start = slotEarliest;
+          if (p.startSlots?.length) {
+            return resolveStartTime(p, date, p.defaultStartTime, slotEarliest, slotLatest);
+          }
+          // Prefer natural default when it falls in the hole; otherwise start at hole open.
+          let start = timeToMinutes(p.defaultStartTime ?? "10:00");
+          if (start < slotEarliest || start > slotLatest) start = slotEarliest;
           if (start > slotLatest) return null;
           const hm = minutesToHm(start);
           if (!isOpenAt(p, date, hm)) return null;
@@ -460,9 +605,21 @@ export function planTrip(request: PlanTripRequest = {}): Trip {
           if (!available(p)) return false;
           if (chosen.some((c) => c.opt.catalogId === p.catalogId)) return false;
           if (p.kind !== "activity") return false;
+          // Only skip true early-morning defaults for late-afternoon holes.
+          const def = timeToMinutes(p.defaultStartTime ?? "14:00");
+          if (slotEarliest >= 14 * 60 && def < 9 * 60) return false;
           return Boolean(startInSlot(p));
         });
-        const filler = pickBest(fillerCandidates, resolved.interests, budgetPressure);
+        // Prefer fillers whose natural default sits in the hole.
+        const ranked = [...fillerCandidates].sort((a, b) => {
+          const aDef = timeToMinutes(a.defaultStartTime ?? "14:00");
+          const bDef = timeToMinutes(b.defaultStartTime ?? "14:00");
+          const aFit = aDef >= slotEarliest && aDef <= slotLatest ? 0 : 1;
+          const bFit = bDef >= slotEarliest && bDef <= slotLatest ? 0 : 1;
+          if (aFit !== bFit) return aFit - bFit;
+          return bDef - aDef;
+        });
+        const filler = ranked[0] ?? pick(fillerCandidates);
         if (!filler) continue;
         const start = startInSlot(filler);
         if (!start) continue;
@@ -472,9 +629,38 @@ export function planTrip(request: PlanTripRequest = {}): Trip {
         inserted = true;
         break;
       }
-      void anchorEnd;
       if (!inserted) break;
     }
+
+    // Gap-fill inserts can land on top of neighbors — resolve again.
+    resolveOverlaps();
+
+    // If a long hole remains before dinner, pull dinner earlier — but never before
+    // 18:00 for evening dining (all-day kitchens still serve dinner in the evening).
+    chosen.sort((a, b) => a.start.localeCompare(b.start));
+    for (let i = 1; i < chosen.length; i++) {
+      const prev = chosen[i - 1]!;
+      const cur = chosen[i]!;
+      if (!isEveningDining(cur.opt)) continue;
+      const prevEnd = timeToMinutes(prev.start) + (prev.opt.durationMin ?? 60);
+      const gap = timeToMinutes(cur.start) - prevEnd;
+      if (gap <= 180) continue;
+      const afterPrev = prevEnd + transitMinutes(prev.opt, cur.opt);
+      const dinnerFloor = Math.max(
+        18 * 60,
+        timeToMinutes(cur.opt.defaultStartTime ?? "19:00") - 60,
+      );
+      const candidate = Math.max(afterPrev, dinnerFloor);
+      const pulled = minutesToHm(candidate);
+      if (
+        candidate < timeToMinutes(cur.start) &&
+        isOpenAt(cur.opt, date, pulled) &&
+        candidate <= latest
+      ) {
+        cur.start = pulled;
+      }
+    }
+    resolveOverlaps();
 
     chosen.sort((a, b) => a.start.localeCompare(b.start));
     const plans = chosen.map((c, i) =>
@@ -491,6 +677,7 @@ export function planTrip(request: PlanTripRequest = {}): Trip {
     endDate: resolved.endDate,
     travellers: resolved.travellers,
     kids: resolved.kids,
+    children: resolved.children,
     budgetAED: resolved.budgetAED,
     interests: resolved.interests,
     travel,

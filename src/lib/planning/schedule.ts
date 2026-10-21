@@ -1,9 +1,18 @@
-import { getCatalogOption, type CatalogOption } from "./catalog";
-import { closedReason, isOpenAt } from "./hours";
+import { getCatalogOption, type CatalogOption, type HotelTier } from "./catalog";
+import { closedReason, isAgeAllowed, isOpenAt } from "./hours";
 import { timeToMinutes } from "./pricing";
 import type { Trip, TripItem } from "./types";
 
 export const MAX_GAP_MINUTES = 3 * 60;
+/** Full days should have a plan ending near dinner time. */
+export const FULL_DAY_EVENING_ANCHOR = 20 * 60;
+
+/** Map trip budget to the lodging tier the planner should prefer. */
+export function hotelTierForBudget(budgetAED: number): HotelTier {
+  if (budgetAED <= 1500) return "value";
+  if (budgetAED <= 3000) return "mid";
+  return "luxury";
+}
 
 export function minutesToHm(total: number): string {
   const t = ((total % (24 * 60)) + 24 * 60) % (24 * 60);
@@ -83,12 +92,28 @@ export function isEveningDining(opt: CatalogOption): boolean {
 }
 
 export function fitsWindow(opt: CatalogOption, earliest: number, latest: number): boolean {
+  if (opt.startSlots?.length) {
+    return opt.startSlots.some((hm) => {
+      const start = timeToMinutes(hm);
+      const end = start + (opt.durationMin ?? 60);
+      return start >= earliest && end <= latest + 30;
+    });
+  }
   const start = timeToMinutes(opt.defaultStartTime ?? "10:00");
   const end = start + (opt.durationMin ?? 60);
   return start >= earliest && end <= latest + 30;
 }
 
 export function clampStart(opt: CatalogOption, earliest: number, latest: number): string | null {
+  if (opt.startSlots?.length) {
+    // Date-agnostic: pick the earliest slot that fits the day window.
+    for (const hm of [...opt.startSlots].sort((a, b) => timeToMinutes(a) - timeToMinutes(b))) {
+      const start = timeToMinutes(hm);
+      const end = start + (opt.durationMin ?? 60);
+      if (start >= earliest && start <= latest && end <= latest + 45) return hm;
+    }
+    return null;
+  }
   const preferred = timeToMinutes(opt.defaultStartTime ?? "10:00");
   let start = preferred;
   if (start < earliest) {
@@ -105,6 +130,16 @@ export function transitMinutes(from?: CatalogOption, to?: CatalogOption): number
   if (!from || !to) return 15;
   if (from.hotelCampus && from.hotelCampus === to.hotelCampus) return 10;
   if (from.area && from.area === to.area) return 10;
+  // Named long hops with realistic buffers.
+  const pair = new Set([from.area, to.area]);
+  if (pair.has("suwaidi-pearls") && (pair.has("al-hamra-yacht-club") || pair.has("al-hamra-corniche"))) {
+    return 35;
+  }
+  if (pair.has("suwaidi-pearls") && pair.has("rak-national-museum")) return 40;
+  if (pair.has("al-hamra-yacht-club") && pair.has("rak-national-museum")) return 30;
+  if (pair.has("rak-national-museum") && pair.has("jebel-jais")) return 55;
+  if (pair.has("jebel-jais") && (from.zone === "coast" || to.zone === "coast")) return 50;
+  if (pair.has("jebel-jais") && (from.zone === "desert" || to.zone === "desert")) return 45;
   const a = from.zone;
   const b = to.zone;
   if (!a || !b || a === b) return 20;
@@ -117,6 +152,19 @@ export function transitMinutes(from?: CatalogOption, to?: CatalogOption): number
   if (a === "mountain" || b === "mountain") return 35;
   if (a === "airport" || b === "airport") return 40;
   return 25;
+}
+
+export function partyChildrenAges(trip: Pick<Trip, "children" | "kids">): number[] | undefined {
+  if (trip.children?.length) return trip.children;
+  return undefined;
+}
+
+/** Venue is allowed for this party (age gate). */
+export function passesAgeGate(
+  opt: CatalogOption,
+  childrenAges: number[] | undefined,
+): boolean {
+  return isAgeAllowed(opt, childrenAges);
 }
 
 export function usedCatalogIds(trip: Trip): Set<string> {
@@ -197,35 +245,128 @@ export function assertNoClosedVenues(trip: Trip): void {
   }
 }
 
-export function assertMaxGaps(trip: Trip): void {
+function dayEvents(
+  trip: Trip,
+  day: Trip["days"][number],
+): { start: number; end: number; label: string; opt?: CatalogOption }[] {
   const ready = readyMinutes(trip.travel);
+  const travelOpt = getCatalogOption(trip.travel.catalogId);
+  const returnMin = trip.returnTravel
+    ? timeToMinutes(trip.returnTravel.startTime)
+    : defaultReturnDepartMinutes(travelOpt);
+  const totalDays = trip.days.length;
+  const { earliest, latest } = dayWindow({
+    dayIndex: day.day,
+    totalDays,
+    readyMin: ready,
+    returnDepartMin: returnMin,
+    travelOpt,
+  });
+
+  const events: { start: number; end: number; label: string; opt?: CatalogOption }[] = [];
+  if (day.day === 1) {
+    events.push({ start: ready, end: ready, label: "arrival-ready" });
+    const hotelStart = timeToMinutes(trip.hotel.startTime);
+    const hotelOpt = getCatalogOption(trip.hotel.catalogId);
+    events.push({
+      start: hotelStart,
+      end: hotelStart + (trip.hotel.durationMin ?? 40),
+      label: trip.hotel.title,
+      opt: hotelOpt,
+    });
+  } else {
+    events.push({ start: earliest, end: earliest, label: "day-start" });
+  }
+  for (const p of day.plans) {
+    const start = timeToMinutes(p.startTime);
+    events.push({
+      start,
+      end: start + (p.durationMin ?? 60),
+      label: p.title,
+      opt: getCatalogOption(p.catalogId),
+    });
+  }
+  events.sort((a, b) => a.start - b.start || a.end - b.end);
+
+  const fullDay = isFullDayWindow(earliest, latest);
+  const lastDay = day.day === totalDays && totalDays > 1;
+  if (fullDay && !lastDay) {
+    const lastPlanEnd = day.plans.reduce((max, p) => {
+      const end = timeToMinutes(p.startTime) + (p.durationMin ?? 60);
+      return Math.max(max, end);
+    }, 0);
+    // Only require an evening anchor when the day would otherwise end before dinner.
+    if (lastPlanEnd < 18 * 60) {
+      events.push({
+        start: FULL_DAY_EVENING_ANCHOR,
+        end: FULL_DAY_EVENING_ANCHOR,
+        label: "evening-anchor-20:00",
+      });
+    }
+  }
+  if (lastDay && trip.returnTravel) {
+    const dep = timeToMinutes(trip.returnTravel.startTime);
+    events.push({ start: dep, end: dep, label: "departure" });
+  }
+  events.sort((a, b) => a.start - b.start || a.end - b.end);
+  return events;
+}
+
+export function assertMaxGaps(trip: Trip): void {
   for (const day of trip.days) {
-    const events: { start: number; end: number; label: string }[] = [];
-    if (day.day === 1) {
-      events.push({ start: ready, end: ready, label: "arrival-ready" });
-      const hotelStart = timeToMinutes(trip.hotel.startTime);
-      events.push({
-        start: hotelStart,
-        end: hotelStart + (trip.hotel.durationMin ?? 40),
-        label: trip.hotel.title,
-      });
-    }
-    for (const p of day.plans) {
-      const start = timeToMinutes(p.startTime);
-      events.push({
-        start,
-        end: start + (p.durationMin ?? 60),
-        label: p.title,
-      });
-    }
-    events.sort((a, b) => a.start - b.start);
+    const events = dayEvents(trip, day);
     for (let i = 1; i < events.length; i++) {
-      const gap = events[i].start - events[i - 1].end;
+      const gap = events[i]!.start - events[i - 1]!.end;
       if (gap > MAX_GAP_MINUTES) {
         throw new Error(
-          `Day ${day.day}: ${gap} min gap between ${events[i - 1].label} and ${events[i].label}`,
+          `Day ${day.day}: ${gap} min gap between ${events[i - 1]!.label} and ${events[i]!.label}`,
         );
       }
+    }
+  }
+}
+
+/** No two timed items may overlap, including hotel check-in and travel buffers. */
+export function assertNoOverlaps(trip: Trip): void {
+  for (const day of trip.days) {
+    const events = dayEvents(trip, day).filter(
+      (e) => e.label !== "arrival-ready" && e.label !== "day-start" && e.label !== "evening-anchor-20:00" && e.label !== "departure",
+    );
+    for (let i = 1; i < events.length; i++) {
+      const prev = events[i - 1]!;
+      const cur = events[i]!;
+      const need = prev.end + transitMinutes(prev.opt, cur.opt);
+      if (cur.start < need) {
+        throw new Error(
+          `Day ${day.day}: ${cur.label} at ${minutesToHm(cur.start)} overlaps ${prev.label} (needs ${minutesToHm(need)} with transit)`,
+        );
+      }
+    }
+  }
+}
+
+export function assertFullDaysHaveDinner(trip: Trip): void {
+  const ready = readyMinutes(trip.travel);
+  const travelOpt = getCatalogOption(trip.travel.catalogId);
+  const returnMin = trip.returnTravel
+    ? timeToMinutes(trip.returnTravel.startTime)
+    : defaultReturnDepartMinutes(travelOpt);
+  for (const day of trip.days) {
+    const { earliest, latest } = dayWindow({
+      dayIndex: day.day,
+      totalDays: trip.days.length,
+      readyMin: ready,
+      returnDepartMin: returnMin,
+      travelOpt,
+    });
+    if (!isFullDayWindow(earliest, latest)) continue;
+    if (day.day === trip.days.length && trip.days.length > 1) continue;
+    const hasDinner = day.plans.some((p) => {
+      const opt = getCatalogOption(p.catalogId);
+      return Boolean(opt && isEveningDining(opt));
+    });
+    if (!hasDinner) {
+      throw new Error(`Day ${day.day} is a full day but has no dinner`);
     }
   }
 }
@@ -294,4 +435,6 @@ export function assertScheduleInvariants(trip: Trip): void {
 
   assertNoClosedVenues(trip);
   assertMaxGaps(trip);
+  assertNoOverlaps(trip);
+  assertFullDaysHaveDinner(trip);
 }
