@@ -92,6 +92,50 @@ function resolveItemPhoto(item?: Pick<TripItem, "photo" | "kind"> | null): strin
   return null;
 }
 
+/** Strip meal-type suffixes so tickets read as venue names. */
+function venueLabel(title: string): string {
+  return title
+    .replace(/\s*\((?:lunch|dinner)\)\s*$/i, "")
+    .replace(/\s+(?:lunch|dinner)\s*$/i, "")
+    .trim();
+}
+
+/** "Friday 20:00" from ISO day + HH:MM. */
+function formatTicketWhen(iso: string | undefined, time: string): string {
+  if (!iso) return time;
+  try {
+    const d = new Date(`${iso}T12:00:00Z`);
+    const weekday = d.toLocaleDateString("en-GB", { weekday: "long", timeZone: "UTC" });
+    return `${weekday} ${time}`;
+  } catch {
+    return time;
+  }
+}
+
+/**
+ * Ticket thumb: use the item's own photo when unique on this screen.
+ * Meals never fall back to the shared Levant photo — utensils tile instead.
+ */
+function ticketPhotoFor(
+  item: Pick<TripItem, "photo" | "kind"> | null | undefined,
+  kind: TripItem["kind"],
+  usedPhotos: Set<string>,
+  walletPhoto?: string,
+): string | null {
+  const own = item?.photo || walletPhoto || undefined;
+  if (own && !usedPhotos.has(own)) {
+    usedPhotos.add(own);
+    return own;
+  }
+  if (kind === "dining") return null;
+  const fallback = KIND_PHOTO[kind];
+  if (fallback && !usedPhotos.has(fallback)) {
+    usedPhotos.add(fallback);
+    return fallback;
+  }
+  return null;
+}
+
 function TicketIcon({ kind }: { kind?: TripItem["kind"] }) {
   const cls = "h-5 w-5 text-ink-soft";
   if (kind === "hotel") return <Hotel className={cls} aria-hidden />;
@@ -134,12 +178,6 @@ function guestCount(request: PlanTripRequest): number {
 function parseHmm(value: string): number {
   const [h, m] = value.split(":").map(Number);
   return (h ?? 0) * 60 + (m ?? 0);
-}
-
-function isLunchItem(item: TripItem): boolean {
-  if (item.kind !== "dining") return false;
-  if (item.catalogId.includes("lunch") || /\blunch\b/i.test(item.title)) return true;
-  return parseHmm(item.startTime) < 15 * 60;
 }
 
 /** Deduped trip items (travel, return, hotel, day plans — incl. lunches). */
@@ -645,87 +683,76 @@ export function BookingConfirmScreen({
       [trip.hotel.id, trip.hotel],
       ...plans.map((p) => [p.id, p] as const),
     ]);
+    const dateForDay = (day: number) => trip.days.find((d) => d.day === day)?.date;
 
     type Ticket = {
       key: string;
       title: string;
+      when: string;
       photo: string | null;
       kind: TripItem["kind"];
+      day: number;
+      startTime: string;
     };
 
-    // Prefer server confirmations so lunches/dinners each get a ticket when booked.
+    const usedPhotos = new Set<string>();
+    const draft: Omit<Ticket, "photo">[] = [];
+
+    const pushItem = (item: TripItem, titleSource: string) => {
+      draft.push({
+        key: item.id,
+        title: `${venueLabel(titleSource)} booked`,
+        when: formatTicketWhen(dateForDay(item.day), item.startTime),
+        kind: item.kind,
+        day: item.day,
+        startTime: item.startTime,
+      });
+    };
+
+    // Hotel + dining + highlight only (not every travel/activity confirmation).
     if (trip.confirmations?.length) {
-      const list: Ticket[] = [];
       const hotelC = trip.confirmations.find((c) => c.kind === "hotel" || c.itemId === trip.hotel.id);
       if (hotelC) {
         const item = byId.get(hotelC.itemId) ?? trip.hotel;
-        list.push({
-          key: hotelC.itemId,
-          title: "Hotel booked",
-          kind: "hotel",
-          photo: resolveItemPhoto(item) ?? cWalletPhoto(hotelC.walletPass?.photo, "hotel"),
-        });
+        pushItem(item, item.title || hotelC.title);
       }
-      const diningCs = trip.confirmations
-        .filter((c) => c.kind === "dining")
-        .sort((a, b) => {
-          const ia = byId.get(a.itemId);
-          const ib = byId.get(b.itemId);
-          return (ia?.day ?? 0) - (ib?.day ?? 0) || parseHmm(ia?.startTime ?? "00:00") - parseHmm(ib?.startTime ?? "00:00");
-        });
-      for (const c of diningCs) {
+      for (const c of trip.confirmations.filter((c) => c.kind === "dining")) {
         const item = byId.get(c.itemId);
-        const lunch = item ? isLunchItem(item) : /\blunch\b/i.test(c.title);
-        list.push({
-          key: c.itemId,
-          title: lunch ? "Lunch booked" : "Dinner booked",
-          kind: "dining",
-          photo: resolveItemPhoto(item) ?? cWalletPhoto(c.walletPass?.photo, "dining"),
-        });
+        if (!item) continue;
+        pushItem(item, item.title || c.title);
       }
       if (trip.facts.highlight) {
         const h = trip.facts.highlight;
-        if (!list.some((t) => t.key === h.itemId)) {
+        if (!draft.some((t) => t.key === h.itemId)) {
           const item = byId.get(h.itemId);
-          list.push({
-            key: h.itemId,
-            title: `${h.title} booked`,
-            kind: item?.kind ?? "activity",
-            photo: resolveItemPhoto(item),
-          });
+          if (item) pushItem(item, h.title || item.title);
         }
       }
-      return list;
+    } else {
+      pushItem(trip.hotel, trip.hotel.title);
+      for (const d of plans.filter((p) => p.kind === "dining")) {
+        pushItem(d, d.title);
+      }
+      if (trip.facts.highlight) {
+        const item = plans.find((p) => p.id === trip.facts.highlight!.itemId);
+        if (item && !draft.some((t) => t.key === item.id)) {
+          pushItem(item, trip.facts.highlight.title || item.title);
+        }
+      }
     }
 
-    const list: Ticket[] = [];
-    list.push({
-      key: "hotel",
-      title: "Hotel booked",
-      kind: "hotel",
-      photo: resolveItemPhoto(trip.hotel),
+    draft.sort(
+      (a, b) => a.day - b.day || parseHmm(a.startTime) - parseHmm(b.startTime),
+    );
+
+    return draft.map((t) => {
+      const item = byId.get(t.key) ?? (t.key === trip.hotel.id ? trip.hotel : undefined);
+      const walletPhoto = trip.confirmations?.find((c) => c.itemId === t.key)?.walletPass?.photo;
+      return {
+        ...t,
+        photo: ticketPhotoFor(item, t.kind, usedPhotos, walletPhoto),
+      };
     });
-    const dinings = plans
-      .filter((p) => p.kind === "dining")
-      .sort((a, b) => a.day - b.day || parseHmm(a.startTime) - parseHmm(b.startTime));
-    for (const d of dinings) {
-      list.push({
-        key: d.id,
-        title: isLunchItem(d) ? "Lunch booked" : "Dinner booked",
-        kind: "dining",
-        photo: resolveItemPhoto(d),
-      });
-    }
-    if (trip.facts.highlight) {
-      const item = plans.find((p) => p.id === trip.facts.highlight!.itemId);
-      list.push({
-        key: "highlight",
-        title: `${trip.facts.highlight.title} booked`,
-        kind: item?.kind ?? "activity",
-        photo: resolveItemPhoto(item),
-      });
-    }
-    return list;
   }, [trip]);
 
   const [shown, setShown] = React.useState(0);
@@ -752,7 +779,10 @@ export function BookingConfirmScreen({
           <li key={t.key}>
             <GlassPanel className="flex items-center gap-3 p-3">
               <TicketThumb photo={t.photo} kind={t.kind} />
-              <p className="min-w-0 flex-1 font-display text-[18px] italic">{t.title}</p>
+              <div className="min-w-0 flex-1 leading-tight">
+                <p className="truncate font-display text-[17px] italic">{t.title}</p>
+                <p className="mt-0.5 truncate text-[12px] text-ink-soft">{t.when}</p>
+              </div>
               <Check className="h-5 w-5 shrink-0 text-violet" aria-hidden />
               <span className="sr-only">Confirmed</span>
             </GlassPanel>
@@ -788,11 +818,6 @@ export function BookingConfirmScreen({
       </div>
     </div>
   );
-}
-
-function cWalletPhoto(photo: string | undefined, kind: TripItem["kind"]): string | null {
-  if (photo) return photo;
-  return KIND_PHOTO[kind] ?? null;
 }
 
 export function BookedRouteScreen({ trip }: { trip: Trip }) {
@@ -857,14 +882,16 @@ export function BookedPlanScreen({ trip }: { trip: Trip }) {
       <ul className="mx-5 mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto" data-lenis-prevent>
         {passes.map((c) => {
           const item = byId.get(c.itemId);
-          const photo = resolveItemPhoto(item) ?? cWalletPhoto(c.walletPass?.photo, c.kind);
+          const kind = item?.kind ?? c.kind;
+          const own = item?.photo || c.walletPass?.photo;
+          const photo = own ?? (kind === "dining" ? null : KIND_PHOTO[kind] ?? null);
           return (
             <li key={c.itemId}>
               <GlassPanel className="p-3">
                 <div className="flex items-start gap-3">
-                  <TicketThumb photo={photo} kind={item?.kind ?? c.kind} />
+                  <TicketThumb photo={photo} kind={kind} />
                   <div className="min-w-0 flex-1">
-                    <p className="font-display text-xl italic">{c.walletPass!.title}</p>
+                    <p className="font-display text-xl italic">{venueLabel(c.walletPass!.title)}</p>
                     <p className="num mt-1 text-2xl">
                       {c.walletPass!.time} · {c.walletPass!.date}
                     </p>
