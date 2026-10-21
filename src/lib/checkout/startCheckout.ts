@@ -7,18 +7,16 @@ export type StartCheckoutResult =
 /**
  * Client helper: create a Checkout Session and redirect.
  * On 503 (no STRIPE_SECRET_KEY server-side) → demo path; does NOT book.
- * Call {@link confirmDemoCheckout} after an explicit user confirm in demo mode.
+ * Call {@link confirmDemoCheckout} with the full trip after an explicit user confirm.
  *
  * Never imports STRIPE_SECRET_KEY — that stays server-only.
  */
 export async function startCheckout(trip: Trip): Promise<void> {
   const result = await requestCheckout(trip);
   if (result.mode === "stripe") {
-    // Cross-origin Stripe Checkout — full navigation required.
     window.location.assign(result.url);
     return;
   }
-  // Demo fallback: preserve the plan; nothing charged; nothing booked yet.
   const params = new URLSearchParams({
     checkout: "demo",
     trip_id: result.tripId,
@@ -31,10 +29,11 @@ export async function startCheckout(trip: Trip): Promise<void> {
 
 /** Same as startCheckout but returns the mode without navigating (for tests / custom UI). */
 export async function requestCheckout(trip: Trip): Promise<StartCheckoutResult> {
+  // Stripe path may use tripId (server store). Demo 503 does not need the body.
   const res = await fetch("/api/checkout", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ tripId: trip.id }),
+    body: JSON.stringify({ tripId: trip.id, trip }),
   });
 
   if (res.status === 503) {
@@ -57,24 +56,46 @@ export async function requestCheckout(trip: Trip): Promise<StartCheckoutResult> 
 
 /**
  * Explicit demo booking confirm (only when Stripe is not configured).
+ * Sends the full trip — works on a cold serverless instance with an empty store.
  * UI should call this after the user confirms — never from the pay tap alone.
  */
-export async function confirmDemoCheckout(tripId: string): Promise<BookingResult & { message: string }> {
+export async function confirmDemoCheckout(trip: Trip): Promise<BookingResult & { message: string }> {
   const res = await fetch("/api/checkout/demo-confirm", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ tripId, confirm: true }),
+    body: JSON.stringify({ trip, confirm: true }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? `Demo confirm failed (${res.status})`);
   return data as BookingResult & { message: string };
 }
 
-/** Poll payment status after returning from Stripe (success or cancel URL). */
+/** Stripe path: poll by Checkout session id. */
+export async function getCheckoutStatus(params: {
+  sessionId: string;
+}): Promise<{ status: "paid" | "pending" | "failed"; tripId?: string; trip?: Trip }>;
+
+/** Demo path: POST the full trip (stateless). */
+export async function getCheckoutStatus(params: {
+  trip: Trip;
+}): Promise<{ status: "paid" | "pending" | "failed"; tripId?: string; trip?: Trip }>;
+
 export async function getCheckoutStatus(params: {
   sessionId?: string;
   tripId?: string;
+  trip?: Trip;
 }): Promise<{ status: "paid" | "pending" | "failed"; tripId?: string; trip?: Trip }> {
+  if (params.trip) {
+    const res = await fetch("/api/checkout/status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ trip: params.trip }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? `Status failed (${res.status})`);
+    return data;
+  }
+
   const q = new URLSearchParams();
   if (params.sessionId) q.set("session_id", params.sessionId);
   if (params.tripId) q.set("trip_id", params.tripId);
@@ -85,18 +106,17 @@ export async function getCheckoutStatus(params: {
 }
 
 /**
- * Call from the cancel return URL (`/app?checkout=cancel&trip_id=…`) so status
- * becomes `failed` while the plan stays saved.
+ * Cancel return: demo sends the full trip; Stripe path may use tripId (store).
  */
-export async function reportCheckoutCancelled(tripId: string): Promise<{
-  status: "failed";
-  message: string;
-  trip?: Trip;
-}> {
+export async function reportCheckoutCancelled(
+  tripOrId: Trip | string,
+): Promise<{ status: "failed"; message: string; trip?: Trip }> {
+  const body =
+    typeof tripOrId === "string" ? { tripId: tripOrId } : { trip: tripOrId, tripId: tripOrId.id };
   const res = await fetch("/api/checkout/cancel", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ tripId }),
+    body: JSON.stringify(body),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? `Cancel failed (${res.status})`);

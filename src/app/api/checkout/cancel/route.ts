@@ -1,21 +1,46 @@
 import { NextResponse } from "next/server";
-import { getTrip, markPaymentFailed } from "@/lib/planning";
+import {
+  demoCancelFromTrip,
+  getTrip,
+  markPaymentFailed,
+  type Trip,
+} from "@/lib/planning";
 import { setSessionPaymentStatus } from "@/lib/planning/store";
+import { getStripeSecretKey } from "@/lib/stripe/server";
 
 /**
  * POST /api/checkout/cancel
- * Body: { tripId: string }
- * Marks payment failed while keeping the plan saved (cancel URL destination).
+ * Demo (no Stripe key): { trip } — validate from catalog, return failed status (stateless).
+ * Stripe path: { tripId } — mark failed in store (needs durable storage for multi-instance).
  */
 export async function POST(request: Request) {
-  let body: { tripId?: string };
+  let body: { tripId?: string; trip?: Trip };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
+
+  const message = "Payment didn't go through, so nothing was booked. Your plan is saved.";
+
+  if (!getStripeSecretKey()) {
+    if (!body.trip) {
+      return NextResponse.json(
+        { error: "Demo cancel requires { trip }. Plan stays on the client." },
+        { status: 400 },
+      );
+    }
+    try {
+      const trip = demoCancelFromTrip(body.trip);
+      return NextResponse.json({ status: "failed", message, trip });
+    } catch (err) {
+      const error = err instanceof Error ? err.message : "Cancel failed";
+      return NextResponse.json({ error }, { status: 400 });
+    }
+  }
+
   if (!body.tripId) {
-    return NextResponse.json({ error: "tripId required" }, { status: 400 });
+    return NextResponse.json({ error: "tripId required when Stripe is configured" }, { status: 400 });
   }
   const trip = getTrip(body.tripId);
   if (!trip) {
@@ -28,9 +53,5 @@ export async function POST(request: Request) {
     setSessionPaymentStatus(trip.checkoutSessionId, "failed");
   }
   const updated = markPaymentFailed(body.tripId);
-  return NextResponse.json({
-    status: "failed",
-    message: "Payment didn't go through, so nothing was booked. Your plan is saved.",
-    trip: updated,
-  });
+  return NextResponse.json({ status: "failed", message, trip: updated });
 }

@@ -15,6 +15,19 @@ export interface CatalogOption {
   tags?: string[];
 }
 
+export interface DestinationHighlightSpec {
+  /** Must match a real plan catalogId included in the trip. */
+  catalogId: string;
+  /** Short label for UI chrome. */
+  label: string;
+  /** Sentence shown only when that item is on the trip at an accepted time. */
+  copy: string;
+  /** Inclusive HH:MM window for the highlight timing to count. */
+  earliestStart: string;
+  latestStart: string;
+  cutoffTime?: string;
+}
+
 export interface DestinationCatalog {
   id: DestinationId;
   label: string;
@@ -22,10 +35,7 @@ export interface DestinationCatalog {
   travel: CatalogOption[];
   hotels: CatalogOption[];
   plans: CatalogOption[];
-  /** Catalog id used for the destination highlight fact. */
-  highlightCatalogId: string;
-  highlightLabel: string;
-  highlightCutoffTime?: string;
+  highlight: DestinationHighlightSpec;
 }
 
 const RAK_PHOTOS = {
@@ -40,9 +50,14 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
     id: "ras-al-khaimah",
     label: "Ras Al Khaimah",
     originLabel: "Dubai Marina",
-    highlightCatalogId: "rak-jais-deck",
-    highlightLabel: "Sunset at Jebel Jais",
-    highlightCutoffTime: "17:48",
+    highlight: {
+      catalogId: "rak-jais-deck",
+      label: "Sunset at Jebel Jais",
+      copy: "Jebel Jais is timed for sunset.",
+      earliestStart: "16:30",
+      latestStart: "17:45",
+      cutoffTime: "17:48",
+    },
     travel: [
       {
         catalogId: "rak-drive-e311",
@@ -184,8 +199,13 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
     id: "muscat",
     label: "Muscat",
     originLabel: "Dubai International (DXB)",
-    highlightCatalogId: "mct-mutrah",
-    highlightLabel: "Mutrah Souq at golden hour",
+    highlight: {
+      catalogId: "mct-mutrah",
+      label: "Mutrah Corniche evening",
+      copy: "Your evening at Mutrah Corniche is set for the cooler hours.",
+      earliestStart: "16:00",
+      latestStart: "18:30",
+    },
     travel: [
       {
         catalogId: "mct-flight-dxb",
@@ -251,13 +271,13 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
       {
         catalogId: "mct-mutrah",
         kind: "activity",
-        title: "Mutrah Souq & Corniche walk",
-        location: "Mutrah, Muscat",
+        title: "Mutrah Corniche evening walk",
+        location: "Mutrah Corniche, Muscat",
         costAED: 40,
         defaultStartTime: "16:30",
         durationMin: 120,
-        notes: "Frankincense stalls and harbour light.",
-        tags: ["culture", "city", "sunset"],
+        notes: "Souq and harbour in the cooler evening hours.",
+        tags: ["culture", "city", "evening"],
       },
       {
         catalogId: "mct-opera",
@@ -309,9 +329,13 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
     id: "hatta",
     label: "Hatta",
     originLabel: "Dubai Marina",
-    highlightCatalogId: "hatta-dam-sunset",
-    highlightLabel: "Hatta Dam at golden hour",
-    highlightCutoffTime: "18:05",
+    highlight: {
+      catalogId: "hatta-kayak",
+      label: "Morning kayak at Hatta Dam",
+      copy: "The dam kayaking is booked for the calm morning water.",
+      earliestStart: "07:00",
+      latestStart: "10:00",
+    },
     travel: [
       {
         catalogId: "hatta-drive-e44",

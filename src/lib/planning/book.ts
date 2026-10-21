@@ -1,6 +1,7 @@
 import { createMockWorld, executeTool } from "@/lib/agent";
 import { eachBookableItem } from "./pricing";
 import { getTrip, saveTrip, updateTrip } from "./store";
+import { validateAndRepriceTrip } from "./validate";
 import type {
   BookingConfirmation,
   BookingResult,
@@ -31,12 +32,17 @@ function walletFor(trip: Trip, item: Trip["travel"], code: string): WalletPassDa
   };
 }
 
+export type BookTripOptions = {
+  /** Persist into the in-memory store (Stripe path). Default true. Demo sets false. */
+  persist?: boolean;
+};
+
 /**
  * Issue demo confirmation codes + wallet passes for a trip that has already
  * cleared payment (Stripe webhook) or an explicit demo confirm.
  * Do NOT call this from a pay-button tap alone.
  */
-export function bookTrip(trip: Trip): BookingResult {
+export function bookTrip(trip: Trip, opts: BookTripOptions = {}): BookingResult {
   if (trip.status !== "paid" && trip.status !== "booked") {
     throw new Error(
       "bookTrip runs only after payment succeeds (or demo confirm). Status must be paid.",
@@ -114,31 +120,49 @@ export function bookTrip(trip: Trip): BookingResult {
   }
 
   const bookedAt = new Date().toISOString();
-  const next = saveTrip({
+  const next: Trip = {
     ...trip,
     status: "booked",
     bookedAt,
     confirmations,
-  });
+  };
+  if (opts.persist !== false) saveTrip(next);
 
   return { tripId: next.id, confirmations, bookedAt, trip: next };
 }
 
 /**
  * Fulfillment after verified `checkout.session.completed` (or equivalent).
- * Marks paid, then runs bookTrip.
+ * Marks paid in the in-memory store, then runs bookTrip.
+ * Requires durable storage before real multi-instance payments.
  */
 export function confirmBookingAfterPayment(tripId: string, paidAt = new Date().toISOString()): BookingResult {
   const trip = getTrip(tripId);
   if (!trip) throw new Error(`Unknown trip ${tripId}`);
   const paid = updateTrip(tripId, { status: "paid", paidAt }) ?? { ...trip, status: "paid" as const, paidAt };
-  return bookTrip(paid);
+  return bookTrip(paid, { persist: true });
 }
 
 /**
- * Demo-only path when STRIPE_SECRET_KEY is missing.
- * Requires an explicit `confirm: true` — never implied by a button tap alone.
- * Message for UI: "Demo only. Nothing was charged."
+ * Stateless demo confirm: validate + reprice the client trip from the catalog,
+ * then return confirmations without any server-memory lookup.
+ */
+export function demoConfirmBookingFromTrip(trip: Trip, opts: { confirm: true }): BookingResult {
+  if (opts.confirm !== true) {
+    throw new Error("demoConfirmBookingFromTrip requires { confirm: true }");
+  }
+  const validated = validateAndRepriceTrip(trip);
+  const paid: Trip = {
+    ...validated,
+    status: "paid",
+    paidAt: new Date().toISOString(),
+  };
+  return bookTrip(paid, { persist: false });
+}
+
+/**
+ * @deprecated Prefer {@link demoConfirmBookingFromTrip} for serverless demo mode.
+ * tripId lookup only works when the trip is already in this process's memory.
  */
 export function demoConfirmBooking(tripId: string, opts: { confirm: true }): BookingResult {
   if (opts.confirm !== true) {
@@ -149,7 +173,16 @@ export function demoConfirmBooking(tripId: string, opts: { confirm: true }): Boo
   return confirmBookingAfterPayment(tripId);
 }
 
-/** Mark payment failed while keeping the plan saved for the cancel URL. */
+/** Mark payment failed in the store (Stripe path). */
 export function markPaymentFailed(tripId: string): Trip | undefined {
   return updateTrip(tripId, { status: "payment_failed" });
+}
+
+/**
+ * Stateless cancel for demo mode: reprice the client trip and return it as failed.
+ * Plan stays with the client — nothing was booked.
+ */
+export function demoCancelFromTrip(trip: Trip): Trip {
+  const validated = validateAndRepriceTrip(trip);
+  return { ...validated, status: "payment_failed" };
 }

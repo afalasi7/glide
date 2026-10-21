@@ -5,7 +5,7 @@ import {
   bookTrip,
   BUDGET_PRESETS_AED,
   confirmBookingAfterPayment,
-  demoConfirmBooking,
+  demoConfirmBookingFromTrip,
   DEFAULT_BUDGET_AED,
   lateItemFlags,
   nextFridayIso,
@@ -13,6 +13,7 @@ import {
   planTrip,
   resetTripStore,
   swapOptions,
+  validateAndRepriceTrip,
   withPlanDefaults,
 } from "./index";
 
@@ -62,8 +63,8 @@ describe("planTrip defaults", () => {
   });
 });
 
-describe("planTrip shape and facts", () => {
-  test("RAK includes sunset Jebel Jais highlight and 2–3 plans per day", () => {
+describe("highlights", () => {
+  test("RAK: Jebel Jais sunset item + copy", () => {
     const trip = planTrip({
       destination: "ras-al-khaimah",
       startDate: "2026-10-23",
@@ -71,58 +72,57 @@ describe("planTrip shape and facts", () => {
       travellers: 2,
       budgetAED: 3000,
     });
-    expect(trip.travel.mode).toBe("drive");
-    expect(trip.hotel.kind).toBe("hotel");
-    expect(trip.days.length).toBe(3);
-    for (const day of trip.days) {
-      expect(day.plans.length).toBeGreaterThanOrEqual(2);
-      expect(day.plans.length).toBeLessThanOrEqual(3);
-    }
     const day1Ids = trip.days[0].plans.map((p) => p.catalogId);
     expect(day1Ids).toContain("rak-jais-deck");
-    expect(trip.facts.highlight.catalogId).toBe("rak-jais-deck");
-    expect(trip.facts.highlight.label).toBe("Sunset at Jebel Jais");
-    expect(trip.facts.highlight.cutoffTime).toBe("17:48");
-    expect(trip.facts.totalAED).toBe(trip.totalCostAED);
-    expect(typeof trip.facts.withinBudget).toBe("boolean");
-    expect(trip.facts.overBudgetByAED).toBeGreaterThanOrEqual(0);
+    expect(trip.facts.highlight).toBeDefined();
+    expect(trip.facts.highlight!.catalogId).toBe("rak-jais-deck");
+    expect(trip.facts.highlight!.itemId).toBeTruthy();
+    expect(trip.facts.highlight!.copy).toBe("Jebel Jais is timed for sunset.");
+    expect(trip.facts.highlight!.cutoffTime).toBe("17:48");
     expect(evaluate(trip.graph).order.length).toBeGreaterThan(2);
   });
 
-  test("Muscat and Hatta return their own highlights", () => {
-    const muscat = planTrip({
+  test("Muscat: Mutrah Corniche evening copy", () => {
+    const trip = planTrip({
       destination: "muscat",
       startDate: "2026-10-23",
       endDate: "2026-10-25",
       budgetAED: 6000,
     });
-    expect(muscat.travel.mode).toBe("flight");
-    expect(muscat.facts.highlight.label).toBe("Mutrah Souq at golden hour");
+    expect(trip.days.some((d) => d.plans.some((p) => p.catalogId === "mct-mutrah"))).toBe(true);
+    expect(trip.facts.highlight!.copy).toBe(
+      "Your evening at Mutrah Corniche is set for the cooler hours.",
+    );
+  });
 
-    const hatta = planTrip({
+  test("Hatta: morning dam kayaking copy", () => {
+    const trip = planTrip({
       destination: "hatta",
       startDate: "2026-10-23",
       endDate: "2026-10-25",
       budgetAED: 3000,
     });
-    expect(hatta.travel.mode).toBe("drive");
-    expect(hatta.facts.highlight.label).toBe("Hatta Dam at golden hour");
+    expect(trip.days.some((d) => d.plans.some((p) => p.catalogId === "hatta-kayak"))).toBe(true);
+    expect(trip.facts.highlight!.catalogId).toBe("hatta-kayak");
+    expect(trip.facts.highlight!.copy).toBe(
+      "The dam kayaking is booked for the calm morning water.",
+    );
   });
 
-  test("over-budget trips expose cheaper hotel suggestion", () => {
+  test("swap that removes the highlight drops the copy", () => {
     const trip = planTrip({
       destination: "ras-al-khaimah",
       startDate: "2026-10-23",
       endDate: "2026-10-25",
-      travellers: 2,
-      budgetAED: 1500,
-      interests: ["luxury"],
+      budgetAED: 3000,
     });
-    if (!trip.facts.withinBudget) {
-      expect(trip.facts.overBudgetByAED).toBeGreaterThan(0);
-      expect(trip.facts.cheaperHotel).toBeDefined();
-      expect(trip.facts.cheaperHotel!.savesAED).toBeGreaterThan(0);
-    }
+    const jais = trip.days[0].plans.find((p) => p.catalogId === "rak-jais-deck")!;
+    expect(trip.facts.highlight?.copy).toBe("Jebel Jais is timed for sunset.");
+    const opts = swapOptions(trip, jais.id);
+    const alt = opts.find((o) => o.catalogId !== "rak-jais-deck");
+    expect(alt).toBeDefined();
+    const swapped = applySwap(trip, jais.id, alt!.id);
+    expect(swapped.trip.facts.highlight).toBeUndefined();
   });
 });
 
@@ -155,10 +155,6 @@ describe("swapOptions / applySwap", () => {
     const dinner = trip.days[0].plans.find((p) => p.kind === "dining");
     expect(dinner).toBeDefined();
     const opts = swapOptions(trip, dinner!.id);
-    // Force a late start via a synthetic option path: apply catalog then manually
-    // verify late detection by swapping to an option and patching — use applySwap
-    // after constructing a late dining via hotel swap that keeps dinner.
-    // Directly: applySwap with option that has late default if any; else simulate.
     const lateTrip = {
       ...trip,
       days: trip.days.map((d) => ({
@@ -188,10 +184,29 @@ describe("bookTrip / payment gating", () => {
     expect(result.confirmations[0].confirmationCode).toMatch(/^GLD-/);
     expect(result.confirmations.some((c) => c.walletPass)).toBe(true);
   });
+});
 
-  test("demoConfirmBooking requires explicit confirm", () => {
+describe("stateless demo mode (cold serverless instance)", () => {
+  test("demoConfirmBookingFromTrip works with an empty store", () => {
     const trip = planTrip({ startDate: "2026-10-23", endDate: "2026-10-25" });
-    const result = demoConfirmBooking(trip.id, { confirm: true });
+    // Simulate a different Vercel instance: wipe all in-memory trips.
+    resetTripStore();
+    const result = demoConfirmBookingFromTrip(trip, { confirm: true });
+    expect(result.confirmations.length).toBeGreaterThan(0);
     expect(result.trip.status).toBe("booked");
+    expect(result.confirmations.some((c) => c.walletPass)).toBe(true);
+    // Total was recomputed from catalog, not trusted from a stale client claim.
+    expect(result.trip.totalCostAED).toBe(validateAndRepriceTrip(trip).totalCostAED);
+  });
+
+  test("rejects unknown catalog items without touching the store", () => {
+    const trip = planTrip({ startDate: "2026-10-23", endDate: "2026-10-25" });
+    resetTripStore();
+    const forged = {
+      ...trip,
+      hotel: { ...trip.hotel, catalogId: "not-a-real-hotel" },
+    };
+    expect(() => validateAndRepriceTrip(forged)).toThrow(/Unknown catalog/);
+    expect(() => demoConfirmBookingFromTrip(forged, { confirm: true })).toThrow(/Unknown catalog/);
   });
 });

@@ -58,7 +58,10 @@ export interface TripDay {
   plans: TripItem[];
 }
 
-/** Destination-specific computed highlight the UI can show as a fact, not a claim. */
+/**
+ * Destination-specific highlight — only present when the curated item is on the
+ * trip at an accepted time. Swap away or retime that item and the copy disappears.
+ */
 export interface TripHighlight {
   itemId: string;
   catalogId: string;
@@ -67,8 +70,10 @@ export interface TripHighlight {
   startTime: string;
   day: number;
   date: string;
-  /** Short label, e.g. "Sunset at Jebel Jais". */
+  /** Short label for UI chrome. */
   label: string;
+  /** Exact sentence for the Trip tab (destination-specific). */
+  copy: string;
   /** Optional hard cutoff the UI may surface (HH:MM). */
   cutoffTime?: string;
 }
@@ -90,7 +95,8 @@ export interface TripFacts {
   withinBudget: boolean;
   totalAED: number;
   overBudgetByAED: number;
-  highlight: TripHighlight;
+  /** Omitted when the highlight plan item is missing or not at the expected time. */
+  highlight?: TripHighlight;
   cheaperHotel?: CheaperHotelSuggestion;
 }
 

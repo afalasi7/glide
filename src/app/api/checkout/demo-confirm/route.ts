@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
-import { demoConfirmBooking, getTrip } from "@/lib/planning";
+import { demoConfirmBookingFromTrip, type Trip } from "@/lib/planning";
 import { getStripeSecretKey } from "@/lib/stripe/server";
 
 /**
  * POST /api/checkout/demo-confirm
- * Body: { tripId: string, confirm: true }
+ * Body: { trip: Trip, confirm: true }
  *
- * Only available when STRIPE_SECRET_KEY is absent (demo fallback).
- * Bookings still require this explicit confirm — never on pay-button tap alone.
+ * Stateless demo path (no STRIPE_SECRET_KEY): validates the trip from the catalog
+ * and returns confirmations without reading server memory — safe across Vercel instances.
  */
 export async function POST(request: Request) {
   if (getStripeSecretKey()) {
@@ -17,26 +17,32 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: { tripId?: string; confirm?: boolean };
+  let body: { trip?: Trip; tripId?: string; confirm?: boolean };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  if (!body.tripId || body.confirm !== true) {
+  if (body.confirm !== true) {
     return NextResponse.json(
-      { error: "Requires { tripId, confirm: true }. Nothing was booked." },
+      { error: "Requires { trip, confirm: true }. Nothing was booked." },
       { status: 400 },
     );
   }
 
-  if (!getTrip(body.tripId)) {
-    return NextResponse.json({ error: `Unknown trip ${body.tripId}` }, { status: 404 });
+  if (!body.trip) {
+    return NextResponse.json(
+      {
+        error:
+          "Demo mode requires the full trip in the body ({ trip, confirm: true }). tripId-only lookup is not used across serverless instances.",
+      },
+      { status: 400 },
+    );
   }
 
   try {
-    const result = demoConfirmBooking(body.tripId, { confirm: true });
+    const result = demoConfirmBookingFromTrip(body.trip, { confirm: true });
     return NextResponse.json({
       message: "Demo only. Nothing was charged.",
       ...result,
