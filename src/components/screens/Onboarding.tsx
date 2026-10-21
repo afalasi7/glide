@@ -6,7 +6,8 @@ import { BotArt } from "@/components/GlideBot";
 import { PhotoLabel, Status, clock, dinner, hotel, jais, depart } from "./Screens";
 import { MessageComposer } from "./MessageComposer";
 import { GlassButton, GlassInput, GlassPanel } from "@/components/ui/glass";
-import { defaultPrefs, parseTripIntent, type TripPrefs } from "@/lib/booking";
+import { parseTripIntentStub } from "@/lib/booking-stub";
+import type { TripRequest } from "@/lib/booking-types";
 
 export const TRIP_DATE = "Fri 13 Nov";
 
@@ -163,7 +164,7 @@ export function AgentScreen({
   onPlanIntent,
 }: {
   onStart?: () => void;
-  onPlanIntent?: (prefs: TripPrefs) => void;
+  onPlanIntent?: (partial: Partial<TripRequest>) => void;
 }) {
   const [messages, setMessages] = React.useState<{ from: "user" | "glide"; text: string }[]>([]);
   const latestMessage = React.useRef<HTMLParagraphElement>(null);
@@ -198,14 +199,14 @@ export function AgentScreen({
       </div>
       <MessageComposer
         onSend={(message) => {
-          const intent = parseTripIntent(message);
+          const intent = parseTripIntentStub(message);
           if (intent && onPlanIntent) {
             setMessages((previous) => [
               ...previous,
               { from: "user", text: message },
               { from: "glide", text: "Prefilling a demo plan from that. Continue with where, when, who, and budget." },
             ]);
-            onPlanIntent(defaultPrefs(intent));
+            onPlanIntent(intent);
             return;
           }
           setMessages((previous) => [...previous, { from: "user", text: message }]);

@@ -3,26 +3,29 @@
 import React from "react";
 import Image from "next/image";
 import { BotArt } from "@/components/GlideBot";
-import { GlassButton, GlassPanel, GlassTag } from "@/components/ui/glass";
-import { clock } from "@/components/story/data";
+import { GlassButton, GlassPanel } from "@/components/ui/glass";
 import {
-  BUDGET_DEFAULTS,
-  DESTINATION_OPTIONS,
-  alternativesForStop,
-  applyStopSwap,
-  buildProposedTrip,
-  defaultPrefs,
+  BUDGET_CHIPS,
+  DESTINATION_CHIPS,
+  applySwapStub,
   formatAed,
-  type BookedTrip,
-  type BudgetBand,
-  type ProposedTrip,
-  type TripPrefs,
-} from "@/lib/booking";
+} from "@/lib/booking-stub";
+import type { BookingResult, ProposedTrip, TripRequest } from "@/lib/booking-types";
+
+export {
+  defaultTripRequest,
+  proposeTripStub,
+  startCheckoutStub,
+  parseTripIntentStub,
+  formatAed,
+  guestCount,
+} from "@/lib/booking-stub";
+export type { TripRequest, ProposedTrip, BookingResult } from "@/lib/booking-types";
 
 const btn = "w-full py-3.5 tracking-wide";
 
-function Status({ time = "16:15" }: { time?: string }) {
-  return <div className="pt-[max(env(safe-area-inset-top),12px)]" aria-hidden data-time={time} />;
+function Status() {
+  return <div className="pt-[max(env(safe-area-inset-top),12px)]" aria-hidden />;
 }
 
 function PhotoLabel({ children }: { children: React.ReactNode }) {
@@ -33,7 +36,6 @@ function PhotoLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** After onboarding: follow the sample day, or plan a new demo trip. */
 export function ChooseTripScreen({
   onDemo,
   onPlan,
@@ -43,14 +45,14 @@ export function ChooseTripScreen({
 }) {
   return (
     <div className="flex h-full flex-col">
-      <Status time="9:44" />
+      <Status />
       <div className="px-6 pt-3">
         <div className="h-14 w-14"><BotArt mood="happy" /></div>
         <h3 className="mt-3 text-[34px] leading-[0.95] tracking-[-0.02em]">
           What should we <em className="text-violet">open?</em>
         </h3>
         <p className="mt-2 text-[13px] font-light text-ink-soft">
-          Follow the sample Dubai to Ras Al Khaimah day, or plan a new trip with demo prices.
+          Follow the sample day, or plan a new weekend with demo prices.
         </p>
       </div>
       <div className="mt-6 space-y-3 px-6">
@@ -61,111 +63,133 @@ export function ChooseTripScreen({
         </GlassPanel>
         <GlassPanel className="p-4">
           <p className="font-display text-xl italic">Plan a new trip</p>
-          <p className="mt-1 text-[12px] text-ink-soft">Where, when, who, and budget — then a single plan you can swap and book (demo).</p>
+          <p className="mt-1 text-[12px] text-ink-soft">Where, when, who, and budget — then one plan you can swap and book.</p>
           <GlassButton variant="secondary" onClick={onPlan} className={`${btn} mt-4`}>Plan a new trip</GlassButton>
         </GlassPanel>
       </div>
-      <p className="mt-auto px-6 pb-7 text-center text-[11px] text-ink-soft">Demo only. Nothing is charged.</p>
     </div>
   );
 }
 
-const ASK_STEPS = ["where", "when", "who", "budget"] as const;
+const ASK = ["where", "when", "who", "budget"] as const;
 
-/** Four questions, one at a time, each with a sensible default. */
+function formatRange(from: string, to: string): string {
+  try {
+    const a = new Date(`${from}T12:00:00`);
+    const b = new Date(`${to}T12:00:00`);
+    const opts: Intl.DateTimeFormatOptions = { weekday: "short", month: "short", day: "numeric" };
+    return `${a.toLocaleDateString("en-GB", opts)} → ${b.toLocaleDateString("en-GB", opts)}`;
+  } catch {
+    return `${from} → ${to}`;
+  }
+}
+
+/** Four questions with the Designer&apos;s exact prompts and defaults. */
 export function AskPrefsScreen({
-  prefs,
+  request,
   index,
   onChange,
   onBack,
   onNext,
 }: {
-  prefs: TripPrefs;
+  request: TripRequest;
   index: number;
-  onChange: (prefs: TripPrefs) => void;
+  onChange: (request: TripRequest) => void;
   onBack?: () => void;
   onNext?: () => void;
 }) {
-  const step = ASK_STEPS[Math.min(ASK_STEPS.length - 1, Math.max(0, index))]!;
+  const step = ASK[Math.min(ASK.length - 1, Math.max(0, index))]!;
   return (
     <div className="flex h-full flex-col">
-      <Status time="9:45" />
+      <Status />
       <div className="px-6 pt-3">
         <h3 className="text-[32px] leading-[0.95] tracking-[-0.02em]">
-          {step === "where" && <>Where are we <em className="text-violet">going?</em></>}
-          {step === "when" && <>How long is the <em className="text-violet">trip?</em></>}
+          {step === "where" && <>Where <em className="text-violet">to?</em></>}
+          {step === "when" && <>When?</>}
           {step === "who" && <>Who&apos;s <em className="text-violet">coming?</em></>}
-          {step === "budget" && <>What&apos;s the <em className="text-violet">pace?</em></>}
+          {step === "budget" && <>Rough <em className="text-violet">budget?</em></>}
         </h3>
-        <p className="mt-2 text-[12px] text-ink-soft">
-          Question {index + 1} of {ASK_STEPS.length}
-          {prefs.note ? ` · from “${prefs.note}”` : ""}
-        </p>
       </div>
       <div className="mt-5 min-h-0 flex-1 space-y-2 overflow-y-auto px-6" data-lenis-prevent>
         {step === "where" &&
-          DESTINATION_OPTIONS.map((d) => (
+          DESTINATION_CHIPS.map((place) => (
             <button
-              key={d.id}
+              key={place}
               type="button"
-              disabled={!d.available}
-              onClick={() => d.available && onChange({ ...prefs, destinationId: d.id as TripPrefs["destinationId"] })}
-              className={`glass-control flex w-full items-center justify-between rounded-xl px-4 py-3.5 text-left transition-colors ${
-                d.available && prefs.destinationId === d.id ? "ring-2 ring-violet" : ""
-              } ${d.available ? "hover:bg-accent" : "opacity-40"}`}
-            >
-              <span>
-                <span className="block text-[15px] font-semibold">{d.label}</span>
-                <span className="block text-[11px] text-ink-soft">{d.blurb}</span>
-              </span>
-              {!d.available ? <GlassTag>Soon</GlassTag> : null}
-            </button>
-          ))}
-        {step === "when" &&
-          [
-            { nights: 0, label: "Day trip", hint: "Out and back today" },
-            { nights: 1, label: "One night", hint: "Arrive, dinner, morning" },
-            { nights: 2, label: "Long weekend", hint: "Two nights · default" },
-          ].map((opt) => (
-            <button
-              key={opt.nights}
-              type="button"
-              onClick={() => onChange({ ...prefs, nights: opt.nights })}
-              className={`glass-control w-full rounded-xl px-4 py-3.5 text-left transition-colors hover:bg-accent ${
-                prefs.nights === opt.nights ? "ring-2 ring-violet" : ""
-              }`}
-            >
-              <span className="block text-[15px] font-semibold">{opt.label}</span>
-              <span className="block text-[11px] text-ink-soft">{opt.hint}</span>
-            </button>
-          ))}
-        {step === "who" &&
-          [1, 2, 3, 4].map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => onChange({ ...prefs, travellers: n })}
+              onClick={() => onChange({ ...request, where: place })}
               className={`glass-control w-full rounded-xl px-4 py-3.5 text-left text-[15px] font-semibold transition-colors hover:bg-accent ${
-                prefs.travellers === n ? "ring-2 ring-violet" : ""
+                request.where === place ? "ring-2 ring-violet" : ""
               }`}
             >
-              {n} traveller{n > 1 ? "s" : ""}
+              {place}
             </button>
           ))}
+        {step === "when" && (
+          <GlassPanel className="p-4">
+            <p className="text-[15px] font-semibold">{formatRange(request.from, request.to)}</p>
+            <p className="mt-1 text-[12px] text-ink-soft">Default: next Thursday to Saturday</p>
+          </GlassPanel>
+        )}
+        {step === "who" && (
+          <>
+            <GlassPanel className="flex items-center justify-between p-4">
+              <span className="text-[15px] font-semibold">Adults</span>
+              <div className="flex items-center gap-2">
+                <GlassButton
+                  variant="secondary"
+                  className="min-h-11 min-w-11 px-0"
+                  aria-label="Fewer adults"
+                  onClick={() => onChange({ ...request, adults: Math.max(1, request.adults - 1) })}
+                >
+                  −
+                </GlassButton>
+                <span className="num w-8 text-center text-xl">{request.adults}</span>
+                <GlassButton
+                  variant="secondary"
+                  className="min-h-11 min-w-11 px-0"
+                  aria-label="More adults"
+                  onClick={() => onChange({ ...request, adults: Math.min(8, request.adults + 1) })}
+                >
+                  +
+                </GlassButton>
+              </div>
+            </GlassPanel>
+            <GlassPanel className="flex items-center justify-between p-4">
+              <span className="text-[15px] font-semibold">Kids</span>
+              <div className="flex items-center gap-2">
+                <GlassButton
+                  variant="secondary"
+                  className="min-h-11 min-w-11 px-0"
+                  aria-label="Fewer kids"
+                  onClick={() => onChange({ ...request, kids: Math.max(0, request.kids - 1) })}
+                >
+                  −
+                </GlassButton>
+                <span className="num w-8 text-center text-xl">{request.kids}</span>
+                <GlassButton
+                  variant="secondary"
+                  className="min-h-11 min-w-11 px-0"
+                  aria-label="Add kids"
+                  onClick={() => onChange({ ...request, kids: Math.min(6, request.kids + 1) })}
+                >
+                  +
+                </GlassButton>
+              </div>
+            </GlassPanel>
+            <p className="text-[12px] text-ink-soft">Default 2 adults. You can add kids.</p>
+          </>
+        )}
         {step === "budget" &&
-          (Object.keys(BUDGET_DEFAULTS) as BudgetBand[]).map((band) => (
+          BUDGET_CHIPS.map((amount) => (
             <button
-              key={band}
+              key={amount}
               type="button"
-              onClick={() => onChange({ ...prefs, budgetBand: band })}
-              className={`glass-control w-full rounded-xl px-4 py-3.5 text-left transition-colors hover:bg-accent ${
-                prefs.budgetBand === band ? "ring-2 ring-violet" : ""
+              onClick={() => onChange({ ...request, budgetAed: amount })}
+              className={`glass-control w-full rounded-xl px-4 py-3.5 text-left text-[15px] font-semibold transition-colors hover:bg-accent ${
+                request.budgetAed === amount ? "ring-2 ring-violet" : ""
               }`}
             >
-              <span className="block text-[15px] font-semibold">{BUDGET_DEFAULTS[band].label}</span>
-              <span className="block text-[11px] text-ink-soft">
-                Around {formatAed(BUDGET_DEFAULTS[band].hintAed)} · demo guide
-              </span>
+              {formatAed(amount)}
             </button>
           ))}
       </div>
@@ -176,118 +200,152 @@ export function AskPrefsScreen({
           </GlassButton>
         ) : null}
         <GlassButton onClick={onNext} className={`${btn} flex-1`}>
-          {index >= ASK_STEPS.length - 1 ? "Show my plan" : "Continue"}
+          {index >= ASK.length - 1 ? "Show my plan" : "Continue"}
         </GlassButton>
       </div>
     </div>
   );
 }
 
-/** Single proposed itinerary in Trip-tab timeline style, with tap-to-swap. */
 export function ProposeTripScreen({
   trip,
+  guests,
   onChange,
   onBack,
   onReview,
 }: {
   trip: ProposedTrip;
+  guests: number;
   onChange: (trip: ProposedTrip) => void;
   onBack?: () => void;
   onReview?: () => void;
 }) {
   const [swapId, setSwapId] = React.useState<string | null>(null);
-  const alts = swapId ? alternativesForStop(trip, swapId) : [];
-  const days = [...new Set(trip.stops.map((s) => s.day))].sort((a, b) => a - b);
+  const [swapNote, setSwapNote] = React.useState<string | null>(null);
+  const [conflict, setConflict] = React.useState<{ message: string; next: ProposedTrip } | null>(null);
+  const active = trip.items.find((i) => i.id === swapId);
 
   return (
     <div className="flex h-full flex-col">
-      <Status time="10:12" />
+      <Status />
       <div className="px-5 pt-2">
-        <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-ink-soft">{trip.subtitle}</p>
-        <h3 className="mt-1 text-[30px] leading-[0.95] tracking-[-0.02em]">
-          {trip.title.split(" ").slice(0, -1).join(" ")}{" "}
-          <em className="text-violet">{trip.title.split(" ").slice(-1)}.</em>
-        </h3>
+        <h3 className="text-[28px] leading-[1.05] tracking-[-0.02em]">{trip.summary}</h3>
       </div>
       <div className="relative mx-5 mt-3 h-[88px] overflow-hidden rounded-[28px]">
         <Image
-          src={trip.stops.find((s) => s.kind !== "transfer")?.photo ?? "/images/hd/jebel_jais_sunset.jpg"}
+          src={trip.items.find((s) => s.kind !== "transfer")?.photo ?? "/images/hd/jebel_jais_sunset.jpg"}
           alt=""
           fill
           sizes="720px"
           className="object-cover"
         />
-        <PhotoLabel>{formatAed(trip.totalAed)} · demo total</PhotoLabel>
+        <PhotoLabel>
+          Total {formatAed(trip.totalAed)} for {guests}.
+        </PhotoLabel>
       </div>
-      <div className="relative mx-5 mt-3 min-h-0 flex-1 overflow-y-auto rounded-xl" data-lenis-prevent>
-        <ol className="glass-panel space-y-0 rounded-xl px-4">
-          {days.map((day) => (
-            <li key={day} className="border-b border-ink/10 py-2 last:border-0">
-              <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-ink-soft">Day {day}</p>
+      <div className="relative mx-5 mt-3 min-h-0 flex-1 overflow-y-auto" data-lenis-prevent>
+        <ol className="glass-panel space-y-0 rounded-xl px-3 py-1">
+          {trip.days.map((day) => (
+            <li key={day.day} className="border-b border-ink/10 py-2 last:border-0">
+              <p className="px-1 text-[10px] font-medium uppercase tracking-[0.18em] text-ink-soft">
+                Day {day.day} · {day.label}
+              </p>
               <ul>
-                {trip.stops
-                  .filter((s) => s.day === day)
-                  .map((s, i) => (
-                    <li key={s.id}>
-                      <button
-                        type="button"
-                        disabled={s.kind === "transfer"}
-                        onClick={() => s.kind !== "transfer" && setSwapId(s.id)}
-                        className="relative flex w-full items-center gap-3 py-2 text-left disabled:cursor-default"
+                {day.items.map((item) => (
+                  <li key={item.id} className="flex items-center gap-2 py-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-display text-[15px] italic">{item.title}</p>
+                      <p className="truncate text-[10.5px] text-ink-soft">
+                        {item.time}
+                        {item.priceAed ? ` · ${formatAed(item.priceAed)}` : ""}
+                      </p>
+                    </div>
+                    {item.alternatives.length > 0 ? (
+                      <GlassButton
+                        variant="secondary"
+                        className="min-h-11 shrink-0 px-3 text-[12px]"
+                        onClick={() => {
+                          setConflict(null);
+                          setSwapNote(null);
+                          setSwapId(item.id);
+                        }}
                       >
-                        <span className={`z-10 grid h-5 w-5 place-items-center rounded-full text-[10px] font-bold ${i === 0 ? "bg-violet text-paper" : "bg-paper text-ink ring-2 ring-ink/20"}`}>
-                          {i + 1}
-                        </span>
-                        <div className="min-w-0 flex-1 leading-tight">
-                          <p className="truncate font-display text-[15px] italic">{s.title}</p>
-                          <p className="truncate text-[10.5px] text-ink-soft">
-                            {s.place}
-                            {s.kind !== "transfer" ? " · tap to swap" : ""}
-                          </p>
-                        </div>
-                        <p className="num text-right text-lg leading-none">
-                          {clock(s.startAt)}
-                          <span className="mt-0.5 block text-[10px] text-ink-soft">{s.priceAed ? formatAed(s.priceAed) : "Included"}</span>
-                        </p>
-                      </button>
-                    </li>
-                  ))}
+                        Swap
+                      </GlassButton>
+                    ) : null}
+                  </li>
+                ))}
               </ul>
             </li>
           ))}
         </ol>
+        <p className="mt-3 px-1 text-[13px] font-semibold">
+          Total {formatAed(trip.totalAed)} for {guests}.
+        </p>
       </div>
-      {swapId && alts.length > 0 ? (
-        <GlassPanel className="mx-5 mb-2 max-h-[40%] overflow-y-auto p-3" data-lenis-prevent>
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-[12px] font-semibold">Swap this stop</p>
-            <button type="button" className="text-[12px] text-violet" onClick={() => setSwapId(null)}>
+      {swapId && active ? (
+        <GlassPanel className="mx-5 mb-2 max-h-[42%] overflow-y-auto p-3" data-lenis-prevent>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-[12px] font-semibold">
+              {swapNote ??
+                (active.kind === "hotel"
+                  ? "Here are two other hotels. I've re-checked your timings, and all of them still work."
+                  : "Here are two other options. I've re-checked your timings, and all of them still work.")}
+            </p>
+            <button type="button" className="shrink-0 text-[12px] text-violet" onClick={() => setSwapId(null)}>
               Close
             </button>
           </div>
-          <ul className="space-y-2">
-            {alts.map((alt) => (
-              <li key={alt.id}>
-                <button
-                  type="button"
-                  className="glass-control flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-accent"
-                  onClick={() => {
-                    onChange(applyStopSwap(trip, swapId, alt.id));
-                    setSwapId(null);
-                  }}
-                >
-                  <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg">
-                    <Image src={alt.photo} alt="" fill sizes="48px" className="object-cover" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13px] font-semibold">{alt.title}</span>
-                    <span className="block text-[11px] text-ink-soft">{alt.blurb}</span>
-                  </span>
-                  <span className="num text-[12px]">{formatAed(alt.priceAed)}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
+          {conflict ? (
+            <div className="space-y-2">
+              <p className="text-[13px]">{conflict.message}</p>
+              <GlassButton
+                className={btn}
+                onClick={() => {
+                  onChange(conflict.next);
+                  setConflict(null);
+                  setSwapId(null);
+                  setSwapNote("Here are two other hotels. I've re-checked your timings, and all of them still work.");
+                }}
+              >
+                Shift dinner
+              </GlassButton>
+              <GlassButton variant="ghost" className="w-full min-h-11" onClick={() => setConflict(null)}>
+                Keep current
+              </GlassButton>
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {active.alternatives.slice(0, 2).map((alt) => (
+                <li key={alt.id}>
+                  <button
+                    type="button"
+                    className="glass-control flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-accent"
+                    onClick={() => {
+                      const outcome = applySwapStub(trip, swapId, alt.id);
+                      if (!outcome.ok) {
+                        setConflict({ message: outcome.message, next: outcome.tripIfShifted });
+                        return;
+                      }
+                      onChange(outcome.trip);
+                      setSwapNote(outcome.note);
+                      setSwapId(null);
+                    }}
+                  >
+                    <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg">
+                      <Image src={alt.photo ?? "/images/hd/ic_rak_resort.jpg"} alt="" fill sizes="48px" className="object-cover" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13px] font-semibold">{alt.title}</span>
+                      <span className="block text-[11px] text-ink-soft">
+                        {alt.time} · {formatAed(alt.priceAed)}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </GlassPanel>
       ) : null}
       <div className="flex gap-2 px-5 pb-5 pt-2">
@@ -304,71 +362,51 @@ export function ProposeTripScreen({
   );
 }
 
-/** Review every line item, then book / pay via Stripe Checkout or demo fallback. */
 export function ReviewBookScreen({
   trip,
   busy,
   testModeNote,
   onBack,
   onBook,
-  onPay,
 }: {
   trip: ProposedTrip;
   busy?: boolean;
   testModeNote?: string | null;
   onBack?: () => void;
   onBook?: () => void;
-  onPay?: () => void;
 }) {
-  const [committed, setCommitted] = React.useState(false);
   return (
     <div className="flex h-full flex-col">
-      <Status time="10:18" />
+      <Status />
       <div className="px-5 pt-2">
         <h3 className="text-[32px] leading-[0.95] tracking-[-0.02em]">
-          Review, then <em className="text-violet">book.</em>
+          Ready to <em className="text-violet">book?</em>
         </h3>
-        <p className="mt-2 text-[13px] font-light text-ink-soft">
-          Demo prices in AED. Nothing books until you confirm. Card details stay with Stripe.
-        </p>
       </div>
       <ul className="glass-panel mx-5 mt-4 min-h-0 flex-1 overflow-y-auto rounded-xl px-3" data-lenis-prevent>
-        {trip.stops.map((s) => (
+        {trip.items.map((s) => (
           <li key={s.id} className="flex items-center justify-between gap-3 border-b border-ink/10 py-2.5 last:border-0">
             <div className="min-w-0">
               <p className="truncate text-[13px] font-semibold">{s.title}</p>
               <p className="truncate text-[10.5px] text-ink-soft">
-                Day {s.day} · {s.startAt}
+                Day {s.day} · {s.time}
               </p>
             </div>
             <p className="num shrink-0 text-[13px]">{s.priceAed ? formatAed(s.priceAed) : "—"}</p>
           </li>
         ))}
         <li className="flex items-center justify-between py-3">
-          <p className="text-[14px] font-semibold">Demo total</p>
+          <p className="text-[14px] font-semibold">Total</p>
           <p className="num text-xl text-violet">{formatAed(trip.totalAed)}</p>
         </li>
       </ul>
       <div className="space-y-2 px-5 pb-5 pt-3">
         {testModeNote ? <p className="text-center text-[11px] font-medium text-violet">{testModeNote}</p> : null}
-        {!committed ? (
-          <GlassButton
-            onClick={() => {
-              setCommitted(true);
-              onBook?.();
-            }}
-            disabled={busy}
-            className={btn}
-          >
-            Book this trip
-          </GlassButton>
-        ) : (
-          <GlassButton onClick={onPay} disabled={busy} className={btn}>
-            {busy ? "Opening checkout…" : "Pay securely"}
-          </GlassButton>
-        )}
+        <GlassButton onClick={onBook} disabled={busy} className={btn}>
+          {busy ? "Opening checkout…" : "Book this trip"}
+        </GlassButton>
         <p className="text-center text-[11px] leading-snug text-ink-soft">
-          Your card is encrypted and handled by Stripe. Glide never sees or stores it.
+          Your card is encrypted and handled by Stripe. Glide never sees or stores it. Demo mode, so you won&apos;t be charged.
         </p>
         {onBack ? (
           <GlassButton variant="ghost" onClick={onBack} className="w-full min-h-11">
@@ -380,47 +418,53 @@ export function ReviewBookScreen({
   );
 }
 
-/** Confirmation tickets after a successful book (or demo fallback). */
 export function BookingConfirmScreen({
-  booked,
+  booking,
+  trip,
   onEnter,
 }: {
-  booked: BookedTrip;
+  booking: BookingResult;
+  trip: ProposedTrip;
   onEnter?: () => void;
 }) {
-  const items = booked.stops.filter((s) => s.kind !== "transfer");
+  const [shown, setShown] = React.useState(0);
+  React.useEffect(() => {
+    if (shown >= booking.confirmations.length) return;
+    const t = window.setTimeout(() => setShown((n) => n + 1), 450);
+    return () => window.clearTimeout(t);
+  }, [shown, booking.confirmations.length]);
+
+  const done = shown >= booking.confirmations.length;
+
   return (
     <div className="flex h-full flex-col">
-      <Status time="10:22" />
+      <Status />
       <div className="px-5 pt-2">
-        <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-ink-soft">
-          {booked.checkoutMode === "stripe" ? "Paid · test mode" : "Booked · demo"}
-        </p>
-        <h3 className="mt-1 text-[32px] leading-[0.95] tracking-[-0.02em]">
-          You&apos;re <em className="text-violet">set.</em>
+        <h3 className="text-[32px] leading-[0.95] tracking-[-0.02em]">
+          {done ? (
+            <>You&apos;re all set. Your passes are in Wallet, and I&apos;ll keep an eye on the day for you.</>
+          ) : (
+            <>Booking <em className="text-violet">now…</em></>
+          )}
         </h3>
-        <p className="mt-2 text-[13px] font-light text-ink-soft">
-          Confirmations came back one by one. Wallet passes are ready in Plan.
-        </p>
       </div>
       <ul className="mx-5 mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto" data-lenis-prevent>
-        {items.map((s) => (
-          <li key={s.id}>
-            <GlassPanel className="flex items-center gap-3 p-3">
-              <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl">
-                <Image src={s.photo} alt="" fill sizes="56px" className="object-cover" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-display text-[16px] italic">{s.title}</p>
-                <p className="num text-[12px] text-ink-soft">{booked.confirmationCodes[s.id]}</p>
-              </div>
-              <GlassTag className="text-[10px]">Confirmed</GlassTag>
-            </GlassPanel>
-          </li>
-        ))}
+        {booking.confirmations.slice(0, shown).map((c) => {
+          const item = trip.items.find((i) => i.id === c.itemId);
+          return (
+            <li key={c.itemId}>
+              <GlassPanel className="flex items-center gap-3 p-3">
+                <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl">
+                  <Image src={item?.photo ?? "/images/hd/ic_rak_resort.jpg"} alt="" fill sizes="48px" className="object-cover" />
+                </span>
+                <p className="font-display text-[18px] italic">{c.label}</p>
+              </GlassPanel>
+            </li>
+          );
+        })}
       </ul>
       <div className="px-5 pb-5 pt-3">
-        <GlassButton onClick={onEnter} className={btn}>
+        <GlassButton onClick={onEnter} disabled={!done} className={btn}>
           Open my trip
         </GlassButton>
       </div>
@@ -428,62 +472,63 @@ export function BookingConfirmScreen({
   );
 }
 
-/** Trip tab for a booked (demo) itinerary. */
-export function BookedRouteScreen({ booked }: { booked: BookedTrip }) {
-  const days = [...new Set(booked.stops.map((s) => s.day))].sort((a, b) => a - b);
-  return (
-    <div className="flex h-full flex-col">
-      <Status time="16:15" />
-      <div className="px-5 pt-2">
-        <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-ink-soft">
-          Booked · demo · {booked.checkoutMode === "stripe" ? "Stripe test" : "local confirm"}
-        </p>
-        <h3 className="mt-1 text-[32px] leading-[0.95] tracking-[-0.02em]">
-          Your <em className="text-violet">itinerary.</em>
-        </h3>
-      </div>
-      <div className="relative mx-5 mt-3 h-[96px] overflow-hidden rounded-[28px]">
-        <Image src={booked.stops.find((s) => s.kind !== "transfer")?.photo ?? "/images/hd/jebel_jais_sunset.jpg"} alt="" fill sizes="720px" className="object-cover" />
-        <PhotoLabel>{booked.title}</PhotoLabel>
-      </div>
-      <ol className="glass-panel relative mx-5 mt-3 min-h-0 flex-1 overflow-y-auto rounded-xl px-4" data-lenis-prevent>
-        {days.flatMap((day) =>
-          booked.stops
-            .filter((s) => s.day === day)
-            .map((s, i) => (
-              <li key={s.id} className="relative flex items-center gap-3 py-2">
-                <span className={`z-10 grid h-5 w-5 place-items-center rounded-full text-[10px] font-bold ${i === 0 && day === 1 ? "bg-violet text-paper" : "bg-paper text-ink ring-2 ring-ink/20"}`}>
-                  {i + 1}
-                </span>
-                <div className="min-w-0 flex-1 leading-tight">
-                  <p className="truncate font-display text-[15px] italic">{s.title}</p>
-                  <p className="truncate text-[10.5px] text-ink-soft">
-                    Day {day} · {booked.confirmationCodes[s.id] ?? s.place}
-                  </p>
-                </div>
-                <p className="num text-right text-lg leading-none">{clock(s.startAt)}</p>
-              </li>
-            )),
-        )}
-      </ol>
-      <p className="px-5 pb-5 pt-3 text-center text-[11px] text-ink-soft">Demo booking · {formatAed(booked.totalAed)} · nothing charged</p>
-    </div>
-  );
-}
-
-/** Plan tab showing wallet-style passes for a booked trip. */
-export function BookedPlanScreen({ booked }: { booked: BookedTrip }) {
+export function BookedRouteScreen({ trip, booking }: { trip: ProposedTrip; booking: BookingResult }) {
   return (
     <div className="flex h-full flex-col">
       <Status />
       <div className="px-5 pt-2">
-        <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-ink-soft">Your trip · booked</p>
-        <h3 className="mt-1 text-[34px] leading-[0.95] tracking-[-0.02em]">
-          Passes, <em className="text-violet">in sync.</em>
+        <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-ink-soft">
+          Booked · {booking.mode === "stripe" ? "Stripe test" : "demo"}
+        </p>
+        <h3 className="mt-1 text-[32px] leading-[0.95] tracking-[-0.02em]">
+          Your <em className="text-violet">weekend.</em>
         </h3>
       </div>
+      <div className="relative mx-5 mt-3 h-[96px] overflow-hidden rounded-[28px]">
+        <Image
+          src={trip.items.find((s) => s.kind !== "transfer")?.photo ?? "/images/hd/jebel_jais_sunset.jpg"}
+          alt=""
+          fill
+          sizes="720px"
+          className="object-cover"
+        />
+        <PhotoLabel>{trip.destination}</PhotoLabel>
+      </div>
+      <ol className="glass-panel relative mx-5 mt-3 min-h-0 flex-1 overflow-y-auto rounded-xl px-4" data-lenis-prevent>
+        {trip.items.map((s, i) => (
+          <li key={s.id} className="relative flex items-center gap-3 py-2">
+            <span className={`z-10 grid h-5 w-5 place-items-center rounded-full text-[10px] font-bold ${i === 0 ? "bg-violet text-paper" : "bg-paper text-ink ring-2 ring-ink/20"}`}>
+              {i + 1}
+            </span>
+            <div className="min-w-0 flex-1 leading-tight">
+              <p className="truncate font-display text-[15px] italic">{s.title}</p>
+              <p className="truncate text-[10.5px] text-ink-soft">
+                Day {s.day} · {s.place ?? s.kind}
+              </p>
+            </div>
+            <p className="num text-right text-lg leading-none">{s.time}</p>
+          </li>
+        ))}
+      </ol>
+      <p className="px-5 pb-5 pt-3 text-center text-[11px] text-ink-soft">
+        Demo booking · {formatAed(trip.totalAed)} · nothing charged
+      </p>
+    </div>
+  );
+}
+
+export function BookedPlanScreen({ booking }: { booking: BookingResult }) {
+  return (
+    <div className="flex h-full flex-col">
+      <Status />
+      <div className="px-5 pt-2">
+        <h3 className="text-[34px] leading-[0.95] tracking-[-0.02em]">
+          Passes, <em className="text-violet">in Wallet.</em>
+        </h3>
+        <p className="mt-2 text-[13px] text-ink-soft">I&apos;ll keep an eye on the day for you.</p>
+      </div>
       <ul className="mx-5 mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto" data-lenis-prevent>
-        {booked.walletPasses.map((pass) => (
+        {booking.walletPasses.map((pass) => (
           <li key={pass.id}>
             <GlassPanel className="p-3">
               <p className="text-[10px] uppercase tracking-[0.16em] text-ink-soft">Wallet pass · demo</p>
@@ -500,5 +545,3 @@ export function BookedPlanScreen({ booked }: { booked: BookedTrip }) {
     </div>
   );
 }
-
-export { defaultPrefs, buildProposedTrip };

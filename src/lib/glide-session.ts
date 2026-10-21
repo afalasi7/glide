@@ -1,6 +1,13 @@
 /** Client session for `/app`, stored under `localStorage['glide-user']`. */
 
-import { isBookedTrip, type BookedTrip, type TripPrefs } from "@/lib/booking";
+import {
+  isBookingResult,
+  isProposedTrip,
+  isTripRequest,
+  type BookingResult,
+  type ProposedTrip,
+  type TripRequest,
+} from "@/lib/booking-types";
 
 export const GLIDE_USER_KEY = "glide-user";
 
@@ -20,7 +27,6 @@ export type GlideStep =
   | "plan"
   | "chat";
 
-/** Steps safe to resume after a refresh (past fragile onboarding). */
 export const RESUMABLE_STEPS = [
   "choose",
   "ask",
@@ -37,12 +43,11 @@ export type PersistedGlideUser = {
   name: string;
   step: ResumableStep;
   reshaped: boolean;
-  /** Demo RAK story when true; booked trip when set. */
   mode?: "demo" | "booked";
-  prefs?: TripPrefs;
+  request?: TripRequest;
   askIndex?: number;
-  proposedTrip?: unknown;
-  bookedTrip?: BookedTrip | null;
+  proposedTrip?: ProposedTrip | null;
+  booking?: BookingResult | null;
 };
 
 const ALL_STEPS: readonly GlideStep[] = [
@@ -70,21 +75,6 @@ function isGlideStep(value: unknown): value is GlideStep {
   return typeof value === "string" && (ALL_STEPS as readonly string[]).includes(value);
 }
 
-function isTripPrefs(value: unknown): value is TripPrefs {
-  if (!value || typeof value !== "object") return false;
-  const v = value as TripPrefs;
-  return (
-    (v.destinationId === "rak" || v.destinationId === "hatta") &&
-    typeof v.nights === "number" &&
-    typeof v.travellers === "number" &&
-    (v.budgetBand === "smart" || v.budgetBand === "comfort" || v.budgetBand === "luxe")
-  );
-}
-
-/**
- * Parse `glide-user` JSON. Returns null when the name is missing/invalid.
- * Mid-onboarding auth steps are coerced to a safe resume point.
- */
 export function parsePersistedGlideUser(raw: string | null | undefined): PersistedGlideUser | null {
   if (raw == null || raw === "") return null;
   try {
@@ -99,13 +89,13 @@ export function parsePersistedGlideUser(raw: string | null | undefined): Persist
 
     const reshaped = parsed.reshaped === true;
     const mode = parsed.mode === "booked" || parsed.mode === "demo" ? parsed.mode : undefined;
-    const prefs = isTripPrefs(parsed.prefs) ? parsed.prefs : undefined;
-    const askIndex = typeof parsed.askIndex === "number" && parsed.askIndex >= 0 ? Math.floor(parsed.askIndex) : undefined;
-    const bookedTrip = isBookedTrip(parsed.bookedTrip) ? parsed.bookedTrip : null;
-    const proposedTrip = parsed.proposedTrip && typeof parsed.proposedTrip === "object" ? parsed.proposedTrip : undefined;
+    const request = isTripRequest(parsed.request) ? parsed.request : undefined;
+    const askIndex =
+      typeof parsed.askIndex === "number" && parsed.askIndex >= 0 ? Math.floor(parsed.askIndex) : undefined;
+    const proposedTrip = isProposedTrip(parsed.proposedTrip) ? parsed.proposedTrip : null;
+    const booking = isBookingResult(parsed.booking) ? parsed.booking : null;
 
-    // If we have a booked trip, never resume into half-finished planning.
-    if (bookedTrip && (step === "ask" || step === "propose" || step === "review" || step === "choose")) {
+    if (booking && (step === "ask" || step === "propose" || step === "review" || step === "choose")) {
       step = "route";
     }
 
@@ -113,11 +103,11 @@ export function parsePersistedGlideUser(raw: string | null | undefined): Persist
       name,
       step,
       reshaped,
-      mode: bookedTrip ? "booked" : mode,
-      prefs,
+      mode: booking ? "booked" : mode,
+      request,
       askIndex,
       proposedTrip,
-      bookedTrip,
+      booking,
     };
   } catch {
     return null;
@@ -126,17 +116,16 @@ export function parsePersistedGlideUser(raw: string | null | undefined): Persist
 
 export function serializePersistedGlideUser(user: PersistedGlideUser): string {
   const step: ResumableStep = isResumableStep(user.step) ? user.step : "choose";
-  const payload: PersistedGlideUser = {
+  return JSON.stringify({
     name: user.name.trim(),
     step,
     reshaped: Boolean(user.reshaped),
     mode: user.mode,
-    prefs: user.prefs,
+    request: user.request,
     askIndex: user.askIndex,
-    proposedTrip: user.proposedTrip,
-    bookedTrip: user.bookedTrip ?? null,
-  };
-  return JSON.stringify(payload);
+    proposedTrip: user.proposedTrip ?? null,
+    booking: user.booking ?? null,
+  } satisfies PersistedGlideUser);
 }
 
 export function readPersistedGlideUser(): PersistedGlideUser | null {
@@ -151,7 +140,7 @@ export function writePersistedGlideUser(user: PersistedGlideUser): void {
   try {
     localStorage.setItem(GLIDE_USER_KEY, serializePersistedGlideUser(user));
   } catch {
-    /* ignore quota / private-mode failures */
+    /* ignore */
   }
 }
 

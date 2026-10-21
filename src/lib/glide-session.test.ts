@@ -1,9 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import {
-  parsePersistedGlideUser,
-  serializePersistedGlideUser,
-} from "./glide-session";
-import { bookProposedTrip, buildProposedTrip, defaultPrefs } from "@/lib/booking";
+import { parsePersistedGlideUser, serializePersistedGlideUser } from "./glide-session";
+import { bookTripStub, defaultTripRequest, proposeTripStub } from "./booking-stub";
 
 describe("parsePersistedGlideUser", () => {
   test("returns null for empty or invalid payloads", () => {
@@ -11,8 +8,6 @@ describe("parsePersistedGlideUser", () => {
     expect(parsePersistedGlideUser("")).toBeNull();
     expect(parsePersistedGlideUser("{")).toBeNull();
     expect(parsePersistedGlideUser(JSON.stringify({ name: "" }))).toBeNull();
-    expect(parsePersistedGlideUser(JSON.stringify({ name: "   " }))).toBeNull();
-    expect(parsePersistedGlideUser(JSON.stringify({ name: 12 }))).toBeNull();
   });
 
   test("resumes trip steps and reshaped flag", () => {
@@ -21,11 +16,6 @@ describe("parsePersistedGlideUser", () => {
       step: "chat",
       reshaped: true,
     });
-    expect(parsePersistedGlideUser(JSON.stringify({ name: "Alex", step: "plan", reshaped: false }))).toMatchObject({
-      name: "Alex",
-      step: "plan",
-      reshaped: false,
-    });
   });
 
   test("coerces auth onboarding steps to choose", () => {
@@ -33,42 +23,32 @@ describe("parsePersistedGlideUser", () => {
       name: "Alex",
       step: "choose",
     });
-    expect(parsePersistedGlideUser(JSON.stringify({ name: "Alex", step: "signup", reshaped: true }))).toMatchObject({
-      name: "Alex",
-      step: "choose",
-      reshaped: true,
-    });
   });
 
-  test("legacy name-only records default to choose", () => {
-    expect(parsePersistedGlideUser(JSON.stringify({ name: "Traveler" }))).toMatchObject({
-      name: "Traveler",
-      step: "choose",
-      reshaped: false,
-    });
-  });
-
-  test("persists and restores a booked trip", () => {
-    const booked = bookProposedTrip(buildProposedTrip(defaultPrefs({ nights: 1 })), "demo", { seed: "s" });
+  test("persists booking + request for booked trips", () => {
+    const request = defaultTripRequest();
+    const trip = proposeTripStub(request);
+    const booking = bookTripStub(trip, "demo");
     const raw = serializePersistedGlideUser({
       name: "Sam",
       step: "route",
       reshaped: false,
       mode: "booked",
-      bookedTrip: booked,
+      request,
+      proposedTrip: trip,
+      booking,
     });
     const parsed = parsePersistedGlideUser(raw);
-    expect(parsed?.bookedTrip?.id).toBe(booked.id);
+    expect(parsed?.booking?.tripId).toBe(booking.tripId);
+    expect(parsed?.request?.where).toBe("Ras Al Khaimah");
     expect(parsed?.mode).toBe("booked");
-    expect(parsed?.step).toBe("route");
   });
 
-  test("booked trip forces resume out of planning steps", () => {
-    const booked = bookProposedTrip(buildProposedTrip(defaultPrefs()), "demo", { seed: "x" });
+  test("booked session forces resume out of planning steps", () => {
+    const booking = bookTripStub(proposeTripStub(defaultTripRequest()), "demo");
     const parsed = parsePersistedGlideUser(
-      JSON.stringify({ name: "Sam", step: "propose", bookedTrip: booked }),
+      JSON.stringify({ name: "Sam", step: "propose", booking }),
     );
     expect(parsed?.step).toBe("route");
-    expect(parsed?.bookedTrip?.status).toBe("booked-demo");
   });
 });

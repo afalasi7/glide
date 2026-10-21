@@ -4,7 +4,8 @@ import React, { createContext, useContext } from "react";
 import Image from "next/image";
 import { BotArt } from "@/components/GlideBot";
 import { CHAPTERS, clock } from "@/components/story/data";
-import { defaultPrefs, formatAed, parseTripIntent, type BookedTrip, type TripPrefs } from "@/lib/booking";
+import { formatAed, parseTripIntentStub } from "@/lib/booking-stub";
+import type { BookingResult, ProposedTrip, TripRequest } from "@/lib/booking-types";
 import { MessageComposer } from "./MessageComposer";
 import { GlassPanel, GlassTag, useGlassColorScheme } from "@/components/ui/glass";
 
@@ -59,22 +60,25 @@ export function PhotoLabel({ children }: { children: React.ReactNode }) {
 
 const WALLET_CHIPS = ["Apple Wallet", "Google Wallet", "Samsung Wallet"] as const;
 
-function replyFor(message: string, booked?: BookedTrip | null) {
+function replyFor(
+  message: string,
+  booked?: { trip: ProposedTrip | null; booking: BookingResult | null } | null,
+) {
   const q = message.toLowerCase();
-  if (booked) {
+  if (booked?.trip && booked.booking) {
     if (/^(hi|hello|hey)\b/.test(q)) {
-      return `Hello. Your demo booking for ${booked.title} is on the Trip tab (${formatAed(booked.totalAed)}).`;
+      return `Hello. Your demo booking for ${booked.trip.destination} is on the Trip tab (${formatAed(booked.trip.totalAed)}).`;
     }
     if (q.includes("hotel") || q.includes("key") || q.includes("check")) {
-      const hotel = booked.stops.find((s) => s.kind === "hotel");
-      return hotel
-        ? `${hotel.title} is held with code ${booked.confirmationCodes[hotel.id] ?? "DEMO"}. Demo only — nothing was charged.`
-        : "This demo trip is a day visit with no hotel night.";
+      const hotelStop = booked.trip.items.find((s) => s.kind === "hotel");
+      return hotelStop
+        ? `${hotelStop.title} is booked (demo). Passes are on Plan — nothing was charged.`
+        : "This demo trip has no hotel night.";
     }
     if (q.includes("wallet") || q.includes("pass")) {
       return "Wallet passes for this demo booking are on the Plan tab. Add-to-wallet is not connected.";
     }
-    return `I'm keeping ${booked.title} together. This is a demo booking — Stripe test or local confirm, no real charge.`;
+    return `I'm keeping your ${booked.trip.destination} weekend together. Demo booking only — no real charge.`;
   }
   if (/^(hi|hello|hey)\b/.test(q)) {
     return `Hello. Dinner is held at Levant & Nar for ${clock(dinner.time)}, and Jebel Jais is tomorrow at ${clock(jais.time)}.`;
@@ -157,8 +161,8 @@ export function ChatScreen({
   booked,
   onPlanIntent,
 }: {
-  booked?: BookedTrip | null;
-  onPlanIntent?: (prefs: TripPrefs) => void;
+  booked?: { trip: ProposedTrip | null; booking: BookingResult | null } | null;
+  onPlanIntent?: (partial: Partial<TripRequest>) => void;
 } = {}) {
   const [messages, setMessages] = React.useState<{ from: "user" | "glide"; text: string }[]>([]);
   const latestMessage = React.useRef<HTMLParagraphElement>(null);
@@ -167,14 +171,14 @@ export function ChatScreen({
   }, [messages]);
 
   const send = (message: string) => {
-    const intent = onPlanIntent ? parseTripIntent(message) : null;
+    const intent = onPlanIntent ? parseTripIntentStub(message) : null;
     if (intent && onPlanIntent) {
       setMessages((previous) => [
         ...previous,
         { from: "user", text: message },
-        { from: "glide", text: "I can plan that as a demo trip. I've prefilled where, when, who, and budget — continue in Plan a new trip." },
+        { from: "glide", text: "I can plan that as a demo trip. I've prefilled where, when, who, and budget." },
       ]);
-      onPlanIntent(defaultPrefs(intent));
+      onPlanIntent(intent);
       return;
     }
     setMessages((previous) => [...previous, { from: "user", text: message }, { from: "glide", text: replyFor(message, booked) }]);
@@ -191,10 +195,10 @@ export function ChatScreen({
         </div>
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto overscroll-contain px-4 py-4 text-[12px] leading-snug" data-lenis-prevent>
-        {booked ? (
+        {booked?.trip ? (
           <>
             <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">
-              {booked.title} is booked as a demo ({formatAed(booked.totalAed)}). Passes are on Plan.
+              {booked.trip.destination} is booked as a demo ({formatAed(booked.trip.totalAed)}). Passes are on Plan.
             </p>
             <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">
               Say something like “book a weekend in Hatta” if you want to plan another demo trip.
