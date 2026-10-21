@@ -268,7 +268,7 @@ describe("adaptOverBudgetUi — which action shows", () => {
     });
   });
 
-  test("live planTrip Hilton over-budget uses noCatalogFix", () => {
+  test("live planTrip RAK AED 3000 is within budget (no recovery UI)", () => {
     const trip = planTrip({
       destination: "ras-al-khaimah",
       budgetAED: 3000,
@@ -276,9 +276,23 @@ describe("adaptOverBudgetUi — which action shows", () => {
       startDate: "2026-10-23",
       endDate: "2026-10-25",
     });
+    expect(trip.facts.totalAED).toBe(2740);
+    expect(trip.facts.withinBudget).toBe(true);
+    expect(adaptOverBudgetUi({ ...trip, hotelId: trip.hotel.id })).toBeNull();
+  });
+
+  test("live planTrip Muscat over-budget → shorten-trip from cheapestFix", () => {
+    const trip = planTrip({
+      destination: "muscat",
+      budgetAED: 3000,
+      travellers: 2,
+      startDate: "2026-10-23",
+      endDate: "2026-10-25",
+    });
     expect(trip.facts.withinBudget).toBe(false);
+    expect(trip.facts.cheapestFix?.kind).toBe("shorten-trip");
     const ui = adaptOverBudgetUi({ ...trip, hotelId: trip.hotel.id });
-    expect(ui?.mode).toBe("noCatalogFix");
+    expect(ui?.mode).toBe("shorten");
   });
 });
 

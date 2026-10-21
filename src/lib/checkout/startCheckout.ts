@@ -142,6 +142,5 @@ export async function reportCheckoutCancelled(args: {
   return data;
 }
 
-export { PAYMENT_TRUST_LINE } from "@/lib/planning";
-/** Client-safe path — do not re-export from `@/lib/booking` (pulls Upstash Redis). */
-export { REFUND_MESSAGE } from "@/lib/booking/messages";
+/** Client-safe barrel — never `@/lib/booking` (Upstash/Stripe server). */
+export { PAYMENT_TRUST_LINE, REFUND_MESSAGE } from "@/lib/booking/client";

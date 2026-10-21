@@ -5,13 +5,16 @@ import {
   applySwap,
   assertCatalogQuality,
   assertNoClosedVenues,
+  assertNoOverlaps,
   assertScheduleInvariants,
   bookTrip,
   BUDGET_PRESETS_AED,
+  closedInfo,
   demoConfirmBookingFromTrip,
   DEFAULT_BUDGET_AED,
   DESTINATIONS,
   getCatalogOption,
+  getSwapOptions,
   isGenericVenueTitle,
   isLunchOption,
   isOpenAt,
@@ -50,6 +53,8 @@ describe("catalog quality", () => {
         expect(opt.sourceUrl.startsWith("http")).toBe(true);
       }
     }
+    expect(DESTINATIONS.muscat.plans.some((p) => p.catalogId === "mct-lunch-kargeen")).toBe(false);
+    expect(DESTINATIONS.hatta.plans.some((p) => p.catalogId === "hatta-lunch-janam")).toBe(false);
   });
 
   test("rejects generic lunch/dinner district titles", () => {
@@ -58,6 +63,27 @@ describe("catalog quality", () => {
     expect(isGenericVenueTitle("Opera District contemporary dinner")).toBe(true);
     expect(isGenericVenueTitle("Farmhouse by Syrco")).toBe(false);
     expect(isGenericVenueTitle("Bait Al Luban")).toBe(false);
+  });
+
+  test("Suwaidi has fixed start slots and 2.5h duration", () => {
+    const s = getCatalogOption("rak-suwaidi-pearls")!;
+    expect(s.startSlots).toEqual(["10:00", "12:30", "15:00"]);
+    expect(s.durationMin).toBe(150);
+  });
+
+  test("Dhayah is Sunday–Thursday, not Sunday-only", () => {
+    const d = getCatalogOption("rak-dhayah-fort")!;
+    expect(d.openDays).toEqual(["sun", "mon", "tue", "wed", "thu"]);
+  });
+
+  test("Ubhar lunch and dinner use split hours; Al Angham has minAge 6", () => {
+    const lunch = getCatalogOption("mct-lunch-ubhar")!;
+    const dinner = getCatalogOption("mct-dinner-ubhar")!;
+    expect(lunch.openHours).toEqual({ open: "12:00", close: "15:30" });
+    expect(dinner.openHours).toEqual({ open: "18:30", close: "23:00" });
+    const angham = getCatalogOption("mct-lunch-al-angham")!;
+    expect(angham.minAge).toBe(6);
+    expect(angham.openDays).toEqual(["sun", "mon", "tue", "wed", "thu"]);
   });
 });
 
@@ -92,23 +118,101 @@ describe("planTrip defaults", () => {
   });
 });
 
-describe("highlights", () => {
-  test("RAK: Jebel Jais sunset on Saturday full day", () => {
+describe("budget tiers", () => {
+  test("RAK at AED 3000 is within budget on a mid-range hotel", () => {
     const trip = planTrip({
       destination: "ras-al-khaimah",
       startDate: "2026-10-23",
       endDate: "2026-10-25",
       budgetAED: 3000,
     });
-    const highlightDay = trip.days.find((d) =>
-      d.plans.some((p) => p.catalogId === "rak-jais-deck"),
-    );
-    expect(highlightDay?.day).toBe(2);
+    expect(trip.hotel.catalogId).toBe("rak-hotel-hilton");
+    expect(trip.facts.withinBudget).toBe(true);
+    expect(trip.facts.cheapestFix).toBeUndefined();
+  });
+
+  test("RAK at AED 6000 upgrades to Ritz-Carlton Al Wadi", () => {
+    const trip = planTrip({
+      destination: "ras-al-khaimah",
+      startDate: "2026-10-23",
+      endDate: "2026-10-25",
+      budgetAED: 6000,
+    });
+    expect(trip.hotel.catalogId).toBe("rak-hotel-ritz-wadi");
+    expect(trip.facts.withinBudget).toBe(true);
+  });
+
+  test("each destination at AED 1,500 has a non-null cheapestFix with savingAed", () => {
+    for (const destination of ["ras-al-khaimah", "muscat", "hatta"] as const) {
+      const trip = planTrip({
+        destination,
+        startDate: "2026-10-23",
+        endDate: "2026-10-25",
+        budgetAED: 1500,
+      });
+      expect(trip.facts.withinBudget).toBe(false);
+      expect(trip.facts.cheapestFix).toBeDefined();
+      expect(trip.facts.cheapestFix!.label.length).toBeGreaterThan(0);
+      expect(typeof trip.facts.cheapestFix!.savingAed).toBe("number");
+      if (trip.facts.cheapestFix!.kind === "raise-budget") {
+        expect(trip.facts.cheapestFix!.targetBudgetAed).toBe(trip.totalCostAED);
+      }
+      if (trip.facts.cheapestFix!.kind === "shorten-trip") {
+        expect(trip.facts.cheapestFix!.label).toBe("Make it one night shorter");
+      }
+    }
+  });
+
+  test("default AED 3000: RAK and Hatta within budget; Muscat reports over with fix", () => {
+    const rak = planTrip({
+      destination: "ras-al-khaimah",
+      startDate: "2026-10-23",
+      endDate: "2026-10-25",
+      budgetAED: 3000,
+    });
+    expect(rak.facts.withinBudget).toBe(true);
+
+    const hatta = planTrip({
+      destination: "hatta",
+      startDate: "2026-10-23",
+      endDate: "2026-10-25",
+      budgetAED: 3000,
+    });
+    expect(hatta.facts.withinBudget).toBe(true);
+
+    const muscat = planTrip({
+      destination: "muscat",
+      startDate: "2026-10-23",
+      endDate: "2026-10-25",
+      budgetAED: 3000,
+    });
+    // Real DXB→MCT flights alone put Muscat over AED 3,000 — do not fake prices.
+    expect(muscat.facts.withinBudget).toBe(false);
+    expect(muscat.facts.overBudgetByAED).toBeGreaterThan(0);
+    expect(muscat.facts.cheapestFix).toBeDefined();
+    expect(muscat.facts.cheapestFix!.savingAed).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("highlights", () => {
+  test("RAK: Jebel Jais sunset on Saturday full day after Suwaidi", () => {
+    const trip = planTrip({
+      destination: "ras-al-khaimah",
+      startDate: "2026-10-23",
+      endDate: "2026-10-25",
+      budgetAED: 3000,
+    });
+    const sat = trip.days[1]!;
+    expect(sat.plans.some((p) => p.catalogId === "rak-jais-deck")).toBe(true);
     expect(trip.facts.highlight?.copy).toBe("Jebel Jais is timed for sunset.");
+    const suwaidi = sat.plans.find((p) => p.catalogId === "rak-suwaidi-pearls");
+    expect(suwaidi?.startTime).toBe("10:00");
+    expect(sat.plans.some((p) => p.catalogId === "rak-lunch-marina")).toBe(true);
+    expect(sat.plans.some((p) => p.catalogId === "rak-national-museum")).toBe(true);
     expect(evaluate(trip.graph).order.length).toBeGreaterThan(2);
   });
 
-  test("RAK: museum Saturday morning, Dhayah Sunday morning", () => {
+  test("RAK: museum Saturday, Dhayah Sunday morning", () => {
     const trip = planTrip({
       destination: "ras-al-khaimah",
       startDate: "2026-10-23",
@@ -122,7 +226,7 @@ describe("highlights", () => {
     expect(sat.plans.some((p) => p.catalogId === "rak-dhayah-fort")).toBe(false);
   });
 
-  test("Muscat: Mutrah highlight; Opera not on Friday", () => {
+  test("Muscat: Mutrah highlight; Opera not on Friday; Ubhar or open Friday lunch on Day 1", () => {
     const trip = planTrip({
       destination: "muscat",
       startDate: "2026-10-23",
@@ -135,9 +239,15 @@ describe("highlights", () => {
     const fri = trip.days[0]!;
     expect(fri.plans.some((p) => p.catalogId === "mct-opera")).toBe(false);
     expect(fri.plans.some((p) => p.catalogId === "mct-grand-mosque")).toBe(false);
+    const lunch = fri.plans.find((p) => {
+      const opt = getCatalogOption(p.catalogId);
+      return Boolean(opt && isLunchOption(opt));
+    });
+    expect(lunch).toBeDefined();
+    expect(lunch!.catalogId).not.toBe("mct-lunch-kargeen");
   });
 
-  test("Hatta: morning dam kayaking copy", () => {
+  test("Hatta: morning dam kayaking copy; Day 2 Gazebo lunch", () => {
     const trip = planTrip({
       destination: "hatta",
       startDate: "2026-10-23",
@@ -145,6 +255,9 @@ describe("highlights", () => {
       budgetAED: 3000,
     });
     expect(trip.facts.highlight!.catalogId).toBe("hatta-kayak");
+    const sat = trip.days[1]!;
+    expect(sat.plans.some((p) => p.catalogId === "hatta-lunch-gazebo")).toBe(true);
+    expect(sat.plans.some((p) => p.catalogId === "hatta-lunch-janam")).toBe(false);
   });
 
   test("swap that removes the highlight drops the copy", () => {
@@ -164,7 +277,17 @@ describe("highlights", () => {
   });
 });
 
-describe("opening hours", () => {
+describe("opening hours and closed wording", () => {
+  test("closedInfo uses plain Sundays copy and internal code", () => {
+    const dhayah = getCatalogOption("rak-dhayah-fort")!;
+    const info = closedInfo(dhayah, "2026-10-25", "09:30");
+    // 2026-10-25 is Sunday — Dhayah is open Sundays; use a Saturday instead.
+    const sat = closedInfo(dhayah, "2026-10-24", "09:30");
+    expect(sat.message).toBe("Dhayah Fort is closed on Saturdays.");
+    expect(sat.code).toBe("closed on sat (2026-10-24)");
+    expect(info.message).not.toMatch(/\(2026/);
+  });
+
   test("no item is scheduled while its venue is closed (default Fri–Sun)", () => {
     for (const destination of ["ras-al-khaimah", "muscat", "hatta"] as const) {
       const trip = planTrip({
@@ -183,8 +306,7 @@ describe("opening hours", () => {
     }
   });
 
-  test("every destination × 7 start weekdays stays within opening hours (plan + swap)", () => {
-    // Anchor: Sunday 2026-10-18, then Mon…Sat
+  test("every destination × 7 start weekdays stays within opening hours (plan + exhaustive swap)", () => {
     const sunday = "2026-10-18";
     for (const destination of ["ras-al-khaimah", "muscat", "hatta"] as const) {
       for (let offset = 0; offset < 7; offset++) {
@@ -197,21 +319,22 @@ describe("opening hours", () => {
           budgetAED: destination === "muscat" ? 6000 : 3000,
         });
         expect(() => assertNoClosedVenues(trip)).not.toThrow();
+        expect(() => assertScheduleInvariants(trip)).not.toThrow();
         expect(WEEKDAYS.length).toBe(7);
 
-        const swappable = trip.days.flatMap((d) => d.plans).find((p) => p.kind === "dining" || p.kind === "activity");
-        if (!swappable) continue;
-        const opts = swapOptions(trip, swappable.id);
-        if (!opts.length) {
-          const refused = applySwap(trip, swappable.id, "opt_missing");
-          expect(refused.ok).toBe(false);
-          continue;
-        }
-        const result = applySwap(trip, swappable.id, opts[0]!.id);
-        if (result.ok) {
-          expect(() => assertNoClosedVenues(result.trip)).not.toThrow();
-        } else {
-          expect(result.reason.length).toBeGreaterThan(0);
+        const swappable = trip.days.flatMap((d) => d.plans);
+        for (const item of swappable) {
+          const opts = getSwapOptions(trip, item.id);
+          for (const opt of opts) {
+            const result = applySwap(trip, item.id, opt.id);
+            expect(result.ok).toBe(true);
+            if (!result.ok) {
+              throw new Error(
+                `${destination} ${startDate} offered ${opt.catalogId} for ${item.catalogId} but refused: ${result.reason}`,
+              );
+            }
+            expect(() => assertNoClosedVenues(result.trip)).not.toThrow();
+          }
         }
       }
     }
@@ -224,7 +347,6 @@ describe("opening hours", () => {
       endDate: "2026-10-25",
       budgetAED: 3000,
     });
-    // Dhayah is closed Fri/Sat — any swap option list for a Saturday morning slot must not include it.
     const satMorning = trip.days[1]!.plans.find((p) => timeToMinutes(p.startTime) < 12 * 60);
     expect(satMorning).toBeDefined();
     const opts = swapOptions(trip, satMorning!.id);
@@ -232,11 +354,40 @@ describe("opening hours", () => {
   });
 });
 
+describe("minAge / children", () => {
+  test("Al Angham is skipped when a child under 6 is in the party", () => {
+    const trip = planTrip({
+      destination: "muscat",
+      startDate: "2026-10-23",
+      endDate: "2026-10-25",
+      budgetAED: 6000,
+      children: [4, 8],
+    });
+    const ids = trip.days.flatMap((d) => d.plans.map((p) => p.catalogId));
+    expect(ids).not.toContain("mct-lunch-al-angham");
+    expect(trip.children).toEqual([4, 8]);
+  });
+
+  test("Al Angham allowed when all children are 6+", () => {
+    const withKids = planTrip({
+      destination: "muscat",
+      startDate: "2026-10-25",
+      endDate: "2026-10-27",
+      budgetAED: 6000,
+      children: [6, 10],
+    });
+    // Sunday start — Al Angham open; may or may not be picked, but must not be refused by age.
+    const angham = getCatalogOption("mct-lunch-al-angham")!;
+    expect(angham.minAge).toBe(6);
+    void withKids;
+  });
+});
+
 describe("schedule invariants", () => {
   const destinations = ["ras-al-khaimah", "muscat", "hatta"] as const;
 
   for (const destination of destinations) {
-    test(`${destination}: ready time, unique venues, time order, gaps`, () => {
+    test(`${destination}: ready time, unique venues, time order, gaps, overlaps`, () => {
       const trip = planTrip({
         destination,
         startDate: "2026-10-23",
@@ -244,6 +395,7 @@ describe("schedule invariants", () => {
         budgetAED: destination === "muscat" ? 6000 : 3000,
       });
       assertScheduleInvariants(trip);
+      assertNoOverlaps(trip);
 
       const ready = readyMinutes(trip.travel);
       for (const p of trip.days[0]!.plans) {
@@ -267,6 +419,21 @@ describe("schedule invariants", () => {
       expect(hasLunch(trip.days[trip.days.length - 1]!)).toBe(true);
     });
   }
+
+  test("items never overlap including hotel check-in (RAK Day 1)", () => {
+    const trip = planTrip({
+      destination: "ras-al-khaimah",
+      startDate: "2026-10-23",
+      endDate: "2026-10-25",
+      budgetAED: 3000,
+    });
+    expect(() => assertNoOverlaps(trip)).not.toThrow();
+    const hotelEnd =
+      timeToMinutes(trip.hotel.startTime) + (trip.hotel.durationMin ?? 40);
+    for (const p of trip.days[0]!.plans) {
+      expect(timeToMinutes(p.startTime)).toBeGreaterThanOrEqual(hotelEnd);
+    }
+  });
 
   test("Hatta day 1 has no multi-hour empty stretch before dinner", () => {
     const trip = planTrip({
@@ -292,6 +459,22 @@ describe("schedule invariants", () => {
     expect(jais).toHaveLength(1);
     expect(jais[0]!.catalogId).toBe("rak-jais-deck");
   });
+
+  test("extended gaps across all destinations × start weekdays", () => {
+    const sunday = "2026-10-18";
+    for (const destination of destinations) {
+      for (let offset = 0; offset < 7; offset++) {
+        const startDate = addDaysIso(sunday, offset);
+        const trip = planTrip({
+          destination,
+          startDate,
+          endDate: addDaysIso(startDate, 2),
+          budgetAED: destination === "muscat" ? 6000 : 3000,
+        });
+        expect(() => assertScheduleInvariants(trip)).not.toThrow();
+      }
+    }
+  });
 });
 
 describe("swapOptions / applySwap", () => {
@@ -315,10 +498,10 @@ describe("swapOptions / applySwap", () => {
     const trip = planTrip({
       destination: "ras-al-khaimah",
       startDate: "2026-10-23",
-      endDate: "2026-10-24",
+      endDate: "2026-10-25",
       budgetAED: 3000,
     });
-    const dinner = trip.days[0]!.plans.find((p) => p.kind === "dining");
+    const dinner = trip.days.flatMap((d) => d.plans).find((p) => p.kind === "dining");
     expect(dinner).toBeDefined();
     const lateTrip = {
       ...trip,

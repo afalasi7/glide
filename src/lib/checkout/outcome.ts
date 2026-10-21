@@ -1,4 +1,4 @@
-import { REFUND_MESSAGE } from "@/lib/booking/messages";
+import { REFUND_MESSAGE } from "@/lib/booking/client";
 import type { Trip } from "@/lib/planning";
 
 export type CheckoutStatusValue = "paid" | "pending" | "failed" | "refunded";

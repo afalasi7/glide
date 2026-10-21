@@ -6,8 +6,11 @@ import { Car, Check, Hotel, Mountain, UtensilsCrossed } from "lucide-react";
 import { BotArt } from "@/components/GlideBot";
 import { GlassButton, GlassPanel } from "@/components/ui/glass";
 import {
-  BUDGET_PRESETS_AED,
   PAYMENT_TRUST_LINE,
+  type CheapestFix,
+} from "@/lib/booking/client";
+import {
+  BUDGET_PRESETS_AED,
   applySwap,
   swapOptions,
   withPlanDefaults,
@@ -25,7 +28,6 @@ import {
   proposalBudgetLine,
   setBudgetButtonLabel,
   shortenTripOneNight,
-  type CheapestFix,
 } from "@/lib/proposal-copy";
 
 const btn = "w-full py-3.5 tracking-wide";

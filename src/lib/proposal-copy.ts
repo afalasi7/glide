@@ -1,37 +1,20 @@
 /**
  * Proposal budget copy + over-budget recovery UI adapter.
  *
- * Aligns to PR #6 `facts.cheapestFix` (Programmer-confirmed):
+ * Consumes PR #6 `facts.cheapestFix`:
  * `{ kind, label, savingAed, targetBudgetAed? }` with kinds
  * swap-hotel | swap-meal | drop-item | shorten-trip | raise-budget.
- * `cheaperHotel` remains as a fallback until/alongside cheapestFix.
+ * `cheaperHotel` remains as a fallback alongside cheapestFix.
  */
 
+import type { CheapestFix, CheapestFixKind } from "@/lib/booking/client";
 import { BUDGET_PRESETS_AED, addDaysIso, planTrip, type Trip } from "@/lib/planning";
+
+export type { CheapestFix, CheapestFixKind };
 
 export function formatAed(amount: number): string {
   return `AED ${Math.round(amount).toLocaleString("en-AE")}`;
 }
-
-/**
- * TODO: replace with `import type { CheapestFix, CheapestFixKind } from "@/lib/booking/client"`
- * once PR #6 pushes the browser-safe entry (re-exports from planning).
- * Local mirror kept in sync with Programmer’s confirmed shape:
- * `{ kind, label, savingAed, targetBudgetAed? }` — no `apply` / `savesAED`.
- */
-export type CheapestFixKind =
-  | "swap-hotel"
-  | "swap-meal"
-  | "drop-item"
-  | "shorten-trip"
-  | "raise-budget";
-
-export type CheapestFix = {
-  kind: CheapestFixKind;
-  label: string;
-  savingAed: number;
-  targetBudgetAed?: number;
-};
 
 export type ProposalBudgetInput = {
   budgetAED: number;
