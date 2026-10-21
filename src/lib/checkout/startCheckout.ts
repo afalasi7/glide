@@ -143,4 +143,5 @@ export async function reportCheckoutCancelled(args: {
 }
 
 export { PAYMENT_TRUST_LINE } from "@/lib/planning";
-export { REFUND_MESSAGE } from "@/lib/booking";
+/** Client-safe path — do not re-export from `@/lib/booking` (pulls Upstash Redis). */
+export { REFUND_MESSAGE } from "@/lib/booking/messages";

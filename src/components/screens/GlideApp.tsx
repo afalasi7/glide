@@ -20,8 +20,8 @@ import {
   getCheckoutStatus,
   reportCheckoutCancelled,
   requestCheckout,
-  resolveCheckoutStatusUi,
-} from "@/lib/checkout";
+} from "@/lib/checkout/startCheckout";
+import { resolveCheckoutStatusUi } from "@/lib/checkout/outcome";
 import { planTrip, type PlanTripRequest, type Trip } from "@/lib/planning";
 import {
   clearPersistedGlideUser,

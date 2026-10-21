@@ -2,11 +2,12 @@
 
 import React from "react";
 import Image from "next/image";
-import { Check } from "lucide-react";
+import { Car, Check, Hotel, Mountain, UtensilsCrossed } from "lucide-react";
 import { BotArt } from "@/components/GlideBot";
 import { GlassButton, GlassPanel } from "@/components/ui/glass";
 import {
   BUDGET_PRESETS_AED,
+  PAYMENT_TRUST_LINE,
   applySwap,
   swapOptions,
   withPlanDefaults,
@@ -17,9 +18,17 @@ import {
   type Trip,
   type TripItem,
 } from "@/lib/planning";
-import { PAYMENT_TRUST_LINE } from "@/lib/checkout";
 
 const btn = "w-full py-3.5 tracking-wide";
+
+const WALLET_CHIPS = ["Apple Wallet", "Google Wallet", "Samsung Wallet"] as const;
+
+const KIND_PHOTO: Record<TripItem["kind"], string> = {
+  hotel: "/images/hd/ic_rak_resort.jpg",
+  dining: "/images/hd/levant_nar_dining.jpg",
+  activity: "/images/hd/jebel_jais_sunset.jpg",
+  travel: "/images/hd/traffic_road.jpg",
+};
 
 const DEST_CHIPS: { id: DestinationId; label: string }[] = [
   { id: "ras-al-khaimah", label: "Ras Al Khaimah" },
@@ -44,6 +53,76 @@ function formatRange(from: string, to: string): string {
   } catch {
     return `${from} → ${to}`;
   }
+}
+
+/** "Friday 23 Oct" from ISO YYYY-MM-DD (UTC), normal case. */
+function formatDayHeader(iso?: string, dayNum?: number): string {
+  if (!iso) return dayNum != null ? `Day ${dayNum}` : "Day";
+  try {
+    const d = new Date(`${iso}T12:00:00Z`);
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      weekday: "long",
+      day: "numeric",
+      month: "short",
+      timeZone: "UTC",
+    }).formatToParts(d);
+    const weekday = parts.find((p) => p.type === "weekday")?.value ?? "";
+    const day = parts.find((p) => p.type === "day")?.value ?? "";
+    const month = parts.find((p) => p.type === "month")?.value ?? "";
+    return `${weekday} ${day} ${month}`.trim();
+  } catch {
+    return dayNum != null ? `Day ${dayNum}` : iso;
+  }
+}
+
+function isPayOnSite(item: TripItem): boolean {
+  const blob = `${item.notes ?? ""}`.toLowerCase();
+  return /pay[- ]?on[- ]?site|pay there|pay at (the )?venue|pay on arrival/.test(blob);
+}
+
+function costLabel(item: TripItem): string {
+  if (item.costAED > 0) return formatAed(item.costAED);
+  if (isPayOnSite(item)) return "Pay there";
+  return "Free";
+}
+
+function resolveItemPhoto(item?: Pick<TripItem, "photo" | "kind"> | null): string | null {
+  if (item?.photo) return item.photo;
+  if (item?.kind) return KIND_PHOTO[item.kind] ?? null;
+  return null;
+}
+
+function TicketIcon({ kind }: { kind?: TripItem["kind"] }) {
+  const cls = "h-5 w-5 text-ink-soft";
+  if (kind === "hotel") return <Hotel className={cls} aria-hidden />;
+  if (kind === "dining") return <UtensilsCrossed className={cls} aria-hidden />;
+  if (kind === "travel") return <Car className={cls} aria-hidden />;
+  return <Mountain className={cls} aria-hidden />;
+}
+
+function TicketThumb({
+  photo,
+  kind,
+}: {
+  photo?: string | null;
+  kind?: TripItem["kind"];
+}) {
+  if (photo) {
+    return (
+      <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl">
+        <Image src={photo} alt="" fill sizes="48px" className="object-cover" />
+      </span>
+    );
+  }
+  return (
+    <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-ink/5 ring-1 ring-ink/10">
+      <TicketIcon kind={kind} />
+    </span>
+  );
+}
+
+function walletReply(brand: string) {
+  return `${brand} isn't connected in this demo. The passes above are what Glide would add.`;
 }
 
 function guestCount(request: PlanTripRequest): number {
@@ -98,17 +177,21 @@ function timelineByDay(trip: Trip): { day: number; date?: string; items: TripIte
     }));
 }
 
-export function proposalSummary(trip: Trip): string {
-  const place = trip.destinationLabel;
+/** Budget line under the proposal display heading (no CTA in this string). */
+export function proposalBudgetLine(trip: Trip): string {
   const total = formatAed(trip.facts.totalAED);
   const people = trip.travellers + (trip.kids ?? 0);
-  const parts: string[] = [];
   if (trip.facts.withinBudget) {
-    parts.push(`Here's your weekend in ${place}. It comes to ${total} for ${people}, within your budget.`);
-  } else {
-    parts.push(
-      `This comes to ${total}, a bit over your ${formatAed(trip.budgetAED)}. Want a cheaper hotel?`,
-    );
+    return `It comes to ${total} for ${people}, within your budget.`;
+  }
+  return `This comes to ${total}, a bit over your ${formatAed(trip.budgetAED)}.`;
+}
+
+/** @deprecated Prefer heading + proposalBudgetLine; kept for older call sites. */
+export function proposalSummary(trip: Trip): string {
+  const parts = [`Your weekend in ${trip.destinationLabel}.`, proposalBudgetLine(trip)];
+  if (!trip.facts.withinBudget && trip.facts.cheaperHotel) {
+    parts.push("Want a cheaper hotel?");
   }
   if (trip.facts.highlight?.copy) parts.push(trip.facts.highlight.copy);
   return parts.join(" ");
@@ -126,24 +209,24 @@ export function ChooseTripScreen({
       <Status />
       <div className="px-6 pt-3">
         <div className="h-14 w-14"><BotArt mood="happy" /></div>
-        <h3 className="mt-3 text-[34px] leading-[0.95] tracking-[-0.02em]">
+        <h3 className="mt-3 font-display text-[34px] leading-[0.95] tracking-[-0.02em]">
           What should we <em className="text-violet">open?</em>
         </h3>
         <p className="mt-2 text-[13px] font-light text-ink-soft">
-          Follow the sample day, or plan a new weekend.
+          Plan a new weekend, or follow the sample day.
         </p>
       </div>
-      <div className="mt-6 space-y-3 px-6">
-        <GlassPanel className="p-4">
-          <p className="font-display text-xl italic">Sample day trip</p>
-          <p className="mt-1 text-[12px] text-ink-soft">Dubai Marina → Jebel Jais → InterContinental → Levant &amp; Nar</p>
-          <GlassButton onClick={onDemo} className={`${btn} mt-4`}>Open the sample trip</GlassButton>
-        </GlassPanel>
-        <GlassPanel className="p-4">
-          <p className="font-display text-xl italic">Plan a new trip</p>
-          <p className="mt-1 text-[12px] text-ink-soft">Where, when, who, and budget — then one plan you can swap and book.</p>
-          <GlassButton variant="secondary" onClick={onPlan} className={`${btn} mt-4`}>Plan a new trip</GlassButton>
-        </GlassPanel>
+      <div className="mt-8 flex flex-col gap-3 px-6">
+        <GlassButton onClick={onPlan} className={btn}>
+          Plan a new trip
+        </GlassButton>
+        <button
+          type="button"
+          onClick={onDemo}
+          className="min-h-11 text-center text-[14px] font-semibold text-violet underline-offset-4 transition-colors hover:underline"
+        >
+          Open the sample trip
+        </button>
       </div>
     </div>
   );
@@ -287,7 +370,7 @@ export function ProposeTripScreen({
   const [swapId, setSwapId] = React.useState<string | null>(null);
   const [options, setOptions] = React.useState<SwapOption[]>([]);
   const [swapNote, setSwapNote] = React.useState<string | null>(null);
-  const [pending, setPending] = React.useState<ApplySwapResult | null>(null);
+  const [pending, setPending] = React.useState<Extract<ApplySwapResult, { ok: true }> | null>(null);
   const days = timelineByDay(trip);
   const items = days.flatMap((d) => d.items);
   const people = trip.travellers + (trip.kids ?? 0);
@@ -306,6 +389,10 @@ export function ProposeTripScreen({
   const applyOption = (optionId: string) => {
     if (!swapId) return;
     const result = applySwap(trip, swapId, optionId);
+    if (!result.ok) {
+      setSwapNote(result.reason);
+      return;
+    }
     if (result.lateItems.length > 0) {
       setPending(result);
       return;
@@ -315,63 +402,76 @@ export function ProposeTripScreen({
     setSwapId(null);
   };
 
+  const applyCheaperHotel = () => {
+    const suggestion = trip.facts.cheaperHotel;
+    if (!suggestion) return;
+    try {
+      const hotelOpts = swapOptions(trip, trip.hotel.id);
+      const match = hotelOpts.find((o) => o.catalogId === suggestion.catalogId);
+      if (!match) return;
+      const result = applySwap(trip, trip.hotel.id, match.id);
+      if (!result.ok) {
+        setSwapNote(result.reason);
+        return;
+      }
+      onChange(result.trip);
+      setSwapNote(null);
+      setSwapId(null);
+      setPending(null);
+    } catch {
+      /* leave plan unchanged if swap API rejects */
+    }
+  };
+
+  const heroPhoto =
+    resolveItemPhoto(items.find((i) => i.kind === "activity" && i.photo)) ??
+    resolveItemPhoto(items.find((i) => i.kind !== "travel")) ??
+    KIND_PHOTO.activity;
+
   return (
     <div className="flex h-full flex-col">
       <Status />
       <div className="px-5 pt-2">
-        <h3 className="text-[26px] leading-[1.08] tracking-[-0.02em]">{proposalSummary(trip)}</h3>
+        <h3 className="font-display text-[30px] leading-[1.05] tracking-[-0.025em]">
+          Your weekend in {trip.destinationLabel}.
+        </h3>
+        <p className="mt-2 text-[14px] font-light leading-snug text-ink-soft">
+          {proposalBudgetLine(trip)}
+        </p>
+        {trip.facts.highlight?.copy ? (
+          <p className="mt-1.5 text-[13px] font-light leading-snug text-ink-soft">
+            {trip.facts.highlight.copy}
+          </p>
+        ) : null}
         {!trip.facts.withinBudget && trip.facts.cheaperHotel ? (
-          <button
+          <GlassButton
             type="button"
-            className="mt-2 text-left text-[13px] font-semibold text-violet"
-            onClick={() => {
-              const hotelOpts = swapOptions(trip, trip.hotel.id);
-              const match = hotelOpts.find((o) => o.catalogId === trip.facts.cheaperHotel?.catalogId);
-              if (match) {
-                const result = applySwap(trip, trip.hotel.id, match.id);
-                onChange(result.trip);
-              }
-            }}
+            variant="secondary"
+            className="mt-3 min-h-11 w-full tracking-wide"
+            onClick={applyCheaperHotel}
           >
-            Switch to {trip.facts.cheaperHotel.title} · save {formatAed(trip.facts.cheaperHotel.savesAED)}
-          </button>
+            Want a cheaper hotel?
+          </GlassButton>
         ) : null}
       </div>
       <div className="relative mx-5 mt-3 h-[88px] overflow-hidden rounded-[28px]">
-        <Image
-          src={
-            items.find((i) => i.kind !== "travel" && i.photo)?.photo ??
-            trip.hotel.photo ??
-            "/images/hd/jebel_jais_sunset.jpg"
-          }
-          alt=""
-          fill
-          sizes="720px"
-          className="object-cover"
-        />
-        <span className="glide-glass-photo-label absolute bottom-2 left-2 z-10 rounded-full bg-paper px-3 py-1.5 text-xs font-semibold text-ink shadow-[0_8px_18px_-12px_rgba(28,18,48,0.75)]">
-          Total {formatAed(trip.facts.totalAED)} for {people}.
-        </span>
+        <Image src={heroPhoto} alt="" fill sizes="720px" className="object-cover" />
       </div>
       <ol className="glass-panel relative mx-5 mt-3 min-h-0 flex-1 overflow-y-auto rounded-xl px-4" data-lenis-prevent>
         {days.map((day) => (
           <li key={day.day} className="border-b border-ink/10 py-2 last:border-0">
-            <p className="px-0.5 text-[10px] font-medium uppercase tracking-[0.18em] text-ink-soft">
-              Day {day.day}
-              {day.date ? ` · ${day.date}` : ""}
+            <p className="px-0.5 text-[13px] font-semibold text-ink">
+              {formatDayHeader(day.date, day.day)}
             </p>
             <ol>
-              {day.items.map((item, i) => (
+              {day.items.map((item) => (
                 <li key={item.id} className="relative flex items-center gap-3 py-2">
-                  <span className={`z-10 grid h-5 w-5 place-items-center rounded-full text-[10px] font-bold ${day.day === 1 && i === 0 ? "bg-violet text-paper" : "bg-paper text-ink ring-2 ring-ink/20"}`}>
-                    {i + 1}
-                  </span>
+                  <p className="num w-12 shrink-0 text-lg leading-none">{item.startTime}</p>
                   <div className="min-w-0 flex-1 leading-tight">
                     <p className="truncate font-display text-[15px] italic">{item.title}</p>
-                    <p className="truncate text-[10.5px] text-ink-soft">
-                      {item.startTime}
-                      {item.costAED ? ` · ${formatAed(item.costAED)}` : ""}
-                    </p>
+                    {item.costAED > 0 ? (
+                      <p className="truncate text-[10.5px] text-ink-soft">{formatAed(item.costAED)}</p>
+                    ) : null}
                   </div>
                   {item.kind !== "travel" ? (
                     <button
@@ -382,7 +482,6 @@ export function ProposeTripScreen({
                       Swap
                     </button>
                   ) : null}
-                  <p className="num w-12 shrink-0 text-right text-lg leading-none">{item.startTime}</p>
                 </li>
               ))}
             </ol>
@@ -488,8 +587,8 @@ export function ReviewBookScreen({
       <ul className="glass-panel mx-5 mt-4 min-h-0 flex-1 overflow-y-auto rounded-xl px-3" data-lenis-prevent>
         {days.map((day) => (
           <li key={day.day} className="border-b border-ink/10 py-2 last:border-0">
-            <p className="px-0.5 text-[10px] font-medium uppercase tracking-[0.18em] text-ink-soft">
-              Day {day.day}
+            <p className="px-0.5 text-[13px] font-semibold text-ink">
+              {formatDayHeader(day.date, day.day)}
             </p>
             <ul>
               {day.items.map((s) => (
@@ -498,7 +597,7 @@ export function ReviewBookScreen({
                     <p className="truncate text-[13px] font-semibold">{s.title}</p>
                     <p className="truncate text-[10.5px] text-ink-soft">{s.startTime}</p>
                   </div>
-                  <p className="num shrink-0 text-[13px]">{s.costAED ? formatAed(s.costAED) : "—"}</p>
+                  <p className="num shrink-0 text-[13px]">{costLabel(s)}</p>
                 </li>
               ))}
             </ul>
@@ -547,15 +646,24 @@ export function BookingConfirmScreen({
       ...plans.map((p) => [p.id, p] as const),
     ]);
 
+    type Ticket = {
+      key: string;
+      title: string;
+      photo: string | null;
+      kind: TripItem["kind"];
+    };
+
     // Prefer server confirmations so lunches/dinners each get a ticket when booked.
     if (trip.confirmations?.length) {
-      const list: { key: string; title: string; photo?: string }[] = [];
+      const list: Ticket[] = [];
       const hotelC = trip.confirmations.find((c) => c.kind === "hotel" || c.itemId === trip.hotel.id);
       if (hotelC) {
+        const item = byId.get(hotelC.itemId) ?? trip.hotel;
         list.push({
           key: hotelC.itemId,
           title: "Hotel booked",
-          photo: byId.get(hotelC.itemId)?.photo ?? trip.hotel.photo,
+          kind: "hotel",
+          photo: resolveItemPhoto(item) ?? cWalletPhoto(hotelC.walletPass?.photo, "hotel"),
         });
       }
       const diningCs = trip.confirmations
@@ -571,24 +679,32 @@ export function BookingConfirmScreen({
         list.push({
           key: c.itemId,
           title: lunch ? "Lunch booked" : "Dinner booked",
-          photo: item?.photo ?? c.walletPass?.photo,
+          kind: "dining",
+          photo: resolveItemPhoto(item) ?? cWalletPhoto(c.walletPass?.photo, "dining"),
         });
       }
       if (trip.facts.highlight) {
         const h = trip.facts.highlight;
         if (!list.some((t) => t.key === h.itemId)) {
+          const item = byId.get(h.itemId);
           list.push({
             key: h.itemId,
             title: `${h.title} booked`,
-            photo: byId.get(h.itemId)?.photo,
+            kind: item?.kind ?? "activity",
+            photo: resolveItemPhoto(item),
           });
         }
       }
       return list;
     }
 
-    const list: { key: string; title: string; photo?: string }[] = [];
-    list.push({ key: "hotel", title: "Hotel booked", photo: trip.hotel.photo });
+    const list: Ticket[] = [];
+    list.push({
+      key: "hotel",
+      title: "Hotel booked",
+      kind: "hotel",
+      photo: resolveItemPhoto(trip.hotel),
+    });
     const dinings = plans
       .filter((p) => p.kind === "dining")
       .sort((a, b) => a.day - b.day || parseHmm(a.startTime) - parseHmm(b.startTime));
@@ -596,20 +712,24 @@ export function BookingConfirmScreen({
       list.push({
         key: d.id,
         title: isLunchItem(d) ? "Lunch booked" : "Dinner booked",
-        photo: d.photo,
+        kind: "dining",
+        photo: resolveItemPhoto(d),
       });
     }
     if (trip.facts.highlight) {
+      const item = plans.find((p) => p.id === trip.facts.highlight!.itemId);
       list.push({
         key: "highlight",
         title: `${trip.facts.highlight.title} booked`,
-        photo: plans.find((p) => p.id === trip.facts.highlight!.itemId)?.photo,
+        kind: item?.kind ?? "activity",
+        photo: resolveItemPhoto(item),
       });
     }
     return list;
   }, [trip]);
 
   const [shown, setShown] = React.useState(0);
+  const [walletNote, setWalletNote] = React.useState<string | null>(null);
   React.useEffect(() => {
     if (shown >= tickets.length) return;
     const t = window.setTimeout(() => setShown((n) => n + 1), 450);
@@ -621,7 +741,7 @@ export function BookingConfirmScreen({
     <div className="flex h-full flex-col">
       <Status />
       <div className="px-5 pt-2">
-        <h3 className="text-[28px] leading-[1.05] tracking-[-0.02em]">
+        <h3 className="font-display text-[28px] leading-[1.05] tracking-[-0.02em]">
           {done
             ? "You're all set. Your passes are in Wallet, and I'll keep an eye on the day for you."
             : "Booking now…"}
@@ -631,9 +751,7 @@ export function BookingConfirmScreen({
         {tickets.slice(0, shown).map((t) => (
           <li key={t.key}>
             <GlassPanel className="flex items-center gap-3 p-3">
-              <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl">
-                <Image src={t.photo ?? "/images/hd/ic_rak_resort.jpg"} alt="" fill sizes="48px" className="object-cover" />
-              </span>
+              <TicketThumb photo={t.photo} kind={t.kind} />
               <p className="min-w-0 flex-1 font-display text-[18px] italic">{t.title}</p>
               <Check className="h-5 w-5 shrink-0 text-violet" aria-hidden />
               <span className="sr-only">Confirmed</span>
@@ -641,13 +759,40 @@ export function BookingConfirmScreen({
           </li>
         ))}
       </ul>
-      <div className="px-5 pb-5 pt-3">
+      <div className="space-y-2 px-5 pb-5 pt-3">
+        {done ? (
+          <>
+            <ul className="flex flex-wrap gap-1.5" aria-label="Add passes to wallet">
+              {WALLET_CHIPS.map((w) => (
+                <li key={w}>
+                  <button
+                    type="button"
+                    className="inline-flex min-h-11 items-center rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-secondary-foreground ring-1 ring-foreground/20 transition-colors hover:bg-accent"
+                    onClick={() => setWalletNote(walletReply(w))}
+                  >
+                    {w}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {walletNote ? (
+              <p className="text-[12px] leading-snug text-ink-soft" aria-live="polite">
+                {walletNote}
+              </p>
+            ) : null}
+          </>
+        ) : null}
         <GlassButton onClick={onEnter} disabled={!done} className={btn}>
           Open my trip
         </GlassButton>
       </div>
     </div>
   );
+}
+
+function cWalletPhoto(photo: string | undefined, kind: TripItem["kind"]): string | null {
+  if (photo) return photo;
+  return KIND_PHOTO[kind] ?? null;
 }
 
 export function BookedRouteScreen({ trip }: { trip: Trip }) {
@@ -692,27 +837,63 @@ export function BookedRouteScreen({ trip }: { trip: Trip }) {
 
 export function BookedPlanScreen({ trip }: { trip: Trip }) {
   const passes = (trip.confirmations ?? []).filter((c) => c.walletPass);
+  const [walletNote, setWalletNote] = React.useState<string | null>(null);
+  const byId = React.useMemo(() => {
+    const map = new Map<string, TripItem>();
+    map.set(trip.hotel.id, trip.hotel);
+    for (const p of trip.days.flatMap((d) => d.plans)) map.set(p.id, p);
+    return map;
+  }, [trip]);
+
   return (
     <div className="flex h-full flex-col">
       <Status />
       <div className="px-5 pt-2">
-        <h3 className="text-[34px] leading-[0.95] tracking-[-0.02em]">
+        <h3 className="font-display text-[34px] leading-[0.95] tracking-[-0.02em]">
           Passes, <em className="text-violet">in Wallet.</em>
         </h3>
         <p className="mt-2 text-[13px] text-ink-soft">I&apos;ll keep an eye on the day for you.</p>
       </div>
       <ul className="mx-5 mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto" data-lenis-prevent>
-        {passes.map((c) => (
-          <li key={c.itemId}>
-            <GlassPanel className="p-3">
-              <p className="text-[10px] uppercase tracking-[0.16em] text-ink-soft">Wallet pass · demo</p>
-              <p className="mt-1 font-display text-xl italic">{c.walletPass!.title}</p>
-              <p className="num mt-1 text-2xl">
-                {c.walletPass!.time} · {c.walletPass!.date}
-              </p>
-            </GlassPanel>
-          </li>
-        ))}
+        {passes.map((c) => {
+          const item = byId.get(c.itemId);
+          const photo = resolveItemPhoto(item) ?? cWalletPhoto(c.walletPass?.photo, c.kind);
+          return (
+            <li key={c.itemId}>
+              <GlassPanel className="p-3">
+                <div className="flex items-start gap-3">
+                  <TicketThumb photo={photo} kind={item?.kind ?? c.kind} />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-display text-xl italic">{c.walletPass!.title}</p>
+                    <p className="num mt-1 text-2xl">
+                      {c.walletPass!.time} · {c.walletPass!.date}
+                    </p>
+                  </div>
+                </div>
+              </GlassPanel>
+            </li>
+          );
+        })}
+        <li>
+          <ul className="flex flex-wrap gap-1.5" aria-label="Add passes to wallet">
+            {WALLET_CHIPS.map((w) => (
+              <li key={w}>
+                <button
+                  type="button"
+                  className="inline-flex min-h-11 items-center rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-secondary-foreground ring-1 ring-foreground/20 transition-colors hover:bg-accent"
+                  onClick={() => setWalletNote(walletReply(w))}
+                >
+                  {w}
+                </button>
+              </li>
+            ))}
+          </ul>
+          {walletNote ? (
+            <p className="mt-2 text-[12px] leading-snug text-ink-soft" aria-live="polite">
+              {walletNote}
+            </p>
+          ) : null}
+        </li>
       </ul>
       <div className="mt-auto flex items-center gap-2 px-5 pb-5">
         <div className="h-8 w-8"><BotArt mood="happy" small /></div>
