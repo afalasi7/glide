@@ -20,6 +20,7 @@ import {
   getCheckoutStatus,
   reportCheckoutCancelled,
   requestCheckout,
+  resolveCheckoutStatusUi,
 } from "@/lib/checkout";
 import { planTrip, type PlanTripRequest, type Trip } from "@/lib/planning";
 import {
@@ -182,16 +183,22 @@ export function GlideApp() {
         return;
       }
       if (checkout === "cancel") {
-        if (stored) {
+        const sessionId = params.get("session_id") ?? undefined;
+        if (stored || sessionId) {
           try {
-            await reportCheckoutCancelled(stored);
+            await reportCheckoutCancelled({ trip: stored ?? undefined, sessionId });
           } catch {
             /* keep plan */
           }
         }
-        setNotice("Payment didn't go through, so nothing was booked. Your plan is saved.");
+        const outcome = resolveCheckoutStatusUi({ status: "failed" }, stored);
+        setNotice(outcome.kind === "failed" ? outcome.notice : null);
         setDemoConfirm(false);
-        patch({ step: "review", trip: stored });
+        patch({
+          step: "review",
+          mode: "planning",
+          trip: outcome.kind === "failed" ? outcome.trip : stored,
+        });
         clearCheckoutQuery();
         return;
       }
@@ -203,16 +210,30 @@ export function GlideApp() {
             : stored
               ? await getCheckoutStatus({ trip: stored })
               : { status: "pending" as const };
-          if (status.status === "paid" && (status.trip || stored)) {
-            const paidTrip = status.trip ?? stored!;
-            patch({ trip: paidTrip, mode: "booked", step: "confirming" });
+          const outcome = resolveCheckoutStatusUi(status, stored);
+          if (outcome.kind === "paid") {
+            setDemoConfirm(false);
+            setNotice(null);
+            patch({ trip: outcome.trip, mode: "booked", step: "confirming" });
+          } else if (outcome.kind === "pending") {
+            setDemoConfirm(false);
+            setNotice(outcome.notice);
+            // Waiting — stay on review with the saved plan; no tickets.
+            patch({ step: "review", mode: "planning", trip: stored });
           } else {
-            setNotice("Payment didn't go through, so nothing was booked. Your plan is saved.");
-            patch({ step: "review", trip: stored });
+            // failed or refunded — message, no tickets, plan kept for retry
+            setDemoConfirm(false);
+            setNotice(outcome.notice);
+            patch({ step: "review", mode: "planning", trip: outcome.trip });
           }
         } catch {
-          setNotice("Payment didn't go through, so nothing was booked. Your plan is saved.");
-          patch({ step: "review", trip: stored });
+          const outcome = resolveCheckoutStatusUi({ status: "failed" }, stored);
+          setNotice(outcome.kind === "failed" ? outcome.notice : null);
+          patch({
+            step: "review",
+            mode: "planning",
+            trip: outcome.kind === "failed" ? outcome.trip : stored,
+          });
         }
         clearCheckoutQuery();
       }
