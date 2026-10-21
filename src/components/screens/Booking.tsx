@@ -18,6 +18,7 @@ import {
   type Trip,
   type TripItem,
 } from "@/lib/planning";
+import { formatAed, proposalBudgetLine } from "@/lib/proposal-copy";
 
 const btn = "w-full py-3.5 tracking-wide";
 
@@ -38,10 +39,6 @@ const DEST_CHIPS: { id: DestinationId; label: string }[] = [
 
 function Status() {
   return <div className="pt-[max(env(safe-area-inset-top),12px)]" aria-hidden />;
-}
-
-function formatAed(amount: number): string {
-  return `AED ${Math.round(amount).toLocaleString("en-AE")}`;
 }
 
 function formatRange(from: string, to: string): string {
@@ -215,22 +212,11 @@ function timelineByDay(trip: Trip): { day: number; date?: string; items: TripIte
     }));
 }
 
-/** Budget line under the proposal display heading (no CTA in this string). */
-export function proposalBudgetLine(trip: Trip): string {
-  const total = formatAed(trip.facts.totalAED);
-  const people = trip.travellers + (trip.kids ?? 0);
-  if (trip.facts.withinBudget) {
-    return `It comes to ${total} for ${people}, within your budget.`;
-  }
-  return `This comes to ${total}, a bit over your ${formatAed(trip.budgetAED)}.`;
-}
+export { proposalBudgetLine } from "@/lib/proposal-copy";
 
 /** @deprecated Prefer heading + proposalBudgetLine; kept for older call sites. */
 export function proposalSummary(trip: Trip): string {
   const parts = [`Your weekend in ${trip.destinationLabel}.`, proposalBudgetLine(trip)];
-  if (!trip.facts.withinBudget && trip.facts.cheaperHotel) {
-    parts.push("Want a cheaper hotel?");
-  }
   if (trip.facts.highlight?.copy) parts.push(trip.facts.highlight.copy);
   return parts.join(" ");
 }
@@ -466,33 +452,37 @@ export function ProposeTripScreen({
     resolveItemPhoto(items.find((i) => i.kind !== "travel")) ??
     KIND_PHOTO.activity;
 
+  const showCheaper = Boolean(!trip.facts.withinBudget && trip.facts.cheaperHotel);
+
   return (
     <div className="flex h-full flex-col">
       <Status />
-      <div className="px-5 pt-2">
+      {/* Sticky top: heading + budget + cheaper CTA stay put while the list scrolls. */}
+      <div className="sticky top-0 z-20 shrink-0 border-b border-ink/5 bg-cream/95 px-5 pb-3 pt-2 backdrop-blur-sm">
         <h3 className="font-display text-[30px] leading-[1.05] tracking-[-0.025em]">
           Your weekend in {trip.destinationLabel}.
         </h3>
         <p className="mt-2 text-[14px] font-light leading-snug text-ink-soft">
           {proposalBudgetLine(trip)}
         </p>
-        {trip.facts.highlight?.copy ? (
-          <p className="mt-1.5 text-[13px] font-light leading-snug text-ink-soft">
-            {trip.facts.highlight.copy}
-          </p>
-        ) : null}
-        {!trip.facts.withinBudget && trip.facts.cheaperHotel ? (
+        {showCheaper ? (
           <GlassButton
             type="button"
             variant="secondary"
-            className="mt-3 min-h-11 w-full tracking-wide"
+            className="mt-2 min-h-11 w-full tracking-wide"
             onClick={applyCheaperHotel}
+            data-testid="cheaper-hotel"
           >
             Want a cheaper hotel?
           </GlassButton>
         ) : null}
+        {trip.facts.highlight?.copy ? (
+          <p className="mt-2 text-[13px] font-light leading-snug text-ink-soft">
+            {trip.facts.highlight.copy}
+          </p>
+        ) : null}
       </div>
-      <div className="relative mx-5 mt-3 h-[88px] overflow-hidden rounded-[28px]">
+      <div className="relative mx-5 mt-3 h-[88px] shrink-0 overflow-hidden rounded-[28px]">
         <Image src={heroPhoto} alt="" fill sizes="720px" className="object-cover" />
       </div>
       <ol className="glass-panel relative mx-5 mt-3 min-h-0 flex-1 overflow-y-auto rounded-xl px-4" data-lenis-prevent>
@@ -526,11 +516,11 @@ export function ProposeTripScreen({
           </li>
         ))}
       </ol>
-      <p className="px-5 pt-2 text-[13px] font-semibold">
+      <p className="shrink-0 px-5 pt-2 text-[13px] font-semibold">
         Total {formatAed(trip.facts.totalAED)} for {people}.
       </p>
       {swapId ? (
-        <GlassPanel className="mx-5 mb-2 max-h-[40%] overflow-y-auto p-3" data-lenis-prevent>
+        <GlassPanel className="mx-5 mb-2 max-h-[40%] shrink-0 overflow-y-auto p-3" data-lenis-prevent>
           <div className="mb-2 flex items-start justify-between gap-2">
             <p className="text-[12px] font-semibold leading-snug">
               {pending
@@ -583,7 +573,7 @@ export function ProposeTripScreen({
           )}
         </GlassPanel>
       ) : null}
-      <div className="flex gap-2 px-5 pb-5 pt-2">
+      <div className="flex shrink-0 gap-2 px-5 pb-5 pt-2">
         {onBack ? (
           <GlassButton variant="ghost" onClick={onBack} className="min-h-11 px-4">
             Back
