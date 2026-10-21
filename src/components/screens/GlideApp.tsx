@@ -375,6 +375,11 @@ export function GlideApp() {
                       onChange={(next) => patch({ trip: next })}
                       onBack={() => patch({ step: "ask", askIndex: 3 })}
                       onReview={() => patch({ step: "review" })}
+                      onRaiseBudget={(budgetAED) => {
+                        const nextRequest = withPlanDefaults({ ...request, budgetAED });
+                        patch({ request: nextRequest, trip: planTrip(nextRequest) });
+                      }}
+                      onChangeDetails={() => patch({ step: "choose" })}
                     />
                   )}
                   {step === "review" && trip && (

@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { formatAed, proposalBudgetLine } from "./proposal-copy";
+import {
+  formatAed,
+  hasPlanningCheapestFix,
+  nextBudgetChip,
+  overBudgetRecovery,
+  proposalBudgetLine,
+  raiseBudgetButtonLabel,
+} from "./proposal-copy";
 
 function trip(partial: {
   budgetAED: number;
@@ -8,6 +15,9 @@ function trip(partial: {
   withinBudget?: boolean;
   travellers?: number;
   kids?: number;
+  cheaperHotel?: unknown;
+  cheapestFix?: unknown;
+  suggestions?: unknown;
 }) {
   const withinBudget = partial.withinBudget ?? partial.overBudgetByAED === 0;
   return {
@@ -18,6 +28,9 @@ function trip(partial: {
       withinBudget,
       totalAED: partial.totalAED,
       overBudgetByAED: partial.overBudgetByAED,
+      cheaperHotel: partial.cheaperHotel,
+      cheapestFix: partial.cheapestFix,
+      suggestions: partial.suggestions,
     },
   };
 }
@@ -30,7 +43,6 @@ describe("proposalBudgetLine", () => {
   });
 
   test("over by exactly 10% uses a bit over", () => {
-    // 300 over 3000 = 10%
     expect(
       proposalBudgetLine(trip({ budgetAED: 3000, totalAED: 3300, overBudgetByAED: 300 })),
     ).toBe("This comes to AED 3,300, a bit over your AED 3,000.");
@@ -43,14 +55,12 @@ describe("proposalBudgetLine", () => {
   });
 
   test("over by more than 10% uses overBy amount", () => {
-    // 740 over 3000 ≈ 24.7%
     expect(
       proposalBudgetLine(trip({ budgetAED: 3000, totalAED: 3740, overBudgetByAED: 740 })),
     ).toBe("AED 740 over your AED 3,000.");
   });
 
   test("just over 10% threshold uses overBy form", () => {
-    // 301 / 3000 > 10%
     expect(
       proposalBudgetLine(trip({ budgetAED: 3000, totalAED: 3301, overBudgetByAED: 301 })),
     ).toBe("AED 301 over your AED 3,000.");
@@ -58,5 +68,109 @@ describe("proposalBudgetLine", () => {
 
   test("formatAed rounds and localizes", () => {
     expect(formatAed(1500)).toBe("AED 1,500");
+  });
+});
+
+describe("overBudgetRecovery", () => {
+  test("within budget → null (no recovery UI)", () => {
+    expect(
+      overBudgetRecovery(trip({ budgetAED: 3000, totalAED: 2800, overBudgetByAED: 0 })),
+    ).toBeNull();
+  });
+
+  test("over budget with cheaperHotel → cheaperHotel action", () => {
+    expect(
+      overBudgetRecovery(
+        trip({
+          budgetAED: 3000,
+          totalAED: 4920,
+          overBudgetByAED: 1920,
+          cheaperHotel: { catalogId: "rak-hotel-hilton" },
+        }),
+      ),
+    ).toEqual({ kind: "cheaperHotel" });
+  });
+
+  test("over budget with cheapestFix (future PR #6 field) → cheaperHotel action", () => {
+    expect(
+      overBudgetRecovery(
+        trip({
+          budgetAED: 3000,
+          totalAED: 4000,
+          overBudgetByAED: 1000,
+          cheapestFix: { catalogId: "x" },
+        }),
+      ),
+    ).toEqual({ kind: "cheaperHotel" });
+  });
+
+  test("over budget with suggestions array → cheaperHotel action", () => {
+    expect(
+      overBudgetRecovery(
+        trip({
+          budgetAED: 3000,
+          totalAED: 4000,
+          overBudgetByAED: 1000,
+          suggestions: [{ type: "hotel" }],
+        }),
+      ),
+    ).toEqual({ kind: "cheaperHotel" });
+  });
+
+  test("over budget, no cheaper hotel, mid chip → raiseBudget to next chip", () => {
+    expect(
+      overBudgetRecovery(trip({ budgetAED: 3000, totalAED: 4180, overBudgetByAED: 1180 })),
+    ).toEqual({ kind: "raiseBudget", nextBudgetAED: 6000 });
+  });
+
+  test("over budget, no cheaper hotel, low chip → raiseBudget to 3000", () => {
+    expect(
+      overBudgetRecovery(trip({ budgetAED: 1500, totalAED: 4180, overBudgetByAED: 2680 })),
+    ).toEqual({ kind: "raiseBudget", nextBudgetAED: 3000 });
+  });
+
+  test("over budget, no cheaper hotel, top chip → changeDetailsOnly", () => {
+    expect(
+      overBudgetRecovery(trip({ budgetAED: 6000, totalAED: 7200, overBudgetByAED: 1200 })),
+    ).toEqual({ kind: "changeDetailsOnly" });
+  });
+
+  test("cheaperHotel wins over raiseBudget even at mid chip", () => {
+    expect(
+      overBudgetRecovery(
+        trip({
+          budgetAED: 3000,
+          totalAED: 4920,
+          overBudgetByAED: 1920,
+          cheaperHotel: { catalogId: "h" },
+        }),
+      ),
+    ).toEqual({ kind: "cheaperHotel" });
+  });
+});
+
+describe("nextBudgetChip / raiseBudgetButtonLabel", () => {
+  test("next chip above current", () => {
+    expect(nextBudgetChip(1500)).toBe(3000);
+    expect(nextBudgetChip(3000)).toBe(6000);
+    expect(nextBudgetChip(6000)).toBeUndefined();
+  });
+
+  test("button label", () => {
+    expect(raiseBudgetButtonLabel(6000)).toBe("Use AED 6,000 budget");
+  });
+
+  test("hasPlanningCheapestFix", () => {
+    expect(hasPlanningCheapestFix({ withinBudget: false, totalAED: 1, overBudgetByAED: 1 })).toBe(
+      false,
+    );
+    expect(
+      hasPlanningCheapestFix({
+        withinBudget: false,
+        totalAED: 1,
+        overBudgetByAED: 1,
+        cheaperHotel: {},
+      }),
+    ).toBe(true);
   });
 });

@@ -18,7 +18,12 @@ import {
   type Trip,
   type TripItem,
 } from "@/lib/planning";
-import { formatAed, proposalBudgetLine } from "@/lib/proposal-copy";
+import {
+  formatAed,
+  overBudgetRecovery,
+  proposalBudgetLine,
+  raiseBudgetButtonLabel,
+} from "@/lib/proposal-copy";
 
 const btn = "w-full py-3.5 tracking-wide";
 
@@ -385,11 +390,17 @@ export function ProposeTripScreen({
   onChange,
   onBack,
   onReview,
+  onRaiseBudget,
+  onChangeDetails,
 }: {
   trip: Trip;
   onChange: (trip: Trip) => void;
   onBack?: () => void;
   onReview?: () => void;
+  /** Re-plan with the next budget chip when over budget and no cheaper hotel. */
+  onRaiseBudget?: (nextBudgetAED: number) => void;
+  /** Back to the Start (choose) step. */
+  onChangeDetails?: () => void;
 }) {
   const [swapId, setSwapId] = React.useState<string | null>(null);
   const [options, setOptions] = React.useState<SwapOption[]>([]);
@@ -398,6 +409,7 @@ export function ProposeTripScreen({
   const days = timelineByDay(trip);
   const items = days.flatMap((d) => d.items);
   const people = trip.travellers + (trip.kids ?? 0);
+  const recovery = overBudgetRecovery(trip);
 
   const openSwap = (itemId: string) => {
     setPending(null);
@@ -452,12 +464,10 @@ export function ProposeTripScreen({
     resolveItemPhoto(items.find((i) => i.kind !== "travel")) ??
     KIND_PHOTO.activity;
 
-  const showCheaper = Boolean(!trip.facts.withinBudget && trip.facts.cheaperHotel);
-
   return (
     <div className="flex h-full flex-col">
       <Status />
-      {/* Sticky top: heading + budget + cheaper CTA stay put while the list scrolls. */}
+      {/* Sticky top: heading + budget + single recovery CTA stay put while the list scrolls. */}
       <div className="sticky top-0 z-20 shrink-0 border-b border-ink/5 bg-cream/95 px-5 pb-3 pt-2 backdrop-blur-sm">
         <h3 className="font-display text-[30px] leading-[1.05] tracking-[-0.025em]">
           Your weekend in {trip.destinationLabel}.
@@ -465,16 +475,50 @@ export function ProposeTripScreen({
         <p className="mt-2 text-[14px] font-light leading-snug text-ink-soft">
           {proposalBudgetLine(trip)}
         </p>
-        {showCheaper ? (
+        {recovery?.kind === "cheaperHotel" ? (
           <GlassButton
             type="button"
             variant="secondary"
             className="mt-2 min-h-11 w-full tracking-wide"
             onClick={applyCheaperHotel}
-            data-testid="cheaper-hotel"
+            data-testid="over-budget-action"
+            data-action="cheaper-hotel"
           >
             Want a cheaper hotel?
           </GlassButton>
+        ) : null}
+        {recovery?.kind === "raiseBudget" ? (
+          <div className="mt-2 space-y-1.5">
+            <GlassButton
+              type="button"
+              variant="secondary"
+              className="min-h-11 w-full tracking-wide"
+              onClick={() => onRaiseBudget?.(recovery.nextBudgetAED)}
+              data-testid="over-budget-action"
+              data-action="raise-budget"
+            >
+              {raiseBudgetButtonLabel(recovery.nextBudgetAED)}
+            </GlassButton>
+            <button
+              type="button"
+              className="min-h-11 w-full text-center text-[13px] font-semibold text-violet underline-offset-4 transition-colors hover:underline"
+              onClick={onChangeDetails}
+              data-testid="change-trip-details"
+            >
+              Change trip details
+            </button>
+          </div>
+        ) : null}
+        {recovery?.kind === "changeDetailsOnly" ? (
+          <button
+            type="button"
+            className="mt-2 min-h-11 w-full text-center text-[13px] font-semibold text-violet underline-offset-4 transition-colors hover:underline"
+            onClick={onChangeDetails}
+            data-testid="over-budget-action"
+            data-action="change-details"
+          >
+            Change trip details
+          </button>
         ) : null}
         {trip.facts.highlight?.copy ? (
           <p className="mt-2 text-[13px] font-light leading-snug text-ink-soft">
