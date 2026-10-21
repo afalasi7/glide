@@ -38,7 +38,8 @@ Pure planning helpers live in `src/lib/planning/`:
 
 - `planTrip(request?)` — curated Ras Al Khaimah (default), Muscat, or Hatta. Defaults: next Friday→Sunday, 2 adults, budget AED 3,000 (presets 1,500 / 3,000 / 6,000). Returns a `Trip` with travel, hotel, 2–3 plans per day, solver `graph`, and computed `facts` (`withinBudget`, `totalAED`, `overBudgetByAED`, destination `highlight`, optional `cheaperHotel`).
 - `swapOptions` / `applySwap` — alternatives plus `timingsHold` and `lateItems` (past 22:00).
-- Bookings are confirmed only after payment: Stripe webhook `checkout.session.completed`, or demo `confirmDemoCheckout` when Stripe is unset. Pay-button tap alone never books.
+- Bookings are confirmed only after payment: Stripe webhook `checkout.session.completed`, or demo `confirmDemoCheckout(trip)` when Stripe is unset. Pay-button tap alone never books.
+- **Demo mode is stateless**: `demo-confirm`, status, and cancel accept the full `trip` from the client, re-validate against the catalog, and do not rely on in-memory `tripId` lookup (safe across Vercel serverless instances). The **Stripe path still uses an in-memory store** and needs durable storage before real payments.
 
 ### Stripe Checkout (server only)
 

@@ -94,26 +94,50 @@ function uniqueByCatalog(opts: CatalogOption[]): CatalogOption[] {
   });
 }
 
-/** Always include the destination highlight plan on day 1 when present. */
+function isMorningHighlight(defaultStartTime: string | undefined): boolean {
+  if (!defaultStartTime) return false;
+  const [h] = defaultStartTime.split(":").map(Number);
+  return h < 12;
+}
+
+/**
+ * Always include the destination highlight plan on a day that fits its timing
+ * (evening highlights on day 1, morning highlights on day 2+).
+ */
 function selectDayPlans(
   dest: DestinationId,
   dayIndex: number,
   interests: string[] | undefined,
   budgetPressure: number,
+  totalDays: number,
 ): CatalogOption[] {
   const catalog = DESTINATIONS[dest];
   const pool = catalog.plans;
   const dining = pool.filter((p) => p.kind === "dining");
   const activities = pool.filter((p) => p.kind === "activity");
   const dinner = pickBest(dining, interests, budgetPressure);
-  const highlight = pool.find((p) => p.catalogId === catalog.highlightCatalogId);
+  const highlight = pool.find((p) => p.catalogId === catalog.highlight.catalogId);
+  const highlightMorning = highlight ? isMorningHighlight(highlight.defaultStartTime) : false;
+  // Morning highlight (Hatta kayak): day 2 when multi-day, else day 1.
+  const highlightDay = highlightMorning ? (totalDays >= 2 ? 2 : 1) : 1;
+
+  if (dayIndex === highlightDay && highlight) {
+    const extra = pickBest(
+      activities.filter((a) => a.catalogId !== highlight.catalogId),
+      interests,
+      budgetPressure,
+    );
+    return uniqueByCatalog([highlight, extra, dinner]).slice(0, 3);
+  }
 
   if (dayIndex === 1) {
-    const primary =
-      highlight ??
-      pickBest(activities, interests, budgetPressure);
+    const primary = pickBest(
+      activities.filter((a) => a.catalogId !== highlight?.catalogId),
+      interests,
+      budgetPressure,
+    );
     const extra = pickBest(
-      activities.filter((a) => a.catalogId !== primary.catalogId),
+      activities.filter((a) => a.catalogId !== primary.catalogId && a.catalogId !== highlight?.catalogId),
       interests,
       budgetPressure,
     );
@@ -126,7 +150,7 @@ function selectDayPlans(
     budgetPressure,
   );
   const extra = pickBest(
-    activities.filter((a) => a.catalogId !== morning.catalogId),
+    activities.filter((a) => a.catalogId !== morning.catalogId && a.catalogId !== highlight?.catalogId),
     interests,
     budgetPressure,
   );
@@ -179,7 +203,7 @@ export function planTrip(request: PlanTripRequest = {}): Trip {
 
   const tripDays: TripDay[] = [];
   for (let d = 1; d <= days; d++) {
-    const opts = selectDayPlans(destination, d, resolved.interests, budgetPressure);
+    const opts = selectDayPlans(destination, d, resolved.interests, budgetPressure, days);
     const chosen = opts.slice(0, Math.min(3, Math.max(2, opts.length)));
     while (chosen.length < 2 && catalog.plans.length > chosen.length) {
       const next = catalog.plans.find((p) => !chosen.some((c) => c.catalogId === p.catalogId));
@@ -216,15 +240,6 @@ export function planTrip(request: PlanTripRequest = {}): Trip {
       withinBudget: true,
       totalAED: 0,
       overBudgetByAED: 0,
-      highlight: {
-        itemId: "",
-        catalogId: "",
-        title: "",
-        startTime: "",
-        day: 1,
-        date: resolved.startDate,
-        label: "",
-      },
     },
     status: "proposed",
     graph: { rootId: travel.id, nodes: {}, edges: [], travel: {} },

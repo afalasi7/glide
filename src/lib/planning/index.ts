@@ -5,6 +5,7 @@ export * from "./pricing";
 export * from "./facts";
 export * from "./graph";
 export * from "./store";
+export * from "./validate";
 export * from "./planTrip";
 export * from "./swap";
 export * from "./book";

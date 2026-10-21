@@ -1,5 +1,5 @@
 import { DESTINATIONS, getCatalogOption } from "./catalog";
-import { lineCostAED, nightsBetween } from "./pricing";
+import { lineCostAED, nightsBetween, timeToMinutes } from "./pricing";
 import type {
   CheaperHotelSuggestion,
   Trip,
@@ -9,8 +9,6 @@ import type {
 } from "./types";
 
 function findItemByCatalog(trip: Trip, catalogId: string): TripItem | undefined {
-  if (trip.travel.catalogId === catalogId) return trip.travel;
-  if (trip.hotel.catalogId === catalogId) return trip.hotel;
   for (const day of trip.days) {
     const hit = day.plans.find((p) => p.catalogId === catalogId);
     if (hit) return hit;
@@ -18,12 +16,23 @@ function findItemByCatalog(trip: Trip, catalogId: string): TripItem | undefined 
   return undefined;
 }
 
-export function buildHighlight(trip: Trip): TripHighlight {
+function inHighlightWindow(startTime: string, earliest: string, latest: string): boolean {
+  const t = timeToMinutes(startTime);
+  return t >= timeToMinutes(earliest) && t <= timeToMinutes(latest);
+}
+
+/**
+ * Destination highlight only when the curated item is actually on the trip
+ * at an accepted time. A swap that removes or retimes it drops the copy.
+ */
+export function buildHighlight(trip: Trip): TripHighlight | undefined {
   const dest = DESTINATIONS[trip.destination];
-  const item =
-    findItemByCatalog(trip, dest.highlightCatalogId) ??
-    trip.days.flatMap((d) => d.plans)[0] ??
-    trip.travel;
+  const spec = dest.highlight;
+  const item = findItemByCatalog(trip, spec.catalogId);
+  if (!item) return undefined;
+  if (!inHighlightWindow(item.startTime, spec.earliestStart, spec.latestStart)) {
+    return undefined;
+  }
   const dayMeta = trip.days.find((d) => d.day === item.day) ?? trip.days[0];
   return {
     itemId: item.id,
@@ -32,8 +41,9 @@ export function buildHighlight(trip: Trip): TripHighlight {
     startTime: item.startTime,
     day: item.day,
     date: dayMeta?.date ?? trip.startDate,
-    label: dest.highlightLabel,
-    cutoffTime: dest.highlightCutoffTime,
+    label: spec.label,
+    copy: spec.copy,
+    cutoffTime: spec.cutoffTime,
   };
 }
 

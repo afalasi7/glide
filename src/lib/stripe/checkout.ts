@@ -1,49 +1,38 @@
 import {
-  applyCatalogPrices,
   eachBookableItem,
   getTrip,
   recomputeTotalAED,
   saveTrip,
+  validateAndRepriceTrip,
   type Trip,
 } from "@/lib/planning";
 import { aedToFils, appBaseUrl, requireStripe } from "./server";
 import { bindCheckoutSession } from "@/lib/planning/store";
 
-export type CheckoutBody =
-  | { tripId: string }
-  | { trip: Trip };
+export type CheckoutBody = {
+  tripId?: string;
+  trip?: Trip;
+};
 
 /**
- * Resolve the trip from the store (preferred) or a client payload, then
+ * Resolve the trip from the store (preferred for Stripe) or a client payload, then
  * re-price every line from the catalog. Never trust client totals.
+ *
+ * Note: the in-memory store is process-local. Real multi-instance Stripe payments
+ * need durable storage before go-live.
  */
 export function resolveTripForCheckout(body: CheckoutBody): Trip {
-  if ("tripId" in body && body.tripId) {
+  if (body.tripId) {
     const stored = getTrip(body.tripId);
-    if (!stored) throw new Error(`Unknown tripId ${body.tripId}`);
-    const priced = applyCatalogPrices(stored);
-    return saveTrip({ ...priced, totalCostAED: recomputeTotalAED(priced) });
+    if (stored) {
+      const priced = validateAndRepriceTrip(stored);
+      return saveTrip(priced);
+    }
+    // Fall through to client trip when this instance has no memory of tripId.
   }
-  if ("trip" in body && body.trip?.id) {
-    const incoming = body.trip;
-    const stored = getTrip(incoming.id);
-    const base = stored ?? incoming;
-    // Rebuild prices from catalog ids only — discard client costAED.
-    const priced = applyCatalogPrices({
-      ...base,
-      travel: { ...base.travel, catalogId: incoming.travel?.catalogId ?? base.travel.catalogId },
-      hotel: { ...base.hotel, catalogId: incoming.hotel?.catalogId ?? base.hotel.catalogId },
-      days: incoming.days?.length
-        ? incoming.days.map((d, i) => ({
-            ...d,
-            plans: d.plans.map((p, j) => ({
-              ...p,
-              catalogId: p.catalogId || base.days[i]?.plans[j]?.catalogId,
-            })),
-          }))
-        : base.days,
-    });
-    return saveTrip({ ...priced, totalCostAED: recomputeTotalAED(priced) });
+  if (body.trip?.id) {
+    const priced = validateAndRepriceTrip(body.trip);
+    return saveTrip(priced);
   }
   throw new Error("Provide tripId or trip");
 }
