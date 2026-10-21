@@ -1,10 +1,10 @@
 /**
  * Proposal budget copy + over-budget recovery UI adapter.
  *
- * PR #6 is adding `facts.cheapestFix`:
- * `{ kind: "swap-hotel" | "swap-meal" | "drop-item" | "shorten-trip" | "raise-budget",
- *    label, savesAED, apply? }`.
- * Until that field lands we synthesize from `cheaperHotel` + local fallbacks.
+ * Aligns to PR #6 `facts.cheapestFix` (Programmer-confirmed):
+ * `{ kind, label, savingAed, targetBudgetAed? }` with kinds
+ * swap-hotel | swap-meal | drop-item | shorten-trip | raise-budget.
+ * `cheaperHotel` remains as a fallback until/alongside cheapestFix.
  */
 
 import { BUDGET_PRESETS_AED, addDaysIso, planTrip, type Trip } from "@/lib/planning";
@@ -12,6 +12,26 @@ import { BUDGET_PRESETS_AED, addDaysIso, planTrip, type Trip } from "@/lib/plann
 export function formatAed(amount: number): string {
   return `AED ${Math.round(amount).toLocaleString("en-AE")}`;
 }
+
+/**
+ * TODO: replace with `import type { CheapestFix, CheapestFixKind } from "@/lib/booking/client"`
+ * once PR #6 pushes the browser-safe entry (re-exports from planning).
+ * Local mirror kept in sync with Programmer’s confirmed shape:
+ * `{ kind, label, savingAed, targetBudgetAed? }` — no `apply` / `savesAED`.
+ */
+export type CheapestFixKind =
+  | "swap-hotel"
+  | "swap-meal"
+  | "drop-item"
+  | "shorten-trip"
+  | "raise-budget";
+
+export type CheapestFix = {
+  kind: CheapestFixKind;
+  label: string;
+  savingAed: number;
+  targetBudgetAed?: number;
+};
 
 export type ProposalBudgetInput = {
   budgetAED: number;
@@ -28,8 +48,7 @@ export type ProposalBudgetInput = {
       costAED?: number;
       savesAED: number;
     };
-    /** PR #6 planner best fix — may be absent until that branch lands. */
-    cheapestFix?: unknown;
+    cheapestFix?: CheapestFix | unknown;
   };
 };
 
@@ -50,27 +69,6 @@ export function proposalBudgetLine(trip: ProposalBudgetInput): string {
 
 export const LOWEST_PRICE_NOTICE = "This is already the lowest price I can find for these dates.";
 
-export type CheapestFixKind =
-  | "swap-hotel"
-  | "swap-meal"
-  | "drop-item"
-  | "shorten-trip"
-  | "raise-budget";
-
-export type CheapestFixApply = {
-  itemId?: string;
-  optionId?: string;
-  catalogId?: string;
-  budgetAED?: number;
-};
-
-export type CheapestFix = {
-  kind: CheapestFixKind;
-  label: string;
-  savesAED: number;
-  apply?: CheapestFixApply;
-};
-
 const CATALOG_FIX_KINDS = new Set<CheapestFixKind>(["swap-hotel", "swap-meal", "drop-item"]);
 
 export function isCheapestFixKind(value: unknown): value is CheapestFixKind {
@@ -83,48 +81,36 @@ export function isCheapestFixKind(value: unknown): value is CheapestFixKind {
   );
 }
 
-/** Narrow unknown planner payload into our typed fix (or null). */
+/** Narrow planner `facts.cheapestFix` (accepts savingAed; ignores unknown extras). */
 export function parseCheapestFix(raw: unknown): CheapestFix | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
   if (!isCheapestFixKind(o.kind)) return null;
   if (typeof o.label !== "string" || !o.label.trim()) return null;
-  const savesAED = typeof o.savesAED === "number" && Number.isFinite(o.savesAED) ? o.savesAED : 0;
-  let apply: CheapestFixApply | undefined;
-  if (o.apply && typeof o.apply === "object") {
-    const a = o.apply as Record<string, unknown>;
-    apply = {
-      itemId: typeof a.itemId === "string" ? a.itemId : undefined,
-      optionId: typeof a.optionId === "string" ? a.optionId : undefined,
-      catalogId: typeof a.catalogId === "string" ? a.catalogId : undefined,
-      budgetAED: typeof a.budgetAED === "number" ? a.budgetAED : undefined,
-    };
-  }
-  return { kind: o.kind, label: o.label.trim(), savesAED, apply };
+
+  // Confirmed field is savingAed; tolerate legacy savesAED until PR #6 is universal.
+  const savingRaw = o.savingAed ?? o.savesAED;
+  const savingAed =
+    typeof savingRaw === "number" && Number.isFinite(savingRaw) ? savingRaw : 0;
+
+  const targetRaw = o.targetBudgetAed ?? o.targetBudgetAED;
+  const targetBudgetAed =
+    typeof targetRaw === "number" && Number.isFinite(targetRaw) ? targetRaw : undefined;
+
+  return {
+    kind: o.kind,
+    label: o.label.trim(),
+    savingAed,
+    ...(targetBudgetAed != null ? { targetBudgetAed } : {}),
+  };
 }
 
-export function catalogFixButtonLabel(fix: Pick<CheapestFix, "label" | "savesAED">): string {
-  if (fix.savesAED > 0 && !/\bsave\b/i.test(fix.label)) {
-    return `${fix.label} · save ${formatAed(fix.savesAED)}`;
+/** One catalog-fix button: Programmer label, append saving if not already in copy. */
+export function catalogFixButtonLabel(fix: Pick<CheapestFix, "label" | "savingAed">): string {
+  if (fix.savingAed > 0 && !/\bsave\b/i.test(fix.label)) {
+    return `${fix.label} · save ${formatAed(fix.savingAed)}`;
   }
   return fix.label;
-}
-
-export function canApplyCatalogFix(
-  fix: CheapestFix,
-  ctx: { hotelId: string; cheaperHotelCatalogId?: string },
-): boolean {
-  if (!CATALOG_FIX_KINDS.has(fix.kind)) return false;
-  if (fix.kind === "swap-hotel") {
-    return Boolean(fix.apply?.catalogId || fix.apply?.optionId || ctx.cheaperHotelCatalogId);
-  }
-  if (fix.kind === "swap-meal") {
-    return Boolean(fix.apply?.itemId && (fix.apply.optionId || fix.apply.catalogId));
-  }
-  if (fix.kind === "drop-item") {
-    return Boolean(fix.apply?.itemId);
-  }
-  return false;
 }
 
 export function nextBudgetChip(
@@ -134,7 +120,7 @@ export function nextBudgetChip(
   return presets.find((p) => p > budgetAED);
 }
 
-/** Next preset that covers `totalAED`, else ceil of total. */
+/** Next preset that covers total, else ceil(total). */
 export function budgetThatFits(
   totalAED: number,
   currentBudget: number,
@@ -159,7 +145,6 @@ export type ShortenInput = {
   interests?: string[];
 };
 
-/** True when endDate can move one day earlier and planTrip succeeds. */
 export function canShortenTripOneNight(trip: ShortenInput): boolean {
   if (trip.endDate <= trip.startDate) return false;
   const shorterEnd = addDaysIso(trip.endDate, -1);
@@ -199,15 +184,20 @@ export function shortenTripOneNight(trip: ShortenInput): Trip | null {
 }
 
 /**
- * UI model under the over-budget line.
- * - catalogFix: one button (hotel / dinner / drop stop) from planner label
- * - noCatalogFix: Chief notice + optional shorten + set-budget (only if they work)
+ * UI under the over-budget line:
+ * - catalogFix: swap-hotel | swap-meal | drop-item → one labeled button
+ * - shorten: shorten-trip → "Make it one night shorter"
+ * - raiseBudget: raise-budget → Chief notice + "Set budget to AED {target}"
+ * - noCatalogFix: no planner fix / only cheaperHotel absent → Chief notice + working shorten/set-budget
  */
 export type OverBudgetUi =
+  | { mode: "catalogFix"; fix: CheapestFix; buttonLabel: string }
+  | { mode: "shorten"; fix?: CheapestFix }
   | {
-      mode: "catalogFix";
-      fix: CheapestFix;
-      buttonLabel: string;
+      mode: "raiseBudget";
+      notice: typeof LOWEST_PRICE_NOTICE;
+      setBudgetAED: number;
+      fix?: CheapestFix;
     }
   | {
       mode: "noCatalogFix";
@@ -226,53 +216,73 @@ export type AdaptOverBudgetInput = ProposalBudgetInput & {
   canShorten?: boolean;
 };
 
-/**
- * Adapt planner facts (+ local fallbacks) into actionable over-budget UI.
- * Returns null when within budget.
- */
 export function adaptOverBudgetUi(trip: AdaptOverBudgetInput): OverBudgetUi | null {
   if (trip.facts.withinBudget) return null;
 
-  const fromPlanner = parseCheapestFix(trip.facts.cheapestFix);
-  const ctx = {
-    hotelId: trip.hotelId ?? "hotel",
-    cheaperHotelCatalogId: trip.facts.cheaperHotel?.catalogId,
-  };
+  const fix = parseCheapestFix(trip.facts.cheapestFix);
 
-  if (fromPlanner && CATALOG_FIX_KINDS.has(fromPlanner.kind) && canApplyCatalogFix(fromPlanner, ctx)) {
+  if (fix && CATALOG_FIX_KINDS.has(fix.kind)) {
     return {
       mode: "catalogFix",
-      fix: fromPlanner,
-      buttonLabel: catalogFixButtonLabel(fromPlanner),
+      fix,
+      buttonLabel: catalogFixButtonLabel(fix),
     };
   }
 
-  // Fallback while PR #6 cheapestFix is absent: existing cheaperHotel.
+  if (fix?.kind === "shorten-trip") {
+    const ok =
+      typeof trip.canShorten === "boolean"
+        ? trip.canShorten
+        : trip.destination && trip.startDate && trip.endDate
+          ? canShortenTripOneNight({
+              destination: trip.destination,
+              startDate: trip.startDate,
+              endDate: trip.endDate,
+              travellers: trip.travellers,
+              kids: trip.kids,
+              budgetAED: trip.budgetAED,
+              interests: trip.interests,
+            })
+          : true;
+    if (ok) return { mode: "shorten", fix };
+    // Planner said shorten but it doesn't work — fall through to raise/no-catalog.
+  }
+
+  if (fix?.kind === "raise-budget") {
+    const setBudgetAED =
+      fix.targetBudgetAed ?? budgetThatFits(trip.facts.totalAED, trip.budgetAED);
+    if (setBudgetAED > trip.budgetAED) {
+      return {
+        mode: "raiseBudget",
+        notice: LOWEST_PRICE_NOTICE,
+        setBudgetAED,
+        fix,
+      };
+    }
+  }
+
+  // Fallback: existing cheaperHotel (stays even when cheapestFix lands).
   if (trip.facts.cheaperHotel) {
     const h = trip.facts.cheaperHotel;
-    const fix: CheapestFix = {
+    const synthesized: CheapestFix = {
       kind: "swap-hotel",
       label: `Switch to ${h.title} to save ${formatAed(h.savesAED)}.`,
-      savesAED: h.savesAED,
-      apply: { catalogId: h.catalogId, itemId: trip.hotelId },
+      savingAed: h.savesAED,
     };
-    return { mode: "catalogFix", fix, buttonLabel: catalogFixButtonLabel(fix) };
+    return {
+      mode: "catalogFix",
+      fix: synthesized,
+      buttonLabel: catalogFixButtonLabel(synthesized),
+    };
   }
 
-  let setBudgetAED: number | null = null;
-  if (fromPlanner?.kind === "raise-budget") {
-    setBudgetAED =
-      fromPlanner.apply?.budgetAED ?? budgetThatFits(trip.facts.totalAED, trip.budgetAED);
-  } else {
-    setBudgetAED = budgetThatFits(trip.facts.totalAED, trip.budgetAED);
-  }
-  if (setBudgetAED != null && setBudgetAED <= trip.budgetAED) setBudgetAED = null;
+  // No planner catalog fix and no cheaperHotel — Chief line + working recovery buttons.
+  let setBudgetAED: number | null = budgetThatFits(trip.facts.totalAED, trip.budgetAED);
+  if (setBudgetAED <= trip.budgetAED) setBudgetAED = null;
 
   let shorten = false;
   if (typeof trip.canShorten === "boolean") {
     shorten = trip.canShorten;
-  } else if (fromPlanner?.kind === "shorten-trip") {
-    shorten = true;
   } else if (trip.destination && trip.startDate && trip.endDate) {
     shorten = canShortenTripOneNight({
       destination: trip.destination,

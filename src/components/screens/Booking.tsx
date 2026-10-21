@@ -8,10 +8,8 @@ import { GlassButton, GlassPanel } from "@/components/ui/glass";
 import {
   BUDGET_PRESETS_AED,
   PAYMENT_TRUST_LINE,
-  applyCatalogPrices,
   applySwap,
   swapOptions,
-  withFacts,
   withPlanDefaults,
   type ApplySwapResult,
   type DestinationId,
@@ -440,33 +438,29 @@ export function ProposeTripScreen({
     setSwapId(null);
   };
 
+  /** Apply swap-hotel via facts.cheaperHotel; meal/drop need row Swap until PR #6 adds targets. */
   const applyCatalogFix = (fix: CheapestFix) => {
     try {
-      if (fix.kind === "swap-hotel" || fix.kind === "swap-meal") {
-        const itemId =
-          fix.apply?.itemId ?? (fix.kind === "swap-hotel" ? trip.hotel.id : undefined);
-        if (!itemId) return;
-        const opts = swapOptions(trip, itemId);
-        const match =
-          (fix.apply?.optionId ? opts.find((o) => o.id === fix.apply!.optionId) : undefined) ??
-          (fix.apply?.catalogId
-            ? opts.find((o) => o.catalogId === fix.apply!.catalogId)
-            : undefined) ??
-          (trip.facts.cheaperHotel
-            ? opts.find((o) => o.catalogId === trip.facts.cheaperHotel!.catalogId)
-            : undefined);
-        if (!match) {
-          setSwapNote("I couldn't apply that change — try Swap on the row.");
+      if (fix.kind === "swap-hotel") {
+        const catalogId = trip.facts.cheaperHotel?.catalogId;
+        if (!catalogId) {
+          setSwapNote("I couldn't apply that change — try Swap on the hotel row.");
           return;
         }
-        const result = applySwap(trip, itemId, match.id);
+        const opts = swapOptions(trip, trip.hotel.id);
+        const match = opts.find((o) => o.catalogId === catalogId);
+        if (!match) {
+          setSwapNote("I couldn't apply that change — try Swap on the hotel row.");
+          return;
+        }
+        const result = applySwap(trip, trip.hotel.id, match.id);
         if (!result.ok) {
           setSwapNote(result.reason);
           return;
         }
         if (result.lateItems.length > 0) {
           setPending(result);
-          setSwapId(itemId);
+          setSwapId(trip.hotel.id);
           return;
         }
         onChange(result.trip);
@@ -475,16 +469,8 @@ export function ProposeTripScreen({
         setPending(null);
         return;
       }
-      if (fix.kind === "drop-item" && fix.apply?.itemId) {
-        const dropId = fix.apply.itemId;
-        const nextDays = trip.days.map((d) => ({
-          ...d,
-          plans: d.plans.filter((p) => p.id !== dropId),
-        }));
-        const priced = applyCatalogPrices({ ...trip, days: nextDays, status: "proposed" });
-        onChange(withFacts(priced));
-        setSwapNote(null);
-      }
+      // swap-meal / drop-item: label-only fix until planner exports apply targets.
+      setSwapNote("Use Swap on the matching row to make that change.");
     } catch {
       setSwapNote("I couldn't apply that change — try Swap on the row.");
     }
@@ -522,6 +508,35 @@ export function ProposeTripScreen({
           >
             {recovery.buttonLabel}
           </GlassButton>
+        ) : null}
+        {recovery?.mode === "shorten" ? (
+          <GlassButton
+            type="button"
+            variant="secondary"
+            className="mt-2 min-h-11 w-full tracking-wide"
+            onClick={applyShorten}
+            data-testid="over-budget-action"
+            data-action="shorten-trip"
+          >
+            Make it one night shorter
+          </GlassButton>
+        ) : null}
+        {recovery?.mode === "raiseBudget" ? (
+          <div className="mt-2 space-y-1.5">
+            <p className="text-[13px] font-light leading-snug text-ink-soft" data-testid="lowest-price-notice">
+              {recovery.notice}
+            </p>
+            <GlassButton
+              type="button"
+              variant="secondary"
+              className="min-h-11 w-full tracking-wide"
+              onClick={() => onSetBudget?.(recovery.setBudgetAED)}
+              data-testid="over-budget-action"
+              data-action="raise-budget"
+            >
+              {setBudgetButtonLabel(recovery.setBudgetAED)}
+            </GlassButton>
+          </div>
         ) : null}
         {recovery?.mode === "noCatalogFix" ? (
           <div className="mt-2 space-y-1.5">
