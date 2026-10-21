@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { parsePersistedGlideUser, serializePersistedGlideUser } from "./glide-session";
-import { bookTripStub, defaultTripRequest, proposeTripStub } from "./booking-stub";
+import { planTrip, withPlanDefaults } from "@/lib/planning";
 
 describe("parsePersistedGlideUser", () => {
   test("returns null for empty or invalid payloads", () => {
@@ -25,30 +25,29 @@ describe("parsePersistedGlideUser", () => {
     });
   });
 
-  test("persists booking + request for booked trips", () => {
-    const request = defaultTripRequest();
-    const trip = proposeTripStub(request);
-    const booking = bookTripStub(trip, "demo");
+  test("persists full Trip for demo checkout handoff", () => {
+    const request = withPlanDefaults({ destination: "ras-al-khaimah", budgetAED: 3000 });
+    const trip = planTrip(request);
     const raw = serializePersistedGlideUser({
       name: "Sam",
-      step: "route",
+      step: "review",
       reshaped: false,
-      mode: "booked",
+      mode: "planning",
       request,
-      proposedTrip: trip,
-      booking,
+      trip,
     });
     const parsed = parsePersistedGlideUser(raw);
-    expect(parsed?.booking?.tripId).toBe(booking.tripId);
-    expect(parsed?.request?.where).toBe("Ras Al Khaimah");
-    expect(parsed?.mode).toBe("booked");
+    expect(parsed?.trip?.id).toBe(trip.id);
+    expect(parsed?.trip?.facts.totalAED).toBe(trip.facts.totalAED);
+    expect(parsed?.request?.destination).toBe("ras-al-khaimah");
   });
 
-  test("booked session forces resume out of planning steps", () => {
-    const booking = bookTripStub(proposeTripStub(defaultTripRequest()), "demo");
+  test("booked trip resumes into route", () => {
+    const trip = { ...planTrip(), status: "booked" as const, confirmations: [] };
     const parsed = parsePersistedGlideUser(
-      JSON.stringify({ name: "Sam", step: "propose", booking }),
+      JSON.stringify({ name: "Sam", step: "propose", trip }),
     );
     expect(parsed?.step).toBe("route");
+    expect(parsed?.mode).toBe("booked");
   });
 });

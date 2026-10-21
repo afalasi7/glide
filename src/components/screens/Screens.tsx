@@ -4,8 +4,7 @@ import React, { createContext, useContext } from "react";
 import Image from "next/image";
 import { BotArt } from "@/components/GlideBot";
 import { CHAPTERS, clock } from "@/components/story/data";
-import { formatAed, parseTripIntentStub } from "@/lib/booking-stub";
-import type { BookingResult, ProposedTrip, TripRequest } from "@/lib/booking-types";
+import type { PlanTripRequest, Trip } from "@/lib/planning";
 import { MessageComposer } from "./MessageComposer";
 import { GlassPanel, GlassTag, useGlassColorScheme } from "@/components/ui/glass";
 
@@ -46,10 +45,8 @@ export function Fold({ left, right, className = "" }: { left: React.ReactNode; r
   );
 }
 
-/** In the real app the OS draws its own status bar, so screens drop the fake one. */
 export const BareContext = createContext(false);
 
-/** Solid paper chip so a label on photography stays readable. Glass tags were washing out to an empty pill. */
 export function PhotoLabel({ children }: { children: React.ReactNode }) {
   return (
     <span className="glide-glass-photo-label absolute bottom-2 left-2 z-10 max-w-[calc(100%-1rem)] whitespace-nowrap rounded-full bg-paper px-3 py-1.5 text-xs font-semibold leading-none text-ink shadow-[0_8px_18px_-12px_rgba(28,18,48,0.75)]">
@@ -60,25 +57,40 @@ export function PhotoLabel({ children }: { children: React.ReactNode }) {
 
 const WALLET_CHIPS = ["Apple Wallet", "Google Wallet", "Samsung Wallet"] as const;
 
-function replyFor(
-  message: string,
-  booked?: { trip: ProposedTrip | null; booking: BookingResult | null } | null,
-) {
+function parsePlanIntent(message: string): PlanTripRequest | null {
+  const q = message.toLowerCase().trim();
+  if (!q) return null;
+  const looks =
+    /\b(book|plan|weekend|trip|getaway|night|budget)\b/.test(q) ||
+    /ras al khaimah|rak|hatta|muscat/.test(q);
+  if (!looks) return null;
+  let destination: PlanTripRequest["destination"] = "ras-al-khaimah";
+  if (q.includes("hatta")) destination = "hatta";
+  if (q.includes("muscat")) destination = "muscat";
+  let travellers = 2;
+  const forMatch = q.match(/\bfor\s+(\d+|two|three|four|one)\b/);
+  if (forMatch) {
+    const token = forMatch[1]!;
+    const map: Record<string, number> = { one: 1, two: 2, three: 3, four: 4 };
+    const digits = Number(token);
+    travellers = map[token] ?? (Number.isFinite(digits) && digits > 0 ? digits : 2);
+  }
+  let budgetAED = 3000;
+  if (/\b(cheap|budget|1500)\b/.test(q)) budgetAED = 1500;
+  if (/\b(luxe|luxury|6000)\b/.test(q)) budgetAED = 6000;
+  return { destination, travellers, budgetAED };
+}
+
+function replyFor(message: string, booked?: Trip | null) {
   const q = message.toLowerCase();
-  if (booked?.trip && booked.booking) {
+  if (booked) {
     if (/^(hi|hello|hey)\b/.test(q)) {
-      return `Hello. Your demo booking for ${booked.trip.destination} is on the Trip tab (${formatAed(booked.trip.totalAed)}).`;
-    }
-    if (q.includes("hotel") || q.includes("key") || q.includes("check")) {
-      const hotelStop = booked.trip.items.find((s) => s.kind === "hotel");
-      return hotelStop
-        ? `${hotelStop.title} is booked (demo). Passes are on Plan — nothing was charged.`
-        : "This demo trip has no hotel night.";
+      return `Hello. Your ${booked.destinationLabel} weekend is on the Trip tab (AED ${booked.facts.totalAED.toLocaleString("en-AE")}).`;
     }
     if (q.includes("wallet") || q.includes("pass")) {
-      return "Wallet passes for this demo booking are on the Plan tab. Add-to-wallet is not connected.";
+      return "Wallet passes for this booking are on the Plan tab.";
     }
-    return `I'm keeping your ${booked.trip.destination} weekend together. Demo booking only — no real charge.`;
+    return `I'm keeping your ${booked.destinationLabel} plan together.`;
   }
   if (/^(hi|hello|hey)\b/.test(q)) {
     return `Hello. Dinner is held at Levant & Nar for ${clock(dinner.time)}, and Jebel Jais is tomorrow at ${clock(jais.time)}.`;
@@ -161,8 +173,8 @@ export function ChatScreen({
   booked,
   onPlanIntent,
 }: {
-  booked?: { trip: ProposedTrip | null; booking: BookingResult | null } | null;
-  onPlanIntent?: (partial: Partial<TripRequest>) => void;
+  booked?: Trip | null;
+  onPlanIntent?: (partial: PlanTripRequest) => void;
 } = {}) {
   const [messages, setMessages] = React.useState<{ from: "user" | "glide"; text: string }[]>([]);
   const latestMessage = React.useRef<HTMLParagraphElement>(null);
@@ -171,12 +183,12 @@ export function ChatScreen({
   }, [messages]);
 
   const send = (message: string) => {
-    const intent = onPlanIntent ? parseTripIntentStub(message) : null;
+    const intent = onPlanIntent ? parsePlanIntent(message) : null;
     if (intent && onPlanIntent) {
       setMessages((previous) => [
         ...previous,
         { from: "user", text: message },
-        { from: "glide", text: "I can plan that as a demo trip. I've prefilled where, when, who, and budget." },
+        { from: "glide", text: "I can plan that. I've prefilled where, when, who, and budget." },
       ]);
       onPlanIntent(intent);
       return;
@@ -195,13 +207,13 @@ export function ChatScreen({
         </div>
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto overscroll-contain px-4 py-4 text-[12px] leading-snug" data-lenis-prevent>
-        {booked?.trip ? (
+        {booked ? (
           <>
             <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">
-              {booked.trip.destination} is booked as a demo ({formatAed(booked.trip.totalAed)}). Passes are on Plan.
+              {booked.destinationLabel} is booked. Passes are on Plan.
             </p>
             <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">
-              Say something like “book a weekend in Hatta” if you want to plan another demo trip.
+              Say “book a weekend in Hatta” if you want to plan another trip.
             </p>
           </>
         ) : (

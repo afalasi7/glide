@@ -6,8 +6,7 @@ import { BotArt } from "@/components/GlideBot";
 import { PhotoLabel, Status, clock, dinner, hotel, jais, depart } from "./Screens";
 import { MessageComposer } from "./MessageComposer";
 import { GlassButton, GlassInput, GlassPanel } from "@/components/ui/glass";
-import { parseTripIntentStub } from "@/lib/booking-stub";
-import type { TripRequest } from "@/lib/booking-types";
+import type { PlanTripRequest } from "@/lib/planning";
 
 export const TRIP_DATE = "Fri 13 Nov";
 
@@ -159,12 +158,36 @@ export function ConnectScreen({ connected = true, onToggle, onNext }: { connecte
 }
 
 /** The agent area: Glide speaks first, the composer is live, and Start begins the trip. */
+function parseAgentIntent(message: string): PlanTripRequest | null {
+  const q = message.toLowerCase().trim();
+  if (!q) return null;
+  const looks =
+    /\b(book|plan|weekend|trip|getaway|night|budget)\b/.test(q) ||
+    /ras al khaimah|rak|hatta|muscat/.test(q);
+  if (!looks) return null;
+  let destination: PlanTripRequest["destination"] = "ras-al-khaimah";
+  if (q.includes("hatta")) destination = "hatta";
+  if (q.includes("muscat")) destination = "muscat";
+  let travellers = 2;
+  const forMatch = q.match(/\bfor\s+(\d+|two|three|four|one)\b/);
+  if (forMatch) {
+    const token = forMatch[1]!;
+    const map: Record<string, number> = { one: 1, two: 2, three: 3, four: 4 };
+    const digits = Number(token);
+    travellers = map[token] ?? (Number.isFinite(digits) && digits > 0 ? digits : 2);
+  }
+  let budgetAED = 3000;
+  if (/\b(cheap|budget|1500)\b/.test(q)) budgetAED = 1500;
+  if (/\b(luxe|luxury|6000)\b/.test(q)) budgetAED = 6000;
+  return { destination, travellers, budgetAED };
+}
+
 export function AgentScreen({
   onStart,
   onPlanIntent,
 }: {
   onStart?: () => void;
-  onPlanIntent?: (partial: Partial<TripRequest>) => void;
+  onPlanIntent?: (partial: PlanTripRequest) => void;
 }) {
   const [messages, setMessages] = React.useState<{ from: "user" | "glide"; text: string }[]>([]);
   const latestMessage = React.useRef<HTMLParagraphElement>(null);
@@ -199,7 +222,7 @@ export function AgentScreen({
       </div>
       <MessageComposer
         onSend={(message) => {
-          const intent = parseTripIntentStub(message);
+          const intent = parseAgentIntent(message);
           if (intent && onPlanIntent) {
             setMessages((previous) => [
               ...previous,
