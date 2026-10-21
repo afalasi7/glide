@@ -543,7 +543,7 @@ export function ProposeTripScreen({
             {recovery.setBudgetAED != null ? (
               <GlassButton
                 type="button"
-                variant={recovery.shorten ? "ghost" : "secondary"}
+                variant="secondary"
                 className="min-h-11 w-full tracking-wide"
                 onClick={() => onSetBudget?.(recovery.setBudgetAED!)}
                 data-testid={recovery.shorten ? "set-budget-action" : "over-budget-action"}
