@@ -13,6 +13,7 @@ import {
   type DestinationId,
   type PlanTripRequest,
 } from "@/lib/planning";
+import { formatAed } from "@/lib/proposal-copy";
 
 /** Mirror of PR #6 `DESTINATION_DEFAULT_BUDGET_AED`. */
 export const DESTINATION_DEFAULT_BUDGET_AED: Record<DestinationId, number> = {
@@ -38,9 +39,13 @@ export function defaultBudgetFor(destination: DestinationId | string | undefined
   return DESTINATION_DEFAULT_BUDGET_AED[id] ?? DEFAULT_BUDGET_AED;
 }
 
-/** Chief copy under budget chips — matches PR #6 `muscatAirBudgetCopy`. */
+/**
+ * Chief copy under budget chips.
+ * Same wording as PR #6 `muscatAirBudgetCopy`, but amounts use `formatAed`
+ * (thousands separators) to match the rest of the booking UI.
+ */
 export function muscatAirBudgetCopy(cheapestTotalAed: number): string {
-  return `Muscat by air starts around AED ${Math.round(cheapestTotalAed)} for two.`;
+  return `Muscat by air starts around ${formatAed(cheapestTotalAed)} for two.`;
 }
 
 export function muscatAirBudgetCopyFor(

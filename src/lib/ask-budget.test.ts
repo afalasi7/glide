@@ -56,8 +56,9 @@ describe("applyDestinationDefaultBudget", () => {
 });
 
 describe("muscatAirBudgetCopy / chip hint", () => {
-  test("formats Chief line", () => {
-    expect(muscatAirBudgetCopy(5210)).toBe("Muscat by air starts around AED 5210 for two.");
+  test("formats Chief line with thousands separators", () => {
+    expect(muscatAirBudgetCopy(5210)).toBe("Muscat by air starts around AED 5,210 for two.");
+    expect(muscatAirBudgetCopy(5330)).toBe("Muscat by air starts around AED 5,330 for two.");
   });
 
   test("hint only when Muscat selected", () => {
@@ -68,6 +69,7 @@ describe("muscatAirBudgetCopy / chip hint", () => {
       endDate: "2026-10-25",
       travellers: 2,
     });
-    expect(hint).toMatch(/^Muscat by air starts around AED \d+ for two\.$/);
+    expect(hint).toMatch(/^Muscat by air starts around AED [\d,]+ for two\.$/);
+    expect(hint).toContain(",");
   });
 });
