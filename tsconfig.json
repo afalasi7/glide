@@ -40,6 +40,7 @@
     "node_modules",
     "skills-reference",
     "src/**/*.test.ts",
+    "test",
     ".next/dev/types/**",
     "**/* 2.ts",
     "**/* 2.tsx",
