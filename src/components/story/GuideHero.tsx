@@ -54,8 +54,14 @@ export function GuideHero() {
         </p>
         <div className="mt-10 flex flex-wrap items-center gap-3">
           <Link
-            href="#day"
+            href="/app"
             className="glide-cta-solid inline-flex min-h-11 items-center justify-center rounded-full px-8 py-4 text-base font-semibold transition-colors"
+          >
+            Try the demo
+          </Link>
+          <Link
+            href="#day"
+            className="glide-cta-secondary inline-flex min-h-11 items-center justify-center rounded-full px-8 py-4 text-base font-semibold transition-colors"
           >
             Follow the trip
           </Link>

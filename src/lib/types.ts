@@ -1,3 +1,5 @@
+import { scenarioHotelBookedArrive } from "./agent/scenario";
+
 export type StopStatus = "normal" | "warning" | "conflict" | "healed";
 
 export type StopType = "departure" | "scenic" | "hotel" | "dining";
@@ -47,6 +49,9 @@ export interface AgentLogEntry {
   message: string;
   durationMs?: number;
 }
+
+/** Booked hotel arrival from `buildRakRoadTrip().nodes.hotel.bookedArriveAt` (18:30). */
+const HOTEL_BOOKED = scenarioHotelBookedArrive();
 
 export const INITIAL_STOPS: ItineraryStop[] = [
   {
@@ -98,8 +103,8 @@ export const INITIAL_STOPS: ItineraryStop[] = [
     id: "stop-3",
     order: 3,
     day: 1,
-    originalTime: "18:45",
-    currentTime: "18:45",
+    originalTime: HOTEL_BOOKED,
+    currentTime: HOTEL_BOOKED,
     title: "InterContinental RAK",
     location: "Mina Al Arab, Ras Al Khaimah",
     type: "hotel",

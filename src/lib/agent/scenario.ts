@@ -1,4 +1,4 @@
-import { at, type TripGraph } from "./dag";
+import { at, fmt, type TripGraph } from "./dag";
 
 /** The Dubai Marina → Ras Al Khaimah road trip from PRODUCT.md. */
 export function buildRakRoadTrip(): TripGraph {
@@ -79,4 +79,10 @@ export function buildRakRoadTrip(): TripGraph {
       "dinner>jais": { travelMin: 55 },
     },
   };
+}
+
+/** Booked hotel arrival (HH:MM) from the scenario graph — single source for mock screens and tools. */
+export function scenarioHotelBookedArrive(): string {
+  const booked = buildRakRoadTrip().nodes.hotel.bookedArriveAt;
+  return booked !== undefined ? fmt(booked) : "18:30";
 }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { preload } from "react-dom";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Header } from "@/components/Header";
 import { GuideHero } from "@/components/story/GuideHero";
@@ -50,6 +51,7 @@ export function GlideLandingPage() {
   );
 }
 
+/** Temporary redirect — home owns the trip guide. Another PR drops this path from the sitemap. */
 export default function HowItWorksPage() {
-  return <GlideLandingPage />;
+  redirect("/");
 }

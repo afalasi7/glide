@@ -175,6 +175,23 @@ html.glide-theme-dark .glide-cta-solid {
   color: #fff6ea;
 }
 html.glide-theme-dark .glide-cta-solid:hover { background: #6e54f7; }
+/* Secondary twin of the solid CTA — same glass secondary treatment, readable on ink. */
+.glide-cta-secondary {
+  background: var(--secondary);
+  color: var(--paper);
+  box-shadow: inset 0 0 0 1.5px color-mix(in oklch, var(--paper) 70%, transparent);
+}
+.glide-cta-secondary:hover {
+  background: color-mix(in oklch, var(--paper) 18%, transparent);
+}
+html.glide-theme-dark .glide-cta-secondary {
+  background: var(--secondary);
+  color: #fff6ea;
+  box-shadow: inset 0 0 0 1.5px color-mix(in oklch, #fff6ea 55%, transparent);
+}
+html.glide-theme-dark .glide-cta-secondary:hover {
+  background: color-mix(in oklch, #fff6ea 16%, transparent);
+}
 /* Step badges, tickets, wallet chrome */
 html.glide-theme-dark .glide-step-badge {
   background: #1c1824;

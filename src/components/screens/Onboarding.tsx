@@ -3,9 +3,9 @@
 import React from "react";
 import Image from "next/image";
 import { BotArt } from "@/components/GlideBot";
-import { Status, clock, dinner, hotel, jais, depart } from "./Screens";
+import { PhotoLabel, Status, clock, dinner, hotel, jais, depart } from "./Screens";
 import { MessageComposer } from "./MessageComposer";
-import { GlassButton, GlassInput, GlassPanel, GlassTag } from "@/components/ui/glass";
+import { GlassButton, GlassInput, GlassPanel } from "@/components/ui/glass";
 
 export const TRIP_DATE = "Fri 13 Nov";
 
@@ -186,43 +186,56 @@ export function AgentScreen({ onStart }: { onStart?: () => void }) {
   );
 }
 
-const STOPS = [
-  { c: depart, name: "Dubai Marina", note: "Leave" },
-  { c: jais, name: "Jebel Jais", note: "Sunset deck" },
-  { c: hotel, name: "InterContinental RAK", note: "Check in" },
-  { c: dinner, name: "Levant & Nar", note: "Dinner" },
+const ORIGINAL_STOPS = [
+  { key: "depart", name: "Dubai Marina", note: "Leave", time: depart.was || clock(depart.time), was: "" },
+  { key: "jais", name: "Jebel Jais", note: "Sunset deck", time: jais.was || clock(jais.time), was: "" },
+  { key: "hotel", name: "InterContinental RAK", note: "Check in", time: hotel.was || clock(hotel.time), was: "" },
+  { key: "dinner", name: "Levant & Nar", note: "Dinner", time: dinner.was || clock(dinner.time), was: "" },
 ];
 
-/** After onboarding: where to go, in order, on the original schedule. */
-export function RouteScreen({ onLate }: { onLate?: () => void }) {
+const UPDATED_STOPS = [
+  { key: "depart", name: "Dubai Marina", note: "Leave", time: clock(depart.time), was: depart.was },
+  { key: "hotel", name: "InterContinental RAK", note: "Hotel told", time: clock(hotel.time), was: hotel.was },
+  { key: "dinner", name: "Levant & Nar", note: "Dinner · no fee", time: clock(dinner.time), was: dinner.was },
+  { key: "jais", name: "Jebel Jais", note: "Tomorrow morning", time: clock(jais.time), was: jais.was },
+];
+
+/** After onboarding: where to go. Once the day is reshaped, this is the updated order. */
+export function RouteScreen({ onLate, updated = false }: { onLate?: () => void; updated?: boolean }) {
+  const stops = updated ? UPDATED_STOPS : ORIGINAL_STOPS;
   return (
     <div className="flex h-full flex-col">
-      <Status time="15:00" />
+      <Status time={updated ? "16:15" : "15:00"} />
       <div className="px-5 pt-2">
-        <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-ink-soft">{TRIP_DATE} · on schedule</p>
+        <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-ink-soft">{TRIP_DATE} · {updated ? "updated" : "on schedule"}</p>
         <h3 className="mt-1 text-[32px] leading-[0.95] tracking-[-0.02em]">
           Your <em className="text-violet">itinerary.</em>
         </h3>
       </div>
       <div className="relative mx-5 mt-3 h-[96px] overflow-hidden rounded-[28px]">
-        <Image src={jais.photo} alt="" fill sizes="260px" className="object-cover" />
-        <GlassTag className="glide-glass-photo-label absolute bottom-2 left-2 bg-card text-[10px]">Next: Jebel Jais</GlassTag>
+        <Image src={jais.photo} alt="Jebel Jais mountain road" fill sizes="(min-width: 768px) 720px, 100vw" className="object-cover" />
+        <PhotoLabel>{updated ? `Jebel Jais · tomorrow ${clock(jais.time)}` : "Next: Jebel Jais"}</PhotoLabel>
       </div>
-      <ol className="glass-panel relative mx-5 mt-3 rounded-xl px-4">
+      <ol className="glass-panel relative mx-5 mt-3 min-h-0 flex-1 overflow-y-auto rounded-xl px-4">
         <span className="absolute bottom-3 left-[29px] top-3 w-0.5 bg-ink/15" aria-hidden />
-        {STOPS.map((s, i) => (
-          <li key={s.name} className="relative flex items-center gap-3 py-2">
+        {stops.map((s, i) => (
+          <li key={s.key} className="relative flex items-center gap-3 py-2">
             <span className={`z-10 grid h-5 w-5 place-items-center rounded-full text-[10px] font-bold ${i === 0 ? "bg-violet text-paper" : "bg-paper text-ink ring-2 ring-ink/20"}`}>{i + 1}</span>
-            <div className="flex-1 leading-tight">
-              <p className="font-display text-[15px] italic">{s.name}</p>
-              <p className="text-[10.5px] text-ink-soft">{s.note}</p>
+            <div className="min-w-0 flex-1 leading-tight">
+              <p className="truncate font-display text-[15px] italic">{s.name}</p>
+              <p className="truncate text-[10.5px] text-ink-soft">{s.note}</p>
             </div>
-            <p className="num text-lg">{s.c.was || clock(s.c.time)}</p>
+            <p className="num text-right text-lg leading-none">
+              {clock(s.time)}
+              {s.was ? <span className="mt-0.5 block text-[10px] text-ink-soft line-through">{clock(s.was)}</span> : null}
+            </p>
           </li>
         ))}
       </ol>
-      <div className="mt-auto px-5 pb-5">
-        <GlassButton variant="alert" onClick={onLate} className={btn}>See how a change reshapes the trip</GlassButton>
+      <div className="mt-3 shrink-0 px-5 pb-5">
+        <GlassButton variant="alert" onClick={onLate} className={btn}>
+          {updated ? "See the updated plan" : "See how a change reshapes the trip"}
+        </GlassButton>
       </div>
     </div>
   );
