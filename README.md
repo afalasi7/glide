@@ -15,10 +15,10 @@ Open `http://127.0.0.1:3456/`. The default `bun run dev` port is 3000.
 
 ## Pages
 
-- `/` and `/how-it-works`: travel-agent guide and sample trip story
+- `/` and `/how-it-works`: original scroll-led Dubai to Ras Al Khaimah travel story
 - `/app`: interactive onboarding and trip demo
 - `/previews`: phone and foldable presentation
-- `/privacy` and `/terms`: demo policies
+- `/privacy` and `/terms`: prelaunch privacy policy and terms of service
 
 The iOS and Android Capacitor shells load `/app` from the local Next.js server. See [capacitor.config.ts](capacitor.config.ts) for the host setting.
 
@@ -31,3 +31,5 @@ bun run build
 ```
 
 The solver lives in `src/lib/agent/`. Its provider tools use an in-memory mock world. Account screens are a guided demo: they do not create accounts or verify credentials. The Google button is a demo shortcut. No live calendar, booking, hotel, or wallet provider is connected. See [PRODUCT.md](PRODUCT.md) and [DESIGN.md](DESIGN.md) for product and visual context.
+
+The first n8n travel-concierge workflow, local test endpoint, and WhatsApp connection steps are in [automation/README.md](automation/README.md). WhatsApp and booking providers are not connected yet.

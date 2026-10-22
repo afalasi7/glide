@@ -68,6 +68,49 @@ function proposeRepair(g: TripGraph, v: Violation, ev: Evaluation): ToolCallProp
       apply: (graph) => retimeReservation(graph, node.id, newTime),
     };
   }
+
+  // If the dinner node has a reservation_hold constraint but no bookingRef, create a new dining booking
+  if (v.kind === "reservation_hold" && hold?.kind === "reservation_hold" && !hold.bookingRef) {
+    const arrive = ev.timings[node.id].arriveAt;
+    let earliest = arrive;
+    for (const k of node.constraints) {
+      if (k.kind === "min_gap_after") {
+        earliest = Math.max(earliest, ev.timings[k.afterNodeId].arriveAt + k.gapMin);
+      }
+    }
+    const newTime = Math.ceil(earliest / GRID_MIN) * GRID_MIN;
+    if (newTime > hold.lastSeatAt) return null;
+    return {
+      agent: "Booking Agent",
+      tool: "create_booking",
+      args: { type: "dining", reference: hold.bookingRef, details: { time: hhmm(newTime), party: 2, table: "Standard" } },
+      rationale: `${node.label}: creating new dining reservation for ${hhmm(newTime)} party of 2.`,
+      apply: (_graph) => _graph, // create_booking is a side-effect on the world, not the graph
+    };
+  }
+
+  // If the hotel node has no booking but needs late arrival flagging, create a hotel booking
+  if (v.kind === "arrive_before" && node.kind === "hotel" && !node.bookingRef) {
+    return {
+      agent: "Booking Agent",
+      tool: "create_booking",
+      args: { type: "hotel", reference: node.bookingRef, details: { etaTime: hhmm(node.bookedArriveAt ?? 1800) } },
+      rationale: `${node.label}: creating hotel booking with expected arrival time.`,
+      apply: (_graph) => _graph,
+    };
+  }
+
+  // If a dining reservation is causing an unresolvable conflict, cancel it
+  if (v.kind === "reservation_hold" && node.bookingRef && hold?.kind !== "reservation_hold") {
+    return {
+      agent: "Booking Agent",
+      tool: "cancel_booking",
+      args: { bookingRef: node.bookingRef },
+      rationale: `${node.label}: cancelling existing booking due to unresolvable conflict.`,
+      apply: (_graph) => _graph,
+    };
+  }
+
   return null;
 }
 
@@ -158,6 +201,39 @@ export function runShockAbsorber(
         toolArgs: args, toolStatus: result.status, durationMs: result.latencyMs,
         message: `Notified ${node.label} of ${hhmm(eta)} arrival; mobile key pre-dispatched.`,
       });
+    }
+    // If hotel has no booking ref, create one
+    if (!node.bookingRef) {
+      const args = { type: "hotel", reference: node.bookingRef, details: { etaTime: hhmm(eta) } };
+      const result = executeTool(world, "create_booking", args);
+      toolResults.push(result);
+      changed = true;
+      log({
+        type: "TOOL_CALL", agent: "Booking Agent", toolName: "create_booking",
+        toolArgs: args, toolStatus: result.status, durationMs: result.latencyMs,
+        message: `Created hotel booking for ${node.label} with ${hhmm(eta)} ETA.`,
+      });
+    }
+  }
+
+  // Handle dining reservation creation or cancellation based on final state
+  const diningNode = Object.values(graph.nodes).find((n) => n.kind === "dining");
+  if (diningNode && diningNode.bookingRef) {
+    const res = world.reservations[diningNode.bookingRef];
+    // If reservation time is violated beyond repair, cancel it
+    if (res && diningNode.earliestStart) {
+      const eta = ev.timings[diningNode.id].arriveAt;
+      if (eta - diningNode.earliestStart > 30) {
+        const cancelArgs = { bookingRef: diningNode.bookingRef };
+        const result = executeTool(world, "cancel_booking", cancelArgs);
+        toolResults.push(result);
+        changed = true;
+        log({
+          type: "TOOL_CALL", agent: "Booking Agent", toolName: "cancel_booking",
+          toolArgs: cancelArgs, toolStatus: result.status, durationMs: result.latencyMs,
+          message: `Cancelled dining reservation ${diningNode.bookingRef} due to schedule conflict.`,
+        });
+      }
     }
   }
 

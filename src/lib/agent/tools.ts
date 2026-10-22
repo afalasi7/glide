@@ -8,7 +8,9 @@ export type ToolName =
   | "resequence_node"
   | "modify_dining_reservation"
   | "flag_hotel_late_arrival"
-  | "push_wallet_pass_sync";
+  | "push_wallet_pass_sync"
+  | "create_booking"
+  | "cancel_booking";
 
 export interface ToolResult {
   tool: ToolName;
@@ -23,7 +25,7 @@ export interface ToolResult {
 
 export interface MockWorld {
   reservations: Record<string, { time: string; table: string; party: number; feeCents: number; revision: number }>;
-  hotelBookings: Record<string, { etaTime: string; mobileKeyDispatched: boolean; status: "expected" | "late_flagged" }>;
+  hotelBookings: Record<string, { etaTime: string; mobileKeyDispatched: boolean; status: "expected" | "late_flagged" | "cancelled" }>;
   walletPasses: Record<string, { revision: number; lastReason: string }>;
   itineraryMoves: Record<string, { day: number; time: string }>;
 }
@@ -45,6 +47,8 @@ const LATENCY: Record<ToolName, number> = {
   modify_dining_reservation: 520,
   flag_hotel_late_arrival: 310,
   push_wallet_pass_sync: 250,
+  create_booking: 600,
+  cancel_booking: 400,
 };
 
 const TIME_RE = /^\d{2}:\d{2}$/;
@@ -107,6 +111,66 @@ export function executeTool(world: MockWorld, tool: ToolName, args: Record<strin
         world.walletPasses[p].lastReason = reason;
       }
       return ok({ updated: passIds, silent: true });
+    }
+
+    case "create_booking": {
+      const { type, reference, details } = args;
+      if (!str(type) || !str(reference)) {
+        return fail(400, "create_booking requires type and reference");
+      }
+      // Simulate creating a new booking; assign a new reference if needed
+      const newRef = reference || `NEW-${Date.now()}`;
+      if (type === "dining") {
+        if (!details || typeof details !== "object") {
+          return fail(400, "create_booking (dining) requires details object with time and party");
+        }
+        const detailObj = details as { time?: string; party?: string; table?: string; feeCents?: number };
+        if (!detailObj.time || !detailObj.party) {
+          return fail(400, "create_booking (dining) requires details with time and party");
+        }
+        const bookingRef = newRef;
+        world.reservations[bookingRef] = {
+          time: detailObj.time,
+          table: detailObj.table || "Standard",
+          party: parseInt(detailObj.party, 10) || 2,
+          feeCents: detailObj.feeCents ?? 0,
+          revision: 0,
+        };
+        return ok({ bookingRef, time: detailObj.time, table: detailObj.table || "Standard", party: parseInt(detailObj.party, 10) || 2, feeCents: detailObj.feeCents ?? 0 });
+      } else if (type === "hotel") {
+        if (!details || typeof details !== "object") {
+          return fail(400, "create_booking (hotel) requires details object with etaTime");
+        }
+        const detailObj = details as { etaTime?: string };
+        if (!detailObj.etaTime) {
+          return fail(400, "create_booking (hotel) requires details with etaTime");
+        }
+        world.hotelBookings[newRef] = {
+          etaTime: detailObj.etaTime,
+          mobileKeyDispatched: false,
+          status: "expected",
+        };
+        return ok({ bookingRef: newRef, etaTime: detailObj.etaTime, roomHeld: false, mobileKeyDispatched: false, status: "expected" });
+      }
+      return fail(400, `Unknown booking type: ${type}`);
+    }
+
+    case "cancel_booking": {
+      const { bookingRef } = args;
+      if (!str(bookingRef)) {
+        return fail(400, "cancel_booking requires bookingRef");
+      }
+      // Cancel dining reservation
+      if (world.reservations[bookingRef]) {
+        delete world.reservations[bookingRef];
+        return ok({ bookingRef, cancelled: true });
+      }
+      // Cancel hotel booking
+      if (world.hotelBookings[bookingRef]) {
+        world.hotelBookings[bookingRef].status = "cancelled";
+        return ok({ bookingRef, cancelled: true, status: "cancelled" });
+      }
+      return fail(404, `Unknown booking ${bookingRef}`);
     }
   }
 }

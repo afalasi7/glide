@@ -147,3 +147,12 @@ button:disabled { cursor: not-allowed; }
     transition-duration: 0.01ms !important;
   }
 }
+
+@keyframes landing-breathe {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(0, -16px, 0) scale(1.06); }
+}
+.landing-orb { animation: landing-breathe 12s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .landing-orb { animation: none; }
+}
