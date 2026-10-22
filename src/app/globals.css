@@ -15,7 +15,7 @@
   --mint-pale: #C4F5E1;
   --sky: #8EC5FF;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-arrive: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @theme inline {
@@ -87,7 +87,7 @@ h1, h2, h3, .font-display {
 
 button, [role="button"], a.btn {
   cursor: pointer;
-  transition: transform 180ms var(--ease-spring), background-color 180ms var(--ease-out), box-shadow 180ms var(--ease-out);
+  transition: transform 180ms var(--ease-arrive), background-color 180ms var(--ease-out), box-shadow 180ms var(--ease-out);
 }
 button:active:not(:disabled), a.btn:active { transform: scale(0.96); }
 button:disabled { cursor: not-allowed; }
@@ -96,11 +96,11 @@ button:disabled { cursor: not-allowed; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 .perspective-1000 { perspective: 1000px; }
 
-@keyframes wobble {
+@keyframes tilt {
   0%, 100% { transform: rotate(var(--r, -3deg)); }
   50% { transform: rotate(calc(var(--r, -3deg) + 3deg)); }
 }
-.wobble { animation: wobble 5s ease-in-out infinite; }
+.tilt { animation: tilt 5s ease-in-out infinite; }
 
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
@@ -122,7 +122,8 @@ button:disabled { cursor: not-allowed; }
 @media (max-width: 639px) {
   .glide-day-road-frame {
     width: 78px;
-    height: min(60svh, 480px);
+    /* Leave the arch photo min(22svh, 180px) plus the header pad, gap, and bottom pad. */
+    height: min(60svh, 480px, calc(100svh - min(22svh, 180px) - 8.5rem));
     flex: none;
   }
   .glide-day-road {

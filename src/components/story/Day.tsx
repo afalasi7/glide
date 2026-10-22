@@ -135,7 +135,7 @@ export function Day() {
             </svg>
             </div>
 
-            <div className="min-w-0 flex-1 space-y-4 sm:space-y-6 lg:space-y-8">
+            <div data-day-copy className="min-w-0 flex-1 space-y-4 sm:space-y-6 lg:space-y-8">
               <p className="text-[0.7rem] font-medium uppercase tracking-[0.2em] text-ink-soft sm:text-sm sm:tracking-[0.24em] md:text-base">
                 {i + 1} / {CHAPTERS.length} · {c.place}
               </p>
@@ -146,7 +146,7 @@ export function Day() {
                   animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
                   exit={reduce ? undefined : { opacity: 0, y: -18, filter: "blur(4px)" }}
                   transition={{ duration: 0.45, ease: [0.23, 1, 0.32, 1] }}
-                  className="space-y-4 sm:space-y-6 lg:space-y-8"
+                  className="space-y-4 sm:space-y-6 lg:space-y-4"
                 >
                   <p className="num flex items-baseline gap-3 text-[clamp(3.5rem,15vw,9.5rem)] leading-[0.8] tracking-[-0.03em] text-ink sm:gap-5">
                     {c.time}
@@ -159,16 +159,19 @@ export function Day() {
                   <p className="max-w-[18ch] text-[clamp(1.5rem,6.2vw,3.6rem)] font-light leading-[1.1] tracking-[-0.02em] text-ink">
                     {c.problem}
                   </p>
-                  <p className="max-w-[34ch] text-base leading-relaxed text-violet sm:text-xl lg:text-[1.65rem]">
-                    <span className="font-semibold">Glide: </span>
-                    {c.fix}
+                  <p
+                    data-road-say
+                    className="max-w-[min(22rem,100%)] rounded-2xl rounded-bl-md bg-paper px-3 py-2 text-[13px] font-medium leading-snug text-ink shadow-lift sm:max-w-none sm:text-base lg:text-lg"
+                    aria-live="polite"
+                  >
+                    {SAY[i]}
                   </p>
                 </motion.div>
               </AnimatePresence>
             </div>
           </div>
 
-          <div className="relative mx-auto h-[min(16svh,140px)] w-full max-w-[360px] self-center overflow-hidden rounded-t-[999px] rounded-b-[40px] shadow-lift sm:h-[min(26vh,240px)] sm:max-w-[460px] lg:mx-0 lg:h-[min(84vh,800px)] lg:max-w-[580px] lg:justify-self-end">
+          <div className="relative mx-auto h-[min(22svh,180px)] w-full max-w-[360px] self-center overflow-hidden rounded-t-[999px] rounded-b-[40px] shadow-lift sm:h-[min(26vh,240px)] sm:max-w-[460px] lg:mx-0 lg:h-[min(84vh,800px)] lg:max-w-[580px] lg:justify-self-end">
             <AnimatePresence initial={false} mode="sync">
               <motion.div
                 key={c.key}

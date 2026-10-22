@@ -2,12 +2,13 @@
 
 import React, { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { GlideBot, type BotMood } from "@/components/GlideBot";
 
 /** Sections announce what the agent should say via `data-say`; the story can also dispatch a "glide:say" event. */
 export function AgentCompanion() {
   const pathname = usePathname();
+  const reduce = useReducedMotion();
   const [text, setText] = useState("");
   const [hop, setHop] = useState(0);
   const [scrolling, setScrolling] = useState(false);
@@ -94,9 +95,9 @@ export function AgentCompanion() {
   }, [pathname]);
 
   if (pathname !== "/" && pathname !== "/how-it-works") return null;
-  // One mascot at a time: the road already draws one, and a pass code needs a clear corner.
-  // Below 640px the float stays off so it cannot cover the headline or the day copy.
-  if (roadOnScreen || passOnScreen) return null;
+  // One mascot at a time. Below 640px the float stays off. On larger screens it fades
+  // instead of vanishing when the road or a pass code is in view.
+  const tucked = roadOnScreen || passOnScreen;
 
   const mood: BotMood = happy ? "happy" : scrolling ? "working" : "idle";
 
@@ -104,7 +105,12 @@ export function AgentCompanion() {
   const place = onFinale ? "bottom-[5.5rem] opacity-90 sm:bottom-28" : "bottom-3 sm:bottom-5";
 
   return (
-    <div className={`pointer-events-none fixed right-4 z-40 hidden w-max max-w-[calc(100vw-3rem)] items-end gap-2 sm:right-8 sm:flex ${place}`}>
+    <motion.div
+      aria-hidden={tucked}
+      animate={{ opacity: tucked ? 0 : 1 }}
+      transition={{ duration: reduce ? 0 : 0.28, ease: [0.23, 1, 0.32, 1] }}
+      className={`pointer-events-none fixed right-4 z-40 hidden w-max max-w-[calc(100vw-3rem)] items-end gap-2 sm:right-8 sm:flex ${place}`}
+    >
       <AnimatePresence mode="wait">
         {text && (
           <motion.p
@@ -112,7 +118,7 @@ export function AgentCompanion() {
             initial={{ opacity: 0, x: 16, scale: 0.9 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 8 }}
-            transition={{ type: "spring", stiffness: 420, damping: 28 }}
+            transition={reduce ? { duration: 0 } : { duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
             className="glide-glass glass-control relative mb-6 min-w-0 max-w-[min(15.5rem,calc(100vw-7rem))] rounded-[22px] rounded-br-md bg-card px-4 py-3 text-sm font-medium leading-snug break-words text-ink sm:text-[15px]"
             aria-live="polite"
           >
@@ -121,6 +127,6 @@ export function AgentCompanion() {
         )}
       </AnimatePresence>
       <GlideBot size={onFinale ? 64 : 84} mood={mood} hop={hop} className="shrink-0 drop-shadow-lg" />
-    </div>
+    </motion.div>
   );
 }
