@@ -4,7 +4,25 @@ import React, { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { BareContext, PlanScreen, ChatScreen } from "./Screens";
 import { WelcomeScreen, AuthScreen, IntroScreen, ConnectScreen, AgentScreen, RouteScreen } from "./Onboarding";
+import {
+  AskPrefsScreen,
+  BookedPlanScreen,
+  BookedRouteScreen,
+  BookingConfirmScreen,
+  ChooseTripScreen,
+  ProposeTripScreen,
+  ReviewBookScreen,
+  withPlanDefaults,
+} from "./Booking";
 import { useGlassColorScheme } from "@/components/ui/glass";
+import {
+  confirmDemoCheckout,
+  getCheckoutStatus,
+  reportCheckoutCancelled,
+  requestCheckout,
+} from "@/lib/checkout/startCheckout";
+import { resolveCheckoutStatusUi } from "@/lib/checkout/outcome";
+import { planTrip, type PlanTripRequest, type Trip } from "@/lib/planning";
 import {
   clearPersistedGlideUser,
   readPersistedGlideUser,
@@ -15,7 +33,7 @@ import {
 } from "@/lib/glide-session";
 
 type Step = GlideStep;
-const TABS: { id: ResumableStep; label: string }[] = [
+const TABS: { id: Extract<ResumableStep, "route" | "plan" | "chat">; label: string }[] = [
   { id: "route", label: "Trip" },
   { id: "plan", label: "Plan" },
   { id: "chat", label: "Glide" },
@@ -26,18 +44,28 @@ type Session = {
   step: Step;
   connected: boolean;
   reshaped: boolean;
+  mode: "demo" | "booked" | "planning";
+  request: PlanTripRequest;
+  askIndex: number;
+  trip: Trip | null;
 };
 
-const EMPTY: Session = { name: "", step: "welcome", connected: false, reshaped: false };
+const EMPTY: Session = {
+  name: "",
+  step: "welcome",
+  connected: false,
+  reshaped: false,
+  mode: "planning",
+  request: withPlanDefaults(),
+  askIndex: 0,
+  trip: null,
+};
 
-/** Filled once on the client so storage is not re-read every render. */
 let persistedCache: PersistedGlideUser | null | undefined;
 const persistListeners = new Set<() => void>();
 
 function getPersistedSnapshot(): PersistedGlideUser | null {
-  if (persistedCache === undefined) {
-    persistedCache = readPersistedGlideUser();
-  }
+  if (persistedCache === undefined) persistedCache = readPersistedGlideUser();
   return persistedCache;
 }
 
@@ -51,16 +79,52 @@ function setPersistedCache(next: PersistedGlideUser | null) {
   persistListeners.forEach((notify) => notify());
 }
 
-function persistTrip(session: Session) {
+function sessionFromPersisted(p: PersistedGlideUser): Session {
+  const booked = p.trip?.status === "booked" || p.trip?.status === "paid";
+  return {
+    name: p.name,
+    step: p.step,
+    connected: true,
+    reshaped: p.reshaped,
+    mode: booked ? "booked" : p.mode === "demo" ? "demo" : "planning",
+    request: p.request ?? withPlanDefaults(),
+    askIndex: p.askIndex ?? 0,
+    trip: p.trip ?? null,
+  };
+}
+
+function persistSession(session: Session) {
   if (!session.name.trim()) return;
   const step: ResumableStep =
-    session.step === "route" || session.step === "plan" || session.step === "chat" ? session.step : "route";
-  const payload: PersistedGlideUser = { name: session.name.trim(), step, reshaped: session.reshaped };
+    session.step === "welcome" ||
+    session.step === "signup" ||
+    session.step === "signin" ||
+    session.step === "intro" ||
+    session.step === "connect" ||
+    session.step === "agent"
+      ? "choose"
+      : (session.step as ResumableStep);
+  const payload: PersistedGlideUser = {
+    name: session.name.trim(),
+    step,
+    reshaped: session.reshaped,
+    mode: session.mode,
+    request: session.request,
+    askIndex: session.askIndex,
+    trip: session.trip,
+  };
   writePersistedGlideUser(payload);
   setPersistedCache(payload);
 }
 
-/** The real flow: onboarding, then the trip. Runs full-screen in the simulators. */
+function clearCheckoutQuery() {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has("checkout")) return;
+  url.search = "";
+  window.history.replaceState({}, "", url.pathname);
+}
+
 export function GlideApp() {
   const dark = useGlassColorScheme();
   const reducedMotion = useReducedMotion();
@@ -73,6 +137,10 @@ export function GlideApp() {
   const persisted = useSyncExternalStore(subscribePersisted, getPersistedSnapshot, () => null);
   const [override, setOverride] = useState<Session | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [demoConfirm, setDemoConfirm] = useState(false);
+  const checkoutHandled = useRef(false);
 
   useEffect(() => {
     const viewport = window.visualViewport;
@@ -88,24 +156,95 @@ export function GlideApp() {
     };
   }, []);
 
-  const session: Session =
-    override ??
-    (persisted
-      ? { name: persisted.name, step: persisted.step, connected: true, reshaped: persisted.reshaped }
-      : EMPTY);
-
-  const { name, step, connected, reshaped } = session;
+  const session: Session = override ?? (persisted ? sessionFromPersisted(persisted) : EMPTY);
+  const { name, step, connected, reshaped, mode, request, askIndex, trip } = session;
 
   const patch = (next: Partial<Session>) => {
     const merged = { ...session, ...next };
-    if (merged.name.trim()) persistTrip(merged);
+    if (merged.name.trim()) persistSession(merged);
     setOverride(merged);
     setConfirmReset(false);
   };
 
+  // Handle Stripe / demo return query params once.
+  useEffect(() => {
+    if (!ready || checkoutHandled.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const checkout = params.get("checkout");
+    if (!checkout) return;
+    checkoutHandled.current = true;
+
+    const run = async () => {
+      const stored = session.trip;
+      if (checkout === "demo") {
+        setDemoConfirm(true);
+        setNotice(params.get("message") ?? "Demo only. Nothing was charged.");
+        patch({ step: "review", trip: stored });
+        return;
+      }
+      if (checkout === "cancel") {
+        const sessionId = params.get("session_id") ?? undefined;
+        if (stored || sessionId) {
+          try {
+            await reportCheckoutCancelled({ trip: stored ?? undefined, sessionId });
+          } catch {
+            /* keep plan */
+          }
+        }
+        const outcome = resolveCheckoutStatusUi({ status: "failed" }, stored);
+        setNotice(outcome.kind === "failed" ? outcome.notice : null);
+        setDemoConfirm(false);
+        patch({
+          step: "review",
+          mode: "planning",
+          trip: outcome.kind === "failed" ? outcome.trip : stored,
+        });
+        clearCheckoutQuery();
+        return;
+      }
+      if (checkout === "success") {
+        const sessionId = params.get("session_id") ?? undefined;
+        try {
+          const status = sessionId
+            ? await getCheckoutStatus({ sessionId })
+            : stored
+              ? await getCheckoutStatus({ trip: stored })
+              : { status: "pending" as const };
+          const outcome = resolveCheckoutStatusUi(status, stored);
+          if (outcome.kind === "paid") {
+            setDemoConfirm(false);
+            setNotice(null);
+            patch({ trip: outcome.trip, mode: "booked", step: "confirming" });
+          } else if (outcome.kind === "pending") {
+            setDemoConfirm(false);
+            setNotice(outcome.notice);
+            // Waiting — stay on review with the saved plan; no tickets.
+            patch({ step: "review", mode: "planning", trip: stored });
+          } else {
+            // failed or refunded — message, no tickets, plan kept for retry
+            setDemoConfirm(false);
+            setNotice(outcome.notice);
+            patch({ step: "review", mode: "planning", trip: outcome.trip });
+          }
+        } catch {
+          const outcome = resolveCheckoutStatusUi({ status: "failed" }, stored);
+          setNotice(outcome.kind === "failed" ? outcome.notice : null);
+          patch({
+            step: "review",
+            mode: "planning",
+            trip: outcome.kind === "failed" ? outcome.trip : stored,
+          });
+        }
+        clearCheckoutQuery();
+      }
+    };
+    void run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount for return URLs
+  }, [ready]);
+
   const done = (n: string) => {
-    const next: Session = { name: n, step: "intro", connected: false, reshaped: false };
-    persistTrip({ ...next, step: "route" });
+    const next: Session = { ...EMPTY, name: n, step: "intro", request: withPlanDefaults() };
+    persistSession({ ...next, step: "choose" });
     setOverride(next);
     setConfirmReset(false);
   };
@@ -115,10 +254,70 @@ export function GlideApp() {
     setPersistedCache(null);
     setOverride(EMPTY);
     setConfirmReset(false);
+    setNotice(null);
+    setDemoConfirm(false);
+    clearCheckoutQuery();
+  };
+
+  const beginPlan = (nextRequest?: PlanTripRequest) => {
+    patch({
+      mode: "planning",
+      request: withPlanDefaults(nextRequest ?? {}),
+      askIndex: 0,
+      trip: null,
+      step: "ask",
+    });
+    setDemoConfirm(false);
+    setNotice(null);
+  };
+
+  const finishAsk = () => {
+    const planned = planTrip(request);
+    patch({ trip: planned, step: "propose" });
+  };
+
+  const runCheckout = async () => {
+    if (!trip || checkoutBusy) return;
+    setCheckoutBusy(true);
+    setNotice(null);
+    try {
+      // Persist before redirect so demo/stripe return can restore the full trip.
+      persistSession({ ...session, trip, step: "review" });
+      const result = await requestCheckout(trip);
+      if (result.mode === "stripe") {
+        window.location.assign(result.url);
+        return;
+      }
+      setDemoConfirm(true);
+      setNotice(result.message);
+      const params = new URLSearchParams({ checkout: "demo", trip_id: result.tripId, message: result.message });
+      window.history.replaceState({}, "", `/app?${params.toString()}`);
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "Checkout failed");
+    } finally {
+      setCheckoutBusy(false);
+    }
+  };
+
+  const runDemoConfirm = async () => {
+    if (!trip || checkoutBusy) return;
+    setCheckoutBusy(true);
+    try {
+      const result = await confirmDemoCheckout(trip);
+      patch({ trip: result.trip, mode: "booked", step: "confirming" });
+      setDemoConfirm(false);
+      setNotice(null);
+      clearCheckoutQuery();
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "Demo confirm failed");
+    } finally {
+      setCheckoutBusy(false);
+    }
   };
 
   const inTrip = step === "route" || step === "plan" || step === "chat";
   const fadeMs = reducedMotion ? 0 : 0.12;
+  const booked = mode === "booked" && trip && (trip.status === "booked" || trip.status === "paid" || Boolean(trip.confirmations?.length));
 
   return (
     <BareContext.Provider value>
@@ -128,7 +327,7 @@ export function GlideApp() {
             {ready ? (
               <AnimatePresence initial={false} mode="wait">
                 <motion.div
-                  key={step}
+                  key={step + (trip?.id ?? mode) + (demoConfirm ? "-demo" : "")}
                   initial={reducedMotion ? false : { opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={reducedMotion ? { opacity: 1 } : { opacity: 0 }}
@@ -146,15 +345,70 @@ export function GlideApp() {
                       onNext={() => patch({ step: "agent" })}
                     />
                   )}
-                  {step === "agent" && <AgentScreen onStart={() => patch({ step: "route" })} />}
-                  {step === "route" && (
-                    <RouteScreen
-                      updated={reshaped}
-                      onLate={() => patch({ reshaped: true, step: "plan" })}
+                  {step === "agent" && (
+                    <AgentScreen
+                      onStart={() => patch({ step: "choose" })}
+                      onPlanIntent={(partial) => beginPlan(partial)}
                     />
                   )}
-                  {step === "plan" && <PlanScreen />}
-                  {step === "chat" && <ChatScreen />}
+                  {step === "choose" && (
+                    <ChooseTripScreen
+                      onDemo={() => patch({ mode: "demo", trip: null, step: "route", reshaped: false })}
+                      onPlan={() => beginPlan()}
+                    />
+                  )}
+                  {step === "ask" && (
+                    <AskPrefsScreen
+                      request={request}
+                      index={askIndex}
+                      onChange={(next) => patch({ request: next })}
+                      onBack={askIndex > 0 ? () => patch({ askIndex: askIndex - 1 }) : () => patch({ step: "choose" })}
+                      onNext={() => {
+                        if (askIndex >= 3) finishAsk();
+                        else patch({ askIndex: askIndex + 1 });
+                      }}
+                    />
+                  )}
+                  {step === "propose" && trip && (
+                    <ProposeTripScreen
+                      trip={trip}
+                      onChange={(next) => patch({ trip: next })}
+                      onBack={() => patch({ step: "ask", askIndex: 3 })}
+                      onReview={() => patch({ step: "review" })}
+                      onSetBudget={(budgetAED) => {
+                        const nextRequest = withPlanDefaults({ ...request, budgetAED });
+                        patch({ request: nextRequest, trip: planTrip(nextRequest) });
+                      }}
+                    />
+                  )}
+                  {step === "review" && trip && (
+                    <ReviewBookScreen
+                      trip={trip}
+                      busy={checkoutBusy}
+                      notice={notice}
+                      onBack={() => {
+                        setDemoConfirm(false);
+                        patch({ step: "propose" });
+                      }}
+                      onBook={demoConfirm ? undefined : runCheckout}
+                      onDemoConfirm={demoConfirm ? runDemoConfirm : undefined}
+                    />
+                  )}
+                  {step === "confirming" && trip && (
+                    <BookingConfirmScreen trip={trip} onEnter={() => patch({ step: "route", mode: "booked" })} />
+                  )}
+                  {step === "route" && booked && trip && <BookedRouteScreen trip={trip} />}
+                  {step === "route" && !booked && (
+                    <RouteScreen updated={reshaped} onLate={() => patch({ reshaped: true, step: "plan" })} />
+                  )}
+                  {step === "plan" && booked && trip && <BookedPlanScreen trip={trip} />}
+                  {step === "plan" && !booked && <PlanScreen />}
+                  {step === "chat" && (
+                    <ChatScreen
+                      booked={booked ? trip : null}
+                      onPlanIntent={(partial) => beginPlan(partial)}
+                    />
+                  )}
                 </motion.div>
               </AnimatePresence>
             ) : null}

@@ -4,6 +4,7 @@ import React, { createContext, useContext } from "react";
 import Image from "next/image";
 import { BotArt } from "@/components/GlideBot";
 import { CHAPTERS, clock } from "@/components/story/data";
+import type { PlanTripRequest, Trip } from "@/lib/planning";
 import { MessageComposer } from "./MessageComposer";
 import { GlassPanel, GlassTag, useGlassColorScheme } from "@/components/ui/glass";
 
@@ -44,10 +45,8 @@ export function Fold({ left, right, className = "" }: { left: React.ReactNode; r
   );
 }
 
-/** In the real app the OS draws its own status bar, so screens drop the fake one. */
 export const BareContext = createContext(false);
 
-/** Solid paper chip so a label on photography stays readable. Glass tags were washing out to an empty pill. */
 export function PhotoLabel({ children }: { children: React.ReactNode }) {
   return (
     <span className="glide-glass-photo-label absolute bottom-2 left-2 z-10 max-w-[calc(100%-1rem)] whitespace-nowrap rounded-full bg-paper px-3 py-1.5 text-xs font-semibold leading-none text-ink shadow-[0_8px_18px_-12px_rgba(28,18,48,0.75)]">
@@ -58,8 +57,41 @@ export function PhotoLabel({ children }: { children: React.ReactNode }) {
 
 const WALLET_CHIPS = ["Apple Wallet", "Google Wallet", "Samsung Wallet"] as const;
 
-function replyFor(message: string) {
+function parsePlanIntent(message: string): PlanTripRequest | null {
+  const q = message.toLowerCase().trim();
+  if (!q) return null;
+  const looks =
+    /\b(book|plan|weekend|trip|getaway|night|budget)\b/.test(q) ||
+    /ras al khaimah|rak|hatta|muscat/.test(q);
+  if (!looks) return null;
+  let destination: PlanTripRequest["destination"] = "ras-al-khaimah";
+  if (q.includes("hatta")) destination = "hatta";
+  if (q.includes("muscat")) destination = "muscat";
+  let travellers = 2;
+  const forMatch = q.match(/\bfor\s+(\d+|two|three|four|one)\b/);
+  if (forMatch) {
+    const token = forMatch[1]!;
+    const map: Record<string, number> = { one: 1, two: 2, three: 3, four: 4 };
+    const digits = Number(token);
+    travellers = map[token] ?? (Number.isFinite(digits) && digits > 0 ? digits : 2);
+  }
+  let budgetAED = 3000;
+  if (/\b(cheap|budget|1500)\b/.test(q)) budgetAED = 1500;
+  if (/\b(luxe|luxury|6000)\b/.test(q)) budgetAED = 6000;
+  return { destination, travellers, budgetAED };
+}
+
+function replyFor(message: string, booked?: Trip | null) {
   const q = message.toLowerCase();
+  if (booked) {
+    if (/^(hi|hello|hey)\b/.test(q)) {
+      return `Hello. Your ${booked.destinationLabel} weekend is on the Trip tab (AED ${booked.facts.totalAED.toLocaleString("en-AE")}).`;
+    }
+    if (q.includes("wallet") || q.includes("pass")) {
+      return "Wallet passes for this booking are on the Plan tab.";
+    }
+    return `I'm keeping your ${booked.destinationLabel} plan together.`;
+  }
   if (/^(hi|hello|hey)\b/.test(q)) {
     return `Hello. Dinner is held at Levant & Nar for ${clock(dinner.time)}, and Jebel Jais is tomorrow at ${clock(jais.time)}.`;
   }
@@ -137,12 +169,33 @@ export function PlanScreen() {
   );
 }
 
-export function ChatScreen() {
+export function ChatScreen({
+  booked,
+  onPlanIntent,
+}: {
+  booked?: Trip | null;
+  onPlanIntent?: (partial: PlanTripRequest) => void;
+} = {}) {
   const [messages, setMessages] = React.useState<{ from: "user" | "glide"; text: string }[]>([]);
   const latestMessage = React.useRef<HTMLParagraphElement>(null);
   React.useEffect(() => {
     if (messages.length) latestMessage.current?.scrollIntoView({ block: "nearest" });
   }, [messages]);
+
+  const send = (message: string) => {
+    const intent = onPlanIntent ? parsePlanIntent(message) : null;
+    if (intent && onPlanIntent) {
+      setMessages((previous) => [
+        ...previous,
+        { from: "user", text: message },
+        { from: "glide", text: "I can plan that. I've prefilled where, when, who, and budget." },
+      ]);
+      onPlanIntent(intent);
+      return;
+    }
+    setMessages((previous) => [...previous, { from: "user", text: message }, { from: "glide", text: replyFor(message, booked) }]);
+  };
+
   return (
     <div className="flex h-full flex-col">
       <Status time="16:18" />
@@ -154,30 +207,43 @@ export function ChatScreen() {
         </div>
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto overscroll-contain px-4 py-4 text-[12px] leading-snug" data-lenis-prevent>
-        <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">The day shifted, so I reshaped the rest of your trip. Jebel Jais is now tomorrow at {clock(jais.time)}.</p>
-        <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">I kept your table. Levant &amp; Nar is now {clock(dinner.time)}, no fee.</p>
-        <GlassPanel className="max-w-[92%] p-2">
-          <div className="relative h-20 overflow-hidden rounded-xl">
-            <Image src={dinner.photo} alt="" fill sizes="240px" className="object-cover" />
-            <span className="absolute bottom-1.5 left-2 font-display text-lg italic text-white">Levant &amp; Nar</span>
-            <span className="num absolute bottom-1.5 right-2 text-xl text-white">{clock(dinner.time)}</span>
-          </div>
-          <p className="mt-2 px-1 text-[12px] font-semibold">Dinner at Levant &amp; Nar</p>
-          <p className="px-1 text-[10px] text-ink-soft">Updated for {clock(dinner.time)} · no fee</p>
-        </GlassPanel>
-        <ul className="flex flex-wrap gap-1.5" aria-label="Wallet passes in the demo">
-          {WALLET_CHIPS.map((w) => (
-            <li key={w}>
-              <button
-                type="button"
-                className="inline-flex min-h-11 items-center rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-secondary-foreground ring-1 ring-foreground/20 transition-colors hover:bg-accent"
-                onClick={() => setMessages((previous) => [...previous, { from: "glide", text: walletReply(w) }])}
-              >
-                {w}
-              </button>
-            </li>
-          ))}
-        </ul>
+        {booked ? (
+          <>
+            <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">
+              {booked.destinationLabel} is booked. Passes are on Plan.
+            </p>
+            <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">
+              Say “book a weekend in Hatta” if you want to plan another trip.
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">The day shifted, so I reshaped the rest of your trip. Jebel Jais is now tomorrow at {clock(jais.time)}.</p>
+            <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">I kept your table. Levant &amp; Nar is now {clock(dinner.time)}, no fee.</p>
+            <GlassPanel className="max-w-[92%] p-2">
+              <div className="relative h-20 overflow-hidden rounded-xl">
+                <Image src={dinner.photo} alt="" fill sizes="240px" className="object-cover" />
+                <span className="absolute bottom-1.5 left-2 font-display text-lg italic text-white">Levant &amp; Nar</span>
+                <span className="num absolute bottom-1.5 right-2 text-xl text-white">{clock(dinner.time)}</span>
+              </div>
+              <p className="mt-2 px-1 text-[12px] font-semibold">Dinner at Levant &amp; Nar</p>
+              <p className="px-1 text-[10px] text-ink-soft">Updated for {clock(dinner.time)} · no fee</p>
+            </GlassPanel>
+            <ul className="flex flex-wrap gap-1.5" aria-label="Wallet passes in the demo">
+              {WALLET_CHIPS.map((w) => (
+                <li key={w}>
+                  <button
+                    type="button"
+                    className="inline-flex min-h-11 items-center rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-secondary-foreground ring-1 ring-foreground/20 transition-colors hover:bg-accent"
+                    onClick={() => setMessages((previous) => [...previous, { from: "glide", text: walletReply(w) }])}
+                  >
+                    {w}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
         {messages.map((message, index) => (
           <p
             key={index}
@@ -191,7 +257,7 @@ export function ChatScreen() {
           </p>
         ))}
       </div>
-      <MessageComposer onSend={(message) => setMessages((previous) => [...previous, { from: "user", text: message }, { from: "glide", text: replyFor(message) }])} />
+      <MessageComposer onSend={send} />
     </div>
   );
 }
