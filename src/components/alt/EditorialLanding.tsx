@@ -27,7 +27,7 @@ function Reveal({ children, className = "", delay = 0 }: { children: React.React
 
 function Hero() {
   return (
-    <section className="relative isolate overflow-hidden bg-ink text-paper">
+    <section className="relative isolate overflow-hidden bg-cream text-ink">
       <Image
         src="/images/hd/jebel_jais_sunset.jpg"
         alt="The road through the Jebel Jais mountains at sunset"
@@ -36,32 +36,31 @@ function Hero() {
         sizes="100vw"
         className="object-cover object-center"
       />
-      <div className="absolute inset-0 bg-gradient-to-r from-ink via-ink/85 to-ink/40" aria-hidden />
-      <div className="absolute inset-0 bg-gradient-to-t from-ink via-transparent to-ink/60" aria-hidden />
+      <div className="glide-scrim absolute inset-0" aria-hidden />
 
       <div className="relative mx-auto flex min-h-[86svh] max-w-6xl flex-col justify-between px-5 pb-14 pt-32 sm:px-8 sm:pb-20 sm:pt-40">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-paper/25 pb-4 text-xs font-medium uppercase tracking-[0.24em] text-paper/75">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-ink/15 pb-4 text-xs font-medium uppercase tracking-[0.24em] text-ink-soft">
           <span>Glide</span>
           <span className="hidden sm:inline">Issue 01 · The trip that bends</span>
           <span>Dubai → Ras Al Khaimah</span>
         </div>
 
         <div className="py-14">
-          <p className="text-sm font-medium uppercase tracking-[0.2em] text-sun">A 75-minute delay, handled</p>
+          <p className="text-sm font-medium uppercase tracking-[0.2em] text-violet">A 75-minute delay, handled</p>
           <h1 className="mt-5 max-w-[15ch] text-[clamp(3rem,10vw,7.5rem)] leading-[0.9] tracking-[-0.035em]">
             A late flight is not a lost day. <span className="italic">It is a re-plan.</span>
           </h1>
         </div>
 
-        <div className="grid gap-8 border-t border-paper/25 pt-6 md:grid-cols-[1.1fr_0.9fr] md:items-end">
-          <p className="max-w-[52ch] text-lg leading-relaxed text-paper/80">
+        <div className="grid gap-8 border-t border-ink/15 pt-6 md:grid-cols-[1.1fr_0.9fr] md:items-end">
+          <p className="max-w-[52ch] text-lg leading-relaxed text-ink-soft">
             Three reservations move at once when a departure slips out of Dubai Marina. This is how a travel agent that lives in your messages keeps the sunset, the table, and the hotel in step — and waits for your yes.
           </p>
           <div className="flex flex-wrap gap-3 md:justify-self-end">
             <Link href="#delay" className="glide-cta-solid inline-flex min-h-11 items-center rounded-full px-7 py-3 font-semibold">
               Read the re-plan
             </Link>
-            <Link href="/alt-conversation" className="inline-flex min-h-11 items-center rounded-full border border-paper/35 px-7 py-3 font-semibold">
+            <Link href="/alt-conversation" className="inline-flex min-h-11 items-center rounded-full border border-ink/25 px-7 py-3 font-semibold">
               Chat version
             </Link>
           </div>
