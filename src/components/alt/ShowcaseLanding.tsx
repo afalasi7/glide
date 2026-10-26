@@ -280,10 +280,13 @@ function Showroom() {
               sizes="(min-width: 1280px) 1152px, 100vw"
               className="object-cover"
             />
-            <div className="glide-scrim absolute inset-0" aria-hidden />
+            <div
+              className="absolute inset-0 bg-gradient-to-br from-ink/88 via-ink/55 to-ink/15"
+              aria-hidden
+            />
             <div className="relative flex min-h-[460px] flex-col justify-end p-6 sm:min-h-[560px] sm:p-10">
               <div className="flex flex-wrap items-end justify-between gap-8">
-                <p className="max-w-[16ch] font-display text-[clamp(1.9rem,4.5vw,3.4rem)] italic leading-[1.02] text-ink">
+                <p className="max-w-[16ch] font-display text-[clamp(1.9rem,4.5vw,3.4rem)] italic leading-[1.02] text-paper">
                   The whole day, held in one ticket.
                 </p>
                 <TripTicket

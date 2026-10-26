@@ -156,18 +156,3 @@ button:disabled { cursor: not-allowed; }
 @media (prefers-reduced-motion: reduce) {
   .landing-orb { animation: none; }
 }
-
-/* Theme-aware scrim over photography.
-   Driven by --cream (which flips in dark mode), so one rule covers both
-   themes: light wash in light mode, dark wash in dark mode. Heaviest at
-   the edges where the text sits, lighter through the middle so the photo
-   still reads. */
-.glide-scrim {
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--cream) 95%, transparent) 0%,
-    color-mix(in srgb, var(--cream) 58%, transparent) 38%,
-    color-mix(in srgb, var(--cream) 58%, transparent) 62%,
-    color-mix(in srgb, var(--cream) 95%, transparent) 100%
-  );
-}

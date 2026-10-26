@@ -52,10 +52,14 @@ skills-reference
 # graphify generated map (build locally with: graphify .)
 graphify-out/
 
-# iCloud Drive duplicates ("foo 2.txt" alongside "foo.txt") — never commit these.
-* 2.*
-* 3.*
-* 4.*
+# iCloud Drive duplicates ("foo 2.txt" or "foo 2" alongside "foo.txt") — never commit.
+# gitignore supports character classes, so cover numbered copies with and without
+# an extension. (tsconfig.json globs do NOT support [0-9], which is why it uses
+# `**/* *.ts` instead.)
+* [0-9]
+* [0-9].*
+* [0-9][0-9]
+* [0-9][0-9].*
 
 # Local / generated
 /output/
