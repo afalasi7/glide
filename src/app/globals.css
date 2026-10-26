@@ -160,14 +160,19 @@ button:disabled { cursor: not-allowed; }
 /* Theme-aware scrim over the full-bleed photography.
    Light mode: a light spotlight — the page reads light and the photograph
    shows through the middle.
-   Dark mode: the original ink scrim, unchanged. */
+   Dark mode: the original ink scrim, unchanged.
+
+   The rgba() values mirror --cream / --ink rather than using color-mix():
+   the build minifier collapses `color-mix(in srgb, var(--cream) 62%,
+   transparent)` down to `var(--cream)`, silently dropping the alpha and
+   hiding the photo completely. */
 .glide-scrim {
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--cream) 97%, transparent) 0%,
-    color-mix(in srgb, var(--cream) 62%, transparent) 42%,
-    color-mix(in srgb, var(--cream) 62%, transparent) 58%,
-    color-mix(in srgb, var(--cream) 97%, transparent) 100%
+    rgba(255, 243, 223, 0.97) 0%,
+    rgba(255, 243, 223, 0.62) 42%,
+    rgba(255, 243, 223, 0.62) 58%,
+    rgba(255, 243, 223, 0.97) 100%
   );
 }
 
