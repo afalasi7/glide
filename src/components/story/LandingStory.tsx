@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import { GlideBot } from "@/components/GlideBot";
+import { HeroTicket } from "@/components/story/HeroTicket";
 import { TripTicket } from "@/components/ui/TripTicket";
 import { TIMES } from "./data";
 
@@ -25,28 +26,98 @@ function Reveal({ children, className = "", from = 0 }: { children: React.ReactN
   );
 }
 
-function JourneyDiagram() {
+/**
+ * Hero — image-dominant, copy lean. The photograph carries the fold; the words stay out of
+ * its way. The trip ticket sits at the bottom-right and crosses the fold boundary, so the
+ * diagram reads as part of the photograph rather than as a second column of UI.
+ */
+function Hero() {
+  const ref = useRef<HTMLElement>(null);
+  const reduce = useReducedMotion();
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
+  const y = useTransform(scrollYProgress, [0, 1], ["0%", reduce ? "0%" : "14%"]);
+  const scale = useTransform(scrollYProgress, [0, 1], [1, reduce ? 1 : 1.08]);
+  const textY = useTransform(scrollYProgress, [0, 1], ["0%", reduce ? "0%" : "-10%"]);
+  const fade = useTransform(scrollYProgress, [0, 0.85], [1, reduce ? 1 : 0]);
+
   return (
-    <div className="relative overflow-hidden rounded-[28px] border border-ink/10 bg-paper p-4 shadow-pop sm:p-5">
-      <div className="relative h-40 overflow-hidden rounded-[18px] sm:h-44">
-        <Image src="/images/hd/jebel_jais_sunset.jpg" alt="Road through the Jebel Jais mountains at sunset" fill sizes="(min-width: 1024px) 480px, 90vw" className="object-cover" priority />
-      </div>
-      <div className="mt-5 flex items-start gap-4">
-        <div className="flex flex-col items-center gap-1 pt-1" aria-hidden>
-          <span className="h-3 w-3 rounded-full bg-violet" /><span className="h-10 w-0.5 bg-violet/35" /><span className="h-3 w-3 rounded-full bg-sun" /><span className="h-10 w-0.5 bg-violet/35" /><span className="h-3 w-3 rounded-full bg-mint" />
+    <section
+      ref={ref}
+      className="relative isolate flex min-h-[92svh] items-end overflow-hidden bg-ink text-paper"
+      data-say="I'm Glide. Tell me about your trip and I'll help bring the plan together."
+    >
+      <motion.div style={{ y, scale }} className="absolute inset-0">
+        <Image
+          src="/images/hd/jebel_jais_sunset.jpg"
+          alt="The mountain road through Jebel Jais at sunset"
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-center"
+        />
+      </motion.div>
+
+      {/* Two scrims with jobs: the vertical one seats the type on the photograph,
+          the horizontal one keeps the headline legible on wide screens. */}
+      <div
+        aria-hidden
+        className="absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(to top, rgba(28,18,48,0.94) 0%, rgba(28,18,48,0.5) 42%, rgba(28,18,48,0.12) 100%)",
+        }}
+      />
+      <div
+        aria-hidden
+        className="absolute inset-0 hidden lg:block"
+        style={{
+          background:
+            "linear-gradient(to right, rgba(28,18,48,0.72) 0%, rgba(28,18,48,0.18) 46%, rgba(28,18,48,0) 72%)",
+        }}
+      />
+
+      <motion.div
+        style={{ y: textY, opacity: fade }}
+        className="relative z-10 mx-auto w-full max-w-7xl px-5 pb-24 pt-36 sm:px-8 sm:pb-28"
+      >
+        <div className="grid items-end gap-10 lg:grid-cols-[1.1fr_460px] lg:gap-14">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-paper/75">
+              A little more room to enjoy the trip
+            </p>
+
+            {/* DESIGN.md: one emphasised phrase per headline, italic. */}
+            <h1 className="mt-6 max-w-[13ch] text-[clamp(3.2rem,10vw,7.6rem)] leading-[0.92] tracking-[-0.025em]">
+              Your whole trip,{" "}
+              <em className="font-normal italic text-sun">one conversation.</em>
+            </h1>
+
+            <p className="mt-7 max-w-[44ch] text-lg font-light leading-relaxed text-paper/85 sm:text-xl">
+              A personal travel agent for WhatsApp. It plans the holiday, the work trip
+              and the everyday journey — and reshapes the day when plans change.
+            </p>
+
+            <div className="mt-9 flex flex-wrap items-center gap-4">
+              <Link
+                href="#how-it-works"
+                className="glide-cta-solid inline-flex min-h-11 items-center rounded-full px-7 py-3.5 font-semibold"
+              >
+                See how it works
+              </Link>
+            </div>
+          </div>
+
+          <div className="lg:justify-self-end lg:pb-2">
+            <HeroTicket />
+          </div>
         </div>
-        <div className="grid flex-1 gap-5 text-sm sm:text-base">
-          <div className="flex justify-between gap-3"><span className="font-semibold">Depart Dubai</span><span className="num text-ink-soft">15:00</span></div>
-          <div className="flex justify-between gap-3"><span className="font-semibold">Jebel Jais</span><span className="text-ink-soft">Sunset stop</span></div>
-          <div className="flex justify-between gap-3"><span className="font-semibold">Dinner in RAK</span><span className="num text-ink-soft">20:00</span></div>
-        </div>
-      </div>
-      <div className="mt-6 flex items-center gap-2 border-t border-ink/10 pt-4 text-sm text-ink-soft">
-        <GlideBot size={28} /> One trip, with its timing connected.
-      </div>
-    </div>
+      </motion.div>
+    </section>
   );
 }
+
+/* JourneyDiagram is superseded by HeroTicket — it was a rounded card holding the same three
+   stops. Removed rather than left as dead code. */
 
 const changes = [
   {
@@ -138,6 +209,7 @@ function WhatsAppPreview() {
 }
 
 function ConnectedPlan() {
+  const reduce = useReducedMotion();
   const stops = [
     { name: "Leave Dubai", previous: "Was 15:00", revised: "16:15" },
     { name: "Jebel Jais", previous: "Was Friday sunset", revised: "Sat 08:30" },
@@ -148,16 +220,33 @@ function ConnectedPlan() {
     <figure className="w-full border-y-2 border-ink/70 py-2" aria-label="How a 75 minute delay changes the itinerary">
       <figcaption className="flex items-baseline justify-between gap-3 py-4">
         <span className="font-display text-[clamp(1.65rem,4vw,2.3rem)] leading-tight">One delay. Three new times.</span>
-        <span className="num shrink-0 text-lg text-coral">+75 min</span>
+        <motion.span
+          initial={reduce ? false : { opacity: 0, x: 12 }}
+          whileInView={{ opacity: 1, x: 0 }}
+          viewport={{ once: true, amount: 0.6 }}
+          transition={{ duration: 0.6, ease }}
+          className="num shrink-0 text-lg text-coral"
+        >
+          +75 min
+        </motion.span>
       </figcaption>
       <div className="flex justify-between border-t border-ink/20 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-ink-soft">
         <span>Original plan</span><span>After the delay</span>
       </div>
-      {stops.map((stop) => (
-        <div key={stop.name} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-ink/20 py-4">
+      {stops.map((stop, i) => (
+        /* The rows resolve in reading order as the reader scrolls — the ripple, one stop
+           at a time, rather than a table that appears all at once. */
+        <motion.div
+          key={stop.name}
+          initial={reduce ? false : { opacity: 0, y: 18 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.5 }}
+          transition={{ duration: 0.55, ease, delay: i * 0.12 }}
+          className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-ink/20 py-4"
+        >
           <div className="min-w-0"><p className="font-semibold">{stop.name}</p><p className="mt-0.5 text-sm text-ink-soft">{stop.previous}</p></div>
           <p className="num whitespace-nowrap text-[clamp(1.45rem,5vw,2rem)] leading-none">{stop.revised}</p>
-        </div>
+        </motion.div>
       ))}
       <p className="border-t border-ink/20 py-3 text-sm leading-relaxed text-ink-soft">Glide shows the ripple effect in one place. Booking changes still need your approval.</p>
     </figure>
@@ -197,19 +286,7 @@ function WalletPreview() {
 export function LandingStory() {
   return (
     <main className="min-h-screen bg-cream text-ink">
-      <section className="relative isolate overflow-hidden px-5 pb-18 pt-32 sm:px-8 sm:pb-24 sm:pt-40" data-say="I'm Glide. Tell me about your trip and I'll help bring the plan together.">
-        <div className="landing-orb pointer-events-none absolute -right-36 top-4 -z-10 h-96 w-96 rounded-full bg-sun/20 blur-3xl" aria-hidden />
-        <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-16">
-          <div>
-            <h1 className="max-w-[12ch] text-[clamp(2.6rem,12vw,4rem)] leading-[0.96] tracking-[-0.035em] sm:text-[clamp(3.4rem,8vw,6.8rem)] sm:leading-[0.93]">Your whole trip, one conversation.</h1>
-            <p className="mt-7 max-w-[47ch] text-lg leading-relaxed text-ink-soft sm:text-xl">Meet Glide, a personal travel agent designed for WhatsApp. Plan holidays, work trips, and everyday travel in one conversation, with help when plans change.</p>
-            <div className="mt-8 flex flex-wrap items-center gap-4">
-              <Link href="#how-it-works" className="glide-cta-solid inline-flex min-h-11 items-center rounded-full px-6 py-3 font-semibold">See how it works</Link>
-            </div>
-          </div>
-          <Reveal className="w-full max-w-[510px] justify-self-center lg:justify-self-end" from={55}><JourneyDiagram /></Reveal>
-        </div>
-      </section>
+      <Hero />
 
       <section id="how-it-works" className="scroll-mt-20 overflow-x-clip border-y border-ink/10 bg-paper/65 px-5 py-20 sm:px-8 sm:py-28" data-say="Plan in a conversation, see a connected itinerary, and approve each purchase or change.">
         <div className="mx-auto max-w-6xl">
@@ -240,10 +317,42 @@ export function LandingStory() {
             <h2 id="trip-types-title" className="max-w-[15ch] text-[clamp(2.3rem,5vw,4rem)] leading-[1.02] tracking-[-0.025em]">Room for every kind of trip.</h2>
             <p className="max-w-[55ch] self-end text-lg leading-relaxed text-ink-soft">One conversation can bring together the places, reservations, and timing that matter, whether you are away for weeks or crossing town.</p>
           </div>
-          <div className="mt-10 grid gap-8 border-t border-ink/15 pt-8 md:grid-cols-3 md:gap-10">
-            <div><h3 className="text-2xl">Holidays</h3><p className="mt-3 leading-relaxed text-ink-soft">Flights, stays, activities, meals, and the space between them.</p></div>
-            <div><h3 className="text-2xl">Business travel</h3><p className="mt-3 leading-relaxed text-ink-soft">Arrivals, hotel check-in, transfers, and meeting windows that cannot slip.</p></div>
-            <div><h3 className="text-2xl">Everyday journeys</h3><p className="mt-3 leading-relaxed text-ink-soft">Short trips, important stops, and changes to the route as the day unfolds.</p></div>
+          {/* Asymmetric on purpose. Three equal columns at 357×96 each was slop tell #3 —
+              equal weight, nothing prioritised. The holiday carries the arch-window
+              photograph and the scale; the other two are quiet rows. */}
+          <div className="mt-12 grid gap-10 border-t border-ink/15 pt-10 lg:grid-cols-[1.12fr_1fr] lg:gap-16">
+            <div className="flex gap-6 sm:gap-8">
+              <div className="arch-window relative w-[128px] shrink-0 overflow-hidden sm:w-[172px]">
+                <Image
+                  src="/images/hd/ic_rak_resort.jpg"
+                  alt=""
+                  fill
+                  sizes="172px"
+                  className="object-cover"
+                />
+              </div>
+              <div>
+                <h3 className="text-[clamp(1.9rem,3.6vw,2.7rem)] leading-[1.05]">Holidays</h3>
+                <p className="mt-3 max-w-[32ch] text-base leading-relaxed text-ink-soft">
+                  Flights, stays, activities, meals, and the space between them.
+                </p>
+              </div>
+            </div>
+
+            <dl className="grid content-start">
+              <div className="grid gap-1 border-b border-ink/15 pb-6">
+                <dt className="text-xl">Business travel</dt>
+                <dd className="max-w-[46ch] leading-relaxed text-ink-soft">
+                  Arrivals, hotel check-in, transfers, and meeting windows that cannot slip.
+                </dd>
+              </div>
+              <div className="grid gap-1 pt-6">
+                <dt className="text-xl">Everyday journeys</dt>
+                <dd className="max-w-[46ch] leading-relaxed text-ink-soft">
+                  Short trips, important stops, and changes to the route as the day unfolds.
+                </dd>
+              </div>
+            </dl>
           </div>
         </div>
       </section>

@@ -1,11 +1,21 @@
 import type { Metadata } from "next";
-import { Inter, Geist_Mono } from "next/font/google";
+import { Fraunces, Jost, Geist_Mono } from "next/font/google";
 import { LenisProvider } from "@/components/LenisProvider";
 import { AgentCompanion } from "@/components/AgentCompanion";
 import "./globals.css";
 
-const inter = Inter({
-  variable: "--font-inter",
+/* DESIGN.md — "Sunset Luxe": Fraunces is the display serif, Jost carries body and UI,
+   Geist Mono is reserved for tool names and references. Variable faces, so no weight list.
+   Fraunces over Bodoni: same editorial-luxury register, far cleaner at speed — low stroke
+   contrast and open apertures hold up at 8rem AND at 24px, where Bodoni's hairlines collapse. */
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
+  subsets: ["latin"],
+  style: ["normal", "italic"],
+});
+
+const jost = Jost({
+  variable: "--font-jost",
   subsets: ["latin"],
   style: ["normal", "italic"],
 });
@@ -31,7 +41,7 @@ export default function RootLayout({
       lang="en"
       // Capacitor owns the safe-area style attributes it injects before hydration.
       suppressHydrationWarning
-      className={`${inter.variable} ${geistMono.variable} antialiased`}
+      className={`${fraunces.variable} ${jost.variable} ${geistMono.variable} antialiased`}
     >
       <body className="min-h-screen bg-cream text-ink font-sans">
         <script

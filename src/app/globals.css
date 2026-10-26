@@ -31,8 +31,8 @@
   --color-sky: var(--sky);
   --color-background: var(--cream);
   --color-foreground: var(--ink);
-  --font-sans: var(--font-inter), "Helvetica Neue", Arial, sans-serif;
-  --font-display: var(--font-inter), "Helvetica Neue", Arial, sans-serif;
+  --font-sans: var(--font-jost), "Helvetica Neue", Arial, sans-serif;
+  --font-display: var(--font-fraunces), "Iowan Old Style", Georgia, serif;
   --font-mono: var(--font-geist-mono), "SF Mono", monospace;
   --shadow-pop: 0 2px 0 rgba(28, 18, 48, 0.04), 0 18px 40px -16px rgba(28, 18, 48, 0.28);
   --shadow-lift: 0 4px 0 rgba(28, 18, 48, 0.05), 0 28px 60px -20px rgba(28, 18, 48, 0.38);
@@ -73,14 +73,19 @@ body {
 }
 
 h1, h2, h3, .font-display {
-  font-family: var(--font-display), "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--font-display), "Iowan Old Style", Georgia, serif;
   text-wrap: balance;
   font-optical-sizing: auto;
-  font-weight: 600;
+  /* Fraunces defaults to WONK 1 (quirky swelling) — that reads "characterful", not "luxury".
+     Pin SOFT/WONK and let wght/opsz stay under high-level control. */
+  font-variation-settings: "SOFT" 0, "WONK" 0;
+  font-weight: 500;
 }
 
 .num {
-  font-family: var(--font-display), "Helvetica Neue", Arial, sans-serif;
+  /* DESIGN.md: clock numerals use display lining tabular figures. */
+  font-family: var(--font-display), "Iowan Old Style", Georgia, serif;
+  font-variation-settings: "SOFT" 0, "WONK" 0;
   font-variant-numeric: lining-nums tabular-nums;
   letter-spacing: -0.02em;
 }
@@ -148,14 +153,19 @@ button:disabled { cursor: not-allowed; }
   }
 }
 
-@keyframes landing-breathe {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  50% { transform: translate3d(0, -16px, 0) scale(1.06); }
+/* DESIGN.md: "Arch window for chapter photography (round top, soft base)."
+   One shape, used for chapter imagery — so the photography is recognisably Glide's. */
+.arch-window {
+  border-radius: 999px 999px 12px 12px;
 }
-.landing-orb { animation: landing-breathe 12s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) {
-  .landing-orb { animation: none; }
+
+/* Ticket perforation helper — the dashed tear line is the brand's signature divider. */
+.perforation {
+  border-top: 2px dashed rgba(28, 18, 48, 0.22);
 }
+
+/* Slop tell #5 — "unearned blur". A breathing blur-3xl blob carried no depth system and no
+   meaning; it was decoration. Removed. Hierarchy now comes from type, scale and the photography. */
 
 /* Theme-aware scrim over the full-bleed photography.
    Light mode: a light spotlight — the page reads light and the photograph
