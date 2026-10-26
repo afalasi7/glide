@@ -6,6 +6,7 @@ import { BotArt } from "@/components/GlideBot";
 import { CHAPTERS, clock } from "@/components/story/data";
 import { MessageComposer } from "./MessageComposer";
 import { GlassPanel, GlassTag, useGlassColorScheme } from "@/components/ui/glass";
+import { TripTicket } from "@/components/ui/TripTicket";
 
 export const depart = CHAPTERS.find((chapter) => chapter.key === "depart")!;
 export const jais = CHAPTERS.find((chapter) => chapter.key === "jais")!;
@@ -105,6 +106,8 @@ export function PlanScreen() {
 export function ChatScreen() {
   const [messages, setMessages] = React.useState<string[]>([]);
   const latestMessage = React.useRef<HTMLParagraphElement>(null);
+  const feed = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => { if (feed.current) feed.current.scrollTop = feed.current.scrollHeight; }, []);
   React.useEffect(() => {
     if (messages.length) latestMessage.current?.scrollIntoView({ block: "nearest" });
   }, [messages]);
@@ -118,19 +121,21 @@ export function ChatScreen() {
           <p className="text-[10px] text-ink-soft">Your trip agent</p>
         </div>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto overscroll-contain px-4 py-4 text-[12px] leading-snug" data-lenis-prevent>
+      <div ref={feed} className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto overscroll-contain px-4 py-4 text-[12px] leading-snug" data-lenis-prevent>
         <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">The day shifted, so I reshaped the rest of your trip. Jebel Jais is now tomorrow at {clock(jais.time)}.</p>
         <p className="glide-chat-bubble glass-control max-w-[88%] rounded-xl bg-card px-3 py-2">I kept your table. Levant &amp; Nar is now {clock(dinner.time)}, no fee.</p>
         <p className="max-w-[88%] text-[11px] text-ink-soft">Guided demo: messages appear here, but live replies are not connected.</p>
-        <GlassPanel className="max-w-[92%] p-2">
-          <div className="relative h-20 overflow-hidden rounded-xl">
-            <Image src={dinner.photo} alt="" fill sizes="240px" className="object-cover" />
-            <span className="absolute bottom-1.5 left-2 font-display text-lg italic text-white">Levant &amp; Nar</span>
-            <span className="num absolute bottom-1.5 right-2 text-xl text-white">{clock(dinner.time)}</span>
-          </div>
-          <p className="mt-2 px-1 text-[12px] font-semibold">Dinner at Levant &amp; Nar</p>
-          <p className="px-1 text-[10px] text-ink-soft">Updated for {clock(dinner.time)} · no fee</p>
-        </GlassPanel>
+        <TripTicket
+          kind="Dinner reservation"
+          place="Levant & Nar"
+          time={clock(dinner.time)}
+          date="Fri 13 Nov"
+          image={dinner.photo}
+          fields={[{ label: "Guests", value: "2" }, { label: "Change fee", value: "AED 0" }]}
+          status="Trip preview"
+          compact
+          className="w-full max-w-[92%] shrink-0"
+        />
         <div className="flex flex-wrap gap-1.5">
           {["Apple Wallet", "Google Wallet", "Samsung Wallet"].map((w) => (
             <GlassTag key={w} className="text-[10px]">{w}</GlassTag>

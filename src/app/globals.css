@@ -31,9 +31,9 @@
   --color-sky: var(--sky);
   --color-background: var(--cream);
   --color-foreground: var(--ink);
-  --font-sans: var(--font-sans), "Helvetica Neue", Arial, sans-serif;
-  --font-display: var(--font-display), "Didot", "Times New Roman", serif;
-  --font-mono: var(--font-mono), "SF Mono", monospace;
+  --font-sans: var(--font-inter), "Helvetica Neue", Arial, sans-serif;
+  --font-display: var(--font-inter), "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--font-geist-mono), "SF Mono", monospace;
   --shadow-pop: 0 2px 0 rgba(28, 18, 48, 0.04), 0 18px 40px -16px rgba(28, 18, 48, 0.28);
   --shadow-lift: 0 4px 0 rgba(28, 18, 48, 0.05), 0 28px 60px -20px rgba(28, 18, 48, 0.38);
 }
@@ -73,14 +73,14 @@ body {
 }
 
 h1, h2, h3, .font-display {
-  font-family: var(--font-display), "Didot", "Times New Roman", serif;
+  font-family: var(--font-display), "Helvetica Neue", Arial, sans-serif;
   text-wrap: balance;
   font-optical-sizing: auto;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .num {
-  font-family: var(--font-display), serif;
+  font-family: var(--font-display), "Helvetica Neue", Arial, sans-serif;
   font-variant-numeric: lining-nums tabular-nums;
   letter-spacing: -0.02em;
 }
@@ -155,4 +155,19 @@ button:disabled { cursor: not-allowed; }
 .landing-orb { animation: landing-breathe 12s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
   .landing-orb { animation: none; }
+}
+
+/* Theme-aware scrim over photography.
+   Driven by --cream (which flips in dark mode), so one rule covers both
+   themes: light wash in light mode, dark wash in dark mode. Heaviest at
+   the edges where the text sits, lighter through the middle so the photo
+   still reads. */
+.glide-scrim {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--cream) 95%, transparent) 0%,
+    color-mix(in srgb, var(--cream) 58%, transparent) 38%,
+    color-mix(in srgb, var(--cream) 58%, transparent) 62%,
+    color-mix(in srgb, var(--cream) 95%, transparent) 100%
+  );
 }

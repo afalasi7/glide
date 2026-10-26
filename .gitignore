@@ -51,3 +51,15 @@ skills-reference
 
 # graphify generated map (build locally with: graphify .)
 graphify-out/
+
+# iCloud Drive duplicates ("foo 2.txt" alongside "foo.txt") — never commit these.
+* 2.*
+* 3.*
+* 4.*
+
+# Local / generated
+/output/
+/tmp/
+/.impeccable/
+glide-product-summary.html
+glide-product-summary.pdf

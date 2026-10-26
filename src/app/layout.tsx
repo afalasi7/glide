@@ -1,23 +1,17 @@
 import type { Metadata } from "next";
-import { Bodoni_Moda, Jost, Geist_Mono } from "next/font/google";
+import { Inter, Geist_Mono } from "next/font/google";
 import { LenisProvider } from "@/components/LenisProvider";
 import { AgentCompanion } from "@/components/AgentCompanion";
 import "./globals.css";
 
-const bodoni = Bodoni_Moda({
-  variable: "--font-display",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
   style: ["normal", "italic"],
-  axes: ["opsz"],
-});
-
-const jost = Jost({
-  variable: "--font-sans",
-  subsets: ["latin"],
 });
 
 const geistMono = Geist_Mono({
-  variable: "--font-mono",
+  variable: "--font-geist-mono",
   subsets: ["latin"],
 });
 
@@ -37,7 +31,7 @@ export default function RootLayout({
       lang="en"
       // Capacitor owns the safe-area style attributes it injects before hydration.
       suppressHydrationWarning
-      className={`${bodoni.variable} ${jost.variable} ${geistMono.variable} antialiased`}
+      className={`${inter.variable} ${geistMono.variable} antialiased`}
     >
       <body className="min-h-screen bg-cream text-ink font-sans">
         <script

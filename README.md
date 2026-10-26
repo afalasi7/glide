@@ -15,7 +15,7 @@ Open `http://127.0.0.1:3456/`. The default `bun run dev` port is 3000.
 
 ## Pages
 
-- `/` and `/how-it-works`: original scroll-led Dubai to Ras Al Khaimah travel story
+- `/` and `/how-it-works`: step-by-step WhatsApp travel-agent concept with compact diagrams, a scroll-led trip-change example, and clear prelaunch status
 - `/app`: interactive onboarding and trip demo
 - `/previews`: phone and foldable presentation
 - `/privacy` and `/terms`: prelaunch privacy policy and terms of service

@@ -71,6 +71,29 @@
 .glide-chat-bubble { overflow-wrap: anywhere; color: var(--foreground); }
 .glide-chat-bubble-user { color: var(--primary-foreground); }
 
+.trip-ticket {
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--foreground) 20%, transparent);
+  border-radius: 6px;
+  background: var(--popover);
+  color: var(--foreground);
+}
+.trip-ticket-photo, .trip-ticket-rule { border-color: color-mix(in srgb, var(--foreground) 18%, transparent); }
+.trip-ticket-photo { background: color-mix(in srgb, var(--foreground) 5%, var(--popover)); }
+.trip-ticket-muted { color: var(--muted-foreground); }
+.trip-ticket-stub::before, .trip-ticket-stub::after {
+  position: absolute;
+  top: -7px;
+  width: 12px;
+  height: 12px;
+  border: 1px solid color-mix(in srgb, var(--foreground) 20%, transparent);
+  border-radius: 50%;
+  background: var(--background);
+  content: "";
+}
+.trip-ticket-stub::before { left: -7px; }
+.trip-ticket-stub::after { right: -7px; }
+
 @media (max-width: 639px) {
   .glide-glass-screen * { scrollbar-width: none; }
   .glide-glass-screen *::-webkit-scrollbar { width: 0; height: 0; }
@@ -115,6 +138,7 @@ html.glide-theme-dark .bg-card,
 html.glide-theme-dark .bg-popover,
 html.glide-theme-dark .bg-white { background-color: #1c1824; }
 html.glide-theme-dark .bg-ink { background-color: #0e0c14; }
+html.glide-theme-dark #how-it-works { background-color: #1c1824; }
 html.glide-theme-dark .text-ink { color: #fff6ea; }
 html.glide-theme-dark .text-ink-soft { color: #c9c0d6; }
 html.glide-theme-dark .text-paper { color: #fffbf3; }

@@ -14,6 +14,8 @@ export function AgentCompanion() {
   const [happy, setHappy] = useState(false);
   const [roadOnScreen, setRoadOnScreen] = useState(false);
   const [passOnScreen, setPassOnScreen] = useState(false);
+  const [footerOnScreen, setFooterOnScreen] = useState(false);
+  const [contentOnScreen, setContentOnScreen] = useState(false);
 
   useEffect(() => {
     if (pathname !== "/" && pathname !== "/how-it-works") return;
@@ -28,8 +30,16 @@ export function AgentCompanion() {
         if (r.width < 2 || r.height < 2) return;
         if (r.bottom > 0 && r.top < window.innerHeight && r.right > 0 && r.left < window.innerWidth) pass = true;
       });
+      const footerBox = document.querySelector("main > footer")?.getBoundingClientRect();
+      const footerVisible = !!footerBox && footerBox.top < window.innerHeight && footerBox.bottom > 0;
+      const contentVisible = ["#how-it-works", "#trip-change"].some((selector) => {
+        const box = document.querySelector(selector)?.getBoundingClientRect();
+        return !!box && box.top < window.innerHeight && box.bottom > 0;
+      });
       setRoadOnScreen((prev) => (prev === roadVisible ? prev : roadVisible));
       setPassOnScreen((prev) => (prev === pass ? prev : pass));
+      setFooterOnScreen((prev) => (prev === footerVisible ? prev : footerVisible));
+      setContentOnScreen((prev) => (prev === contentVisible ? prev : contentVisible));
     };
     const schedule = () => {
       cancelAnimationFrame(frame);
@@ -95,8 +105,8 @@ export function AgentCompanion() {
 
   if (pathname !== "/" && pathname !== "/how-it-works") return null;
   // One mascot at a time: the road already draws one, and a pass code needs a clear corner.
-  // Below 640px the float stays off so it cannot cover the headline or the day copy.
-  if (roadOnScreen || passOnScreen) return null;
+  // Keep the float off narrow and folding screens so it cannot cover the story.
+  if (roadOnScreen || passOnScreen || footerOnScreen || contentOnScreen) return null;
 
   const mood: BotMood = happy ? "happy" : scrolling ? "working" : "idle";
 
@@ -104,7 +114,7 @@ export function AgentCompanion() {
   const place = onFinale ? "bottom-[5.5rem] opacity-90 sm:bottom-28" : "bottom-3 sm:bottom-5";
 
   return (
-    <div className={`pointer-events-none fixed right-4 z-40 hidden w-max max-w-[calc(100vw-3rem)] items-end gap-2 sm:right-8 sm:flex ${place}`}>
+    <div className={`pointer-events-none fixed right-8 z-40 hidden w-max max-w-[calc(100vw-3rem)] items-end gap-2 lg:flex ${place}`}>
       <AnimatePresence mode="wait">
         {text && (
           <motion.p

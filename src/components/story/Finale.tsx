@@ -31,23 +31,23 @@ export function Finale() {
           </motion.h2>
         </div>
       </section>
-      <footer className="relative z-20 border-t border-white/10 bg-ink py-12 text-paper">
+      <footer className="relative z-20 border-t border-ink/15 bg-paper py-12 text-ink">
         <div className="mx-auto flex max-w-7xl flex-col gap-8 px-5 sm:px-8">
           <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
-            <Link href="/" className="inline-flex items-center gap-2.5 text-paper" aria-label="Glide home">
+            <Link href="/" className="inline-flex items-center gap-2.5 text-ink" aria-label="Glide home">
               <GlideBot size={44} />
-              <span className="font-display text-2xl font-semibold italic text-paper">Glide</span>
+              <span className="font-display text-2xl font-semibold italic text-ink">Glide</span>
             </Link>
-            <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-paper/80">
-              <Link href="/terms" className="transition-colors hover:text-paper">
+            <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-ink-soft">
+              <Link href="/terms" className="transition-colors hover:text-ink">
                 Terms and conditions
               </Link>
-              <Link href="/privacy" className="transition-colors hover:text-paper">
+              <Link href="/privacy" className="transition-colors hover:text-ink">
                 Privacy policy
               </Link>
             </nav>
           </div>
-          <p className="text-sm text-paper/60">© 2026 Glide. All rights reserved.</p>
+          <p className="text-sm text-ink-soft">© 2026 Glide. All rights reserved.</p>
         </div>
       </footer>
     </>
