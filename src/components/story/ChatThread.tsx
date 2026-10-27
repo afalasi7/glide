@@ -51,6 +51,33 @@ export function ChatThread() {
       className="wa-thread mx-auto w-full max-w-[360px] overflow-hidden rounded-[14px] border border-ink/15 text-ink"
       aria-label="Example conversation: planning a business trip to Riyadh in a fixed budget"
     >
+      {/* iOS status bar — the detail that makes a chat UI read as a screen capture
+          rather than a web component. Taken from the original thread screenshot. */}
+      <div className="flex h-[44px] items-center justify-between bg-white px-6 text-black">
+        {/* Matches the thread's own clock: the last message is 9:15 AM, so the capture
+            is one minute later. 9:41 would read instantly as an Apple marketing shot. */}
+        <span className="text-[15px] font-semibold tracking-[-0.01em]">9:16</span>
+        <div className="flex items-center gap-[6px]">
+          {/* Signal */}
+          <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor" aria-hidden>
+            <rect x="0" y="8" width="3" height="4" rx="1" />
+            <rect x="5" y="5.5" width="3" height="6.5" rx="1" />
+            <rect x="10" y="3" width="3" height="9" rx="1" />
+            <rect x="15" y="0.5" width="3" height="11.5" rx="1" />
+          </svg>
+          {/* Wi-Fi */}
+          <svg width="17" height="12" viewBox="0 0 17 12" fill="currentColor" aria-hidden>
+            <path d="M8.5 11.6 6.3 9.1a3.4 3.4 0 0 1 4.4 0zM3.9 6.5l1.6 1.8a5.9 5.9 0 0 1 5 0l1.6-1.8a8.3 8.3 0 0 0-8.2 0zM.9 3.1 2.5 5a11.8 11.8 0 0 1 12 0l1.6-1.9a14.3 14.3 0 0 0-15.2 0z" />
+          </svg>
+          {/* Battery */}
+          <svg width="26" height="13" viewBox="0 0 26 13" aria-hidden>
+            <rect x="0.5" y="0.5" width="21" height="12" rx="3.6" fill="none" stroke="currentColor" strokeOpacity="0.35" />
+            <rect x="2" y="2" width="18" height="9" rx="2.2" fill="currentColor" />
+            <path d="M23.5 4.6v3.8a2.1 2.1 0 0 0 0-3.8z" fill="currentColor" fillOpacity="0.4" />
+          </svg>
+        </div>
+      </div>
+
       {/* Header — 64px, white, hairline bottom rule, 24px back arrow, 32px avatar,
           name 17/700 + sub 13, call/video icons right (Mobbin: iOS · Chat Detail). */}
       <header className="flex h-16 items-center gap-3 border-b border-[#E7E7E7] bg-white px-4">
@@ -101,7 +128,7 @@ export function ChatThread() {
                 /* Sent: square top-right tail corner, 10px elsewhere. */
                 <p className="max-w-[82%] rounded-[10px] rounded-tr-none bg-[#DCF8C6] px-2 py-1 pr-2 text-[15px] leading-[1.3] text-[#111B21]">
                   {m.text}
-                  <span className="float-right ml-2 mt-2 inline-flex translate-y-[3px] items-center gap-1 whitespace-nowrap text-[11px] leading-none text-[#8696A0]">
+                  <span className="float-right ml-2 inline-flex translate-y-[2px] items-center gap-1 whitespace-nowrap text-[11px] leading-none text-[#8696A0]">
                     {m.at}
                     <Receipt />
                   </span>
@@ -111,7 +138,7 @@ export function ChatThread() {
                    the same anchor WhatsApp uses for both directions. */
                 <p className="max-w-[82%] rounded-[10px] rounded-tl-none bg-white px-2 py-1 pr-2 text-[15px] leading-[1.3] text-[#111B21] shadow-[0_1px_0.5px_rgba(11,20,26,0.13)]">
                   {m.text}
-                  <span className="float-right ml-2 mt-2 inline-block translate-y-[3px] whitespace-nowrap text-[11px] leading-none text-[#8696A0]">
+                  <span className="float-right ml-2 inline-block translate-y-[2px] whitespace-nowrap text-[11px] leading-none text-[#8696A0]">
                     {m.at}
                   </span>
                 </p>
