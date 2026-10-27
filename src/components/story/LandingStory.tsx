@@ -3,9 +3,11 @@
 import { useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
+import { motion, useReducedMotion, useScroll, useTransform, type MotionValue } from "framer-motion";
 import { GlideBot } from "@/components/GlideBot";
 import { HeroTicket } from "@/components/story/HeroTicket";
+import { ChatThread } from "@/components/story/ChatThread";
+import { WordReveal } from "@/components/story/WordReveal";
 import { TripTicket } from "@/components/ui/TripTicket";
 import { TIMES } from "./data";
 
@@ -146,6 +148,36 @@ const changes = [
   },
 ] as const;
 
+/**
+ * Per-step progress dot. Pattern from 21st.dev `@abui/scroll-reveal-content-a`: each of the
+ * three steps owns a slice of the section's scroll range and lights up as the reader enters it,
+ * so the rail reads as a position indicator rather than decoration.
+ */
+function StepDot({
+  progress,
+  index,
+  total,
+  color,
+}: {
+  progress: MotionValue<number>;
+  index: number;
+  total: number;
+  color: string;
+}) {
+  const reduce = useReducedMotion();
+  const start = index / total;
+  const scale = useTransform(progress, [start, start + 0.16], [0.6, 1]);
+  const opacity = useTransform(progress, [start, start + 0.16], [0.45, 1]);
+
+  return (
+    <motion.span
+      aria-hidden
+      className={`absolute left-1 top-7 h-6 w-6 rounded-full border-4 border-ink ${color} sm:left-3`}
+      style={reduce ? undefined : { scale, opacity }}
+    />
+  );
+}
+
 function TripChange() {
   const ref = useRef<HTMLElement>(null);
   const reduce = useReducedMotion();
@@ -156,9 +188,11 @@ function TripChange() {
     <section id="trip-change" ref={ref} className="relative overflow-hidden bg-cream py-20 text-ink sm:py-28" data-say="A delay changes the plan. I show you what needs attention and ask before each booking change.">
       <div className="mx-auto max-w-6xl px-5 sm:px-8">
         <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr] lg:items-end">
-          <Reveal>
-            <h2 className="max-w-[15ch] text-[clamp(2.6rem,6vw,5rem)] leading-[0.98] tracking-[-0.025em]">When the day changes, the plan can change with it.</h2>
-          </Reveal>
+          {/* Source: 21st.dev `@motiondotdev/motion-scroll-word-reveal`. The sentence
+              brightens word by word as the reader scrolls into the delay story. */}
+          <WordReveal className="max-w-[15ch] text-[clamp(2.6rem,6vw,5rem)] leading-[0.98] tracking-[-0.025em]">
+            When the day changes, the plan can change with it.
+          </WordReveal>
           <p className="max-w-[49ch] text-lg leading-relaxed text-ink-soft lg:justify-self-end">Follow one sample trip from Dubai to Ras Al Khaimah. Scroll to see how a late departure affects the stops that follow.</p>
         </div>
 
@@ -170,7 +204,7 @@ function TripChange() {
           <ol className="space-y-5 sm:space-y-7">
             {changes.map((change, index) => (
               <li key={change.place} className="relative pl-11 sm:pl-16">
-                <span className={`absolute left-1 top-7 h-6 w-6 rounded-full border-4 border-ink ${change.color} sm:left-3`} aria-hidden />
+                <StepDot progress={pathLength} index={index} total={changes.length} color={change.color} />
                 <Reveal from={index % 2 === 0 ? -65 : 65}>
                   <div className="glide-ticket grid overflow-hidden rounded-[20px] border border-ink/15 bg-card text-ink shadow-pop sm:grid-cols-[34%_1fr]">
                     <div className="relative flex min-h-40 flex-col justify-between overflow-hidden bg-violet p-5 text-paper sm:min-h-48">
@@ -195,18 +229,8 @@ function TripChange() {
   );
 }
 
-function WhatsAppPreview() {
-  return (
-    <Image
-      src="/images/glide-whatsapp-chat.png"
-      alt="Illustrative WhatsApp conversation with Glide about planning a Riyadh work trip"
-      width={832}
-      height={1889}
-      sizes="(min-width: 640px) 340px, 290px"
-      className="mx-auto h-auto w-[290px] max-w-full shadow-pop sm:w-[340px]"
-    />
-  );
-}
+/* WhatsAppPreview — a 1.6MB flat screenshot — is replaced by ChatThread: real markup that
+   themes, animates and belongs to this design system instead of copying WhatsApp's. */
 
 function ConnectedPlan() {
   const reduce = useReducedMotion();
@@ -297,7 +321,7 @@ export function LandingStory() {
           <ol className="mt-11 divide-y divide-ink/10 border-y border-ink/10">
             <li className="grid gap-7 py-9 lg:grid-cols-[minmax(0,1fr)_minmax(0,430px)] lg:items-center lg:gap-16">
               <div><span className="num text-2xl text-violet">01</span><h3 className="mt-3 text-3xl sm:text-4xl">Tell Glide about your trip.</h3><p className="mt-3 max-w-[46ch] text-lg leading-relaxed text-ink-soft">Start in WhatsApp with a destination or an idea. Glide asks for dates, travelers, budget, and the details it needs, whether the trip is a holiday, a business visit, or a short journey.</p></div>
-              <Reveal from={55} className="w-full"><WhatsAppPreview /></Reveal>
+              <Reveal from={55} className="w-full"><ChatThread /></Reveal>
             </li>
             <li className="grid gap-7 py-9 lg:grid-cols-[minmax(0,1fr)_minmax(0,430px)] lg:items-center lg:gap-16">
               <div><span className="num text-2xl text-violet">02</span><h3 className="mt-3 text-3xl sm:text-4xl">See how the details fit.</h3><p className="mt-3 max-w-[46ch] text-lg leading-relaxed text-ink-soft">Routes, stays, meals, and time-sensitive plans form one itinerary. If a delay affects the next stop, Glide can show the knock-on effect instead of leaving you to compare separate confirmations.</p></div>

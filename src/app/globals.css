@@ -153,6 +153,24 @@ button:disabled { cursor: not-allowed; }
   }
 }
 
+/* WhatsApp wallpaper base, measured from the Mobbin screens: #F5F0EB in light.
+   Kept flat — the doodle pattern is WhatsApp's artwork, not ours to redraw.
+   The thread also drops the brand faces for a platform-neutral sans, so the chat chrome
+   reads as WhatsApp rather than as a restyled Glide panel. */
+.wa-wallpaper { background-color: #f5f0eb; }
+.wa-thread { font-family: -apple-system, "Helvetica Neue", "Segoe UI", Roboto, Arial, sans-serif; }
+html.glide-theme-dark .wa-thread { background-color: #0b141a; }
+html.glide-theme-dark .wa-wallpaper { background-color: #202c33; }
+
+/* Scroll word-reveal. Each word brightens from 15% to full opacity across its own window of
+   scroll progress. Source: 21st.dev `@motiondotdev/motion-scroll-word-reveal`. */
+.word-reveal > span {
+  will-change: opacity;
+}
+@media (prefers-reduced-motion: reduce) {
+  .word-reveal > span { opacity: 1 !important; }
+}
+
 /* DESIGN.md: "Arch window for chapter photography (round top, soft base)."
    One shape, used for chapter imagery — so the photography is recognisably Glide's. */
 .arch-window {
