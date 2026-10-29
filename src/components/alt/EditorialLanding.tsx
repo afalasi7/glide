@@ -116,16 +116,16 @@ function ArchFeature() {
         <div>
           <p className="text-sm font-medium uppercase tracking-[0.2em] text-violet">The stop that matters</p>
           <h2 className="mt-4 text-[clamp(2.4rem,5.5vw,4.4rem)] leading-[0.98] tracking-[-0.025em]">
-            The sunset moved. <span className="italic">The dinner stayed.</span>
+            The sunset moved. <span className="italic">Dinner was rebooked.</span>
           </h2>
           <p className="mt-6 max-w-[50ch] text-lg leading-relaxed text-ink-soft">
-            Not every stop deserves to be re-booked. Glide separates what has to move from what can hold, so a delay costs you a morning instead of the whole evening — and the table you wanted is still yours at{" "}
-            <span className="num text-ink">{TIMES.dinner}</span>.
+            Not every stop can hold. Glide separates what has to move from what can wait, so a delay costs you a morning instead of the whole evening — and your table is moved to{" "}
+            <span className="num text-ink">{TIMES.dinner}</span> with no fee.
           </p>
           <ul className="mt-8 space-y-4 border-t border-ink/15 pt-6">
             {[
               ["Jebel Jais", "moved to Sat 08:30, sunset intact"],
-              ["Levant & Nar", "held at the original time, no fee"],
+              ["Levant & Nar", `rebooked to ${TIMES.dinner}, no fee`],
               ["Hotel arrival", "flagged, key still ready"],
             ].map(([k, v]) => (
               <li key={k} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -143,7 +143,7 @@ function ArchFeature() {
 const stops = [
   { time: "15:00", was: "Was 15:00", now: "16:15", name: "Depart Dubai Marina", note: "The delay lands here first.", color: "bg-coral" },
   { time: "08:30", was: "Was Fri sunset", now: "Sat 08:30", name: "Jebel Jais", note: "Next morning, same view.", color: "bg-sun" },
-  { time: TIMES.dinner, was: "Was 20:00", now: TIMES.dinner, name: "Dinner in RAK", note: "Held, no change fee.", color: "bg-mint" },
+  { time: TIMES.dinner, was: "Was 20:00", now: TIMES.dinner, name: "Dinner in RAK", note: "Rebooked, no change fee.", color: "bg-mint" },
 ];
 
 function DelayTimeline() {

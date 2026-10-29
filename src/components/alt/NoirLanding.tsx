@@ -127,13 +127,12 @@ function Hero() {
 
 const routeBits = [
   "DXB → Jebel Jais",
-  "Sunset 17:42",
+  "Sunset cutoff 17:48",
   "Levant & Nar 21:15",
   "Marina departure 16:15",
-  "RAK · 4 nights",
-  "Jebel Akhdar 08:30",
-  "DXB → RUH 09:30",
-  "Table held, no fee",
+  "Hotel flagged 19:35",
+  "Jebel Jais Day 2 · 08:30",
+  "Table rebooked, no fee",
 ];
 
 function Marquee() {
