@@ -1,4 +1,6 @@
 import { at, type TripGraph, type TripNode, type Constraint } from "@/lib/agent";
+import { DESTINATIONS, getCatalogOption } from "./catalog";
+import { openWindows } from "./hours";
 import type { Trip, TripItem } from "./types";
 import { timeToMinutes } from "./pricing";
 
@@ -16,8 +18,41 @@ function kindFor(item: TripItem): TripNode["kind"] {
 }
 
 /**
+ * Kitchen last-seat = venue close on the window that covers the booking,
+ * falling back to 21:30 (championship demo hold).
+ */
+function lastSeatMinutes(item: TripItem): number {
+  const opt = getCatalogOption(item.catalogId);
+  const windows = openWindows(opt?.openHours);
+  const start = timeToMinutes(item.startTime);
+  for (const w of windows) {
+    const open = timeToMinutes(w.open);
+    const close = timeToMinutes(w.close);
+    if (start >= open && start < close) {
+      return at(Math.floor(close / 60), close % 60, item.day);
+    }
+  }
+  if (windows.length === 1) {
+    const close = timeToMinutes(windows[0]!.close);
+    return at(Math.floor(close / 60), close % 60, item.day);
+  }
+  return at(21, 30, item.day);
+}
+
+/** Sunset / highlight hard deadline from the destination catalog when present. */
+function highlightDeadline(trip: Trip, item: TripItem): number | undefined {
+  const spec = DESTINATIONS[trip.destination]?.highlight;
+  if (!spec || spec.catalogId !== item.catalogId || !spec.cutoffTime) return undefined;
+  const [h, m] = spec.cutoffTime.split(":").map(Number);
+  return at(h, m, item.day);
+}
+
+/**
  * Build a TripGraph from the presentation trip so evaluate() / reshape tools apply.
  * Chronological order within each day (travel + hotel interleaved with plans by startTime).
+ *
+ * Travel duration lives on the *edge* after the departure node — never also as dwellMin —
+ * otherwise drive time is double-counted and dinner holds fire on a healthy plan.
  */
 export function buildGraphFromTrip(trip: Trip): TripGraph {
   const nodes: Record<string, TripNode> = {};
@@ -42,7 +77,7 @@ export function buildGraphFromTrip(trip: Trip): TripGraph {
         kind: "reservation_hold",
         reservedAt: start,
         holdMin: 15,
-        lastSeatAt: at(21, 30, item.day),
+        lastSeatAt: lastSeatMinutes(item),
         bookingRef: item.bookingRef,
         label: "table hold",
       });
@@ -56,20 +91,27 @@ export function buildGraphFromTrip(trip: Trip): TripGraph {
         });
       }
     }
-    if (item.catalogId === "rak-jais-deck") {
+    const deadline =
+      highlightDeadline(trip, item) ??
+      (item.catalogId === "rak-jais-deck" ? at(17, 48, item.day) : undefined);
+    if (deadline !== undefined) {
       constraints.push({
         id: `${item.id}-sunset`,
         kind: "arrive_before",
-        deadline: at(17, 48, item.day),
+        deadline,
         label: "sunset cutoff",
       });
     }
+
+    // Travel: dwell at the origin is 0; drive/flight length is the outgoing edge.
+    const dwellMin =
+      item.kind === "travel" ? 0 : (item.durationMin ?? 60);
 
     nodes[item.id] = {
       id: item.id,
       label: item.title,
       kind: kindFor(item),
-      dwellMin: item.durationMin ?? (item.kind === "travel" ? 0 : 60),
+      dwellMin,
       earliestStart: itemStartMinutes(item),
       bookingRef: item.bookingRef,
       constraints,
