@@ -159,10 +159,18 @@ function toItem(
   };
 }
 
+/**
+ * Provider booking refs. Dining must be unique per catalog row — a shared
+ * `DIN-{trip}` key made MockWorld overwrite every meal with the last seating.
+ */
 function refFor(opt: CatalogOption, tripId: string): string | undefined {
-  if (opt.kind === "hotel") return `HTL-${tripId.slice(-6).toUpperCase()}`;
-  if (opt.kind === "dining") return `DIN-${tripId.slice(-6).toUpperCase()}`;
-  if (opt.kind === "travel" && opt.mode === "flight") return `FLT-${tripId.slice(-6).toUpperCase()}`;
+  const base = tripId.slice(-6).toUpperCase();
+  if (opt.kind === "hotel") return `HTL-${base}`;
+  if (opt.kind === "dining") {
+    const tag = opt.catalogId.replace(/[^a-zA-Z0-9]/g, "").slice(-8).toUpperCase();
+    return `DIN-${base}-${tag}`;
+  }
+  if (opt.kind === "travel" && opt.mode === "flight") return `FLT-${base}`;
   return undefined;
 }
 

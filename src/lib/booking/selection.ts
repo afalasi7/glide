@@ -75,9 +75,14 @@ function toItem(
   };
 }
 
-function refFor(kind: string, tripId: string): string | undefined {
-  if (kind === "hotel") return `HTL-${tripId.slice(-6).toUpperCase()}`;
-  if (kind === "dining") return `DIN-${tripId.slice(-6).toUpperCase()}`;
+/** Match planTrip refs so Stripe rebuilds the same MockWorld keys. */
+function refFor(kind: string, tripId: string, catalogId?: string): string | undefined {
+  const base = tripId.slice(-6).toUpperCase();
+  if (kind === "hotel") return `HTL-${base}`;
+  if (kind === "dining") {
+    const tag = (catalogId ?? "meal").replace(/[^a-zA-Z0-9]/g, "").slice(-8).toUpperCase();
+    return `DIN-${base}-${tag}`;
+  }
   if (kind === "travel") return undefined;
   return undefined;
 }
@@ -168,7 +173,7 @@ export function tripFromSelection(sel: CompactTripSelection): Trip {
       `${tripId}_d${day}_p${pi++}`,
       day,
       startTime,
-      refFor(opt.kind, tripId),
+      refFor(opt.kind, tripId, catalogId),
     );
     const list = byDay.get(day) ?? [];
     list.push(item);

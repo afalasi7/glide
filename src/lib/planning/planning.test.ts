@@ -553,3 +553,40 @@ describe("stateless demo mode (cold serverless instance)", () => {
     expect(() => validateAndRepriceTrip(forged)).toThrow(/Unknown catalog/);
   });
 });
+
+describe("graph bridge integrity", () => {
+  test("travel duration is not double-counted as dwell + edge", () => {
+    const trip = planTrip({
+      destination: "ras-al-khaimah",
+      startDate: "2026-10-23",
+      endDate: "2026-10-25",
+      budgetAED: 3000,
+    });
+    const travelNode = trip.graph.nodes[trip.travel.id];
+    expect(travelNode.dwellMin).toBe(0);
+    const outEdge = trip.graph.edges.find((e) => e.from === trip.travel.id);
+    expect(outEdge?.travelMin).toBe(trip.travel.durationMin);
+    // Healthy default plan should not already violate dinner holds.
+    const ev = evaluate(trip.graph);
+    expect(ev.violations.filter((v) => v.kind === "reservation_hold")).toEqual([]);
+  });
+
+  test("each dining row gets a unique bookingRef", () => {
+    const trip = planTrip({
+      destination: "ras-al-khaimah",
+      startDate: "2026-10-23",
+      endDate: "2026-10-25",
+      budgetAED: 3000,
+    });
+    const dining = trip.days.flatMap((d) => d.plans).filter((p) => p.kind === "dining");
+    expect(dining.length).toBeGreaterThan(1);
+    const refs = dining.map((p) => p.bookingRef);
+    expect(refs.every(Boolean)).toBe(true);
+    expect(new Set(refs).size).toBe(refs.length);
+  });
+
+  test("Jais highlight cutoff matches catalog 17:48", () => {
+    expect(DESTINATIONS["ras-al-khaimah"].highlight.cutoffTime).toBe("17:48");
+    expect(getCatalogOption("rak-jais-deck")!.durationMin).toBe(45);
+  });
+});

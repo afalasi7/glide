@@ -91,7 +91,8 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
       copy: "Jebel Jais is timed for sunset.",
       earliestStart: "16:30",
       latestStart: "18:00",
-      cutoffTime: "18:00",
+      // Matches championship demo / scenario arrive_before (was 18:00).
+      cutoffTime: "17:48",
     },
     travel: [
       {
@@ -154,6 +155,8 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
         tags: ["mid", "value"],
         hotelTier: "mid",
         zone: "coast",
+        // Own campus key so mid-tier stays out of IC/Ritz restaurant pairing.
+        hotelCampus: "hilton-garden-nakheel",
         sourceUrl: "https://www.hilton.com/en/hotels/rkthigi-hilton-garden-inn-ras-al-khaimah/",
       },
       {
@@ -197,9 +200,10 @@ export const DESTINATIONS: Record<DestinationId, DestinationCatalog> = {
         location: "Jebel Jais, Ras Al Khaimah",
         costAED: 0,
         defaultStartTime: "17:15",
-        durationMin: 60,
+        // Matches scenario `nodes.jais.dwellMin` (was 60).
+        durationMin: 45,
         photo: RAK_PHOTOS.jais,
-        notes: "Sunset ~17:30–18:00 · park open until 23:00 Saturday.",
+        notes: "Sunset cutoff 17:48 · park open until 23:00 Saturday.",
         tags: ["scenic", "mountains", "sunset"],
         area: "jebel-jais",
         zone: "mountain",
