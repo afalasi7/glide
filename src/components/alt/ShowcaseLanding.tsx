@@ -394,8 +394,8 @@ function Bubbles() {
 function ClockPanel() {
   const rows = [
     ["Departure", "15:00", "16:15"],
-    ["Jebel Jais", "17:42", "Moved to tomorrow"],
-    ["Check-in", "17:00", "18:05"],
+    ["Jebel Jais", "17:15", "Moved to tomorrow"],
+    ["Check-in", "18:30", TIMES.hotel],
     ["Dinner", "20:00", TIMES.dinner],
   ];
   return (

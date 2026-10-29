@@ -1,4 +1,4 @@
-import { at, type TripGraph } from "./dag";
+import { at, fmt, type TripGraph } from "./dag";
 
 /** The Dubai Marina → Ras Al Khaimah road trip from PRODUCT.md. */
 export function buildRakRoadTrip(): TripGraph {
@@ -80,3 +80,17 @@ export function buildRakRoadTrip(): TripGraph {
     },
   };
 }
+
+/** Booked hotel arrival (HH:MM) — single source for mock world + INITIAL_STOPS. */
+export function scenarioHotelBookedArrive(): string {
+  const booked = buildRakRoadTrip().nodes.hotel.bookedArriveAt;
+  return booked !== undefined ? fmt(booked) : "18:30";
+}
+
+/** Canonical booking / pass ids used across the seed graph and mock provider world. */
+export const SCENARIO_IDS = {
+  hotelBooking: "IC-RAK-4089",
+  dinnerBooking: "SR-994182",
+  hotelPass: "apple:IC-RAK-4089",
+  dinnerPass: "apple:SR-994182",
+} as const;

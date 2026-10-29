@@ -44,7 +44,7 @@ export const CHAPTERS = [
     place: "InterContinental RAK",
     time: fmt(h.hotel.arriveAt),
     was: fmt(base.nodes.hotel.bookedArriveAt ?? 0),
-    problem: "Check-in slips an hour and nobody at the desk knows.",
+    problem: "Check-in slips past the booked arrival and nobody at the desk knows.",
     fix: "The hotel is told your new arrival and your mobile key is already on your phone.",
   },
   {

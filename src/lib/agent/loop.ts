@@ -2,6 +2,7 @@ import {
   applyDelay, at, evaluate, fmt, resequenceToNextDay, retimeReservation,
   type Evaluation, type Minutes, type TripGraph, type Violation,
 } from "./dag";
+import { SCENARIO_IDS } from "./scenario";
 import { createMockWorld, executeTool, type MockWorld, type ToolName, type ToolResult } from "./tools";
 import type { AgentLogEntry } from "../types";
 
@@ -69,7 +70,7 @@ function proposeRepair(g: TripGraph, v: Violation, ev: Evaluation): ToolCallProp
     };
   }
 
-  // If the dinner node has a reservation_hold constraint but no bookingRef, create a new dining booking
+  // If the dinner node has a reservation_hold but an empty bookingRef, mint a real reference.
   if (v.kind === "reservation_hold" && hold?.kind === "reservation_hold" && !hold.bookingRef) {
     const arrive = ev.timings[node.id].arriveAt;
     let earliest = arrive;
@@ -80,23 +81,57 @@ function proposeRepair(g: TripGraph, v: Violation, ev: Evaluation): ToolCallProp
     }
     const newTime = Math.ceil(earliest / GRID_MIN) * GRID_MIN;
     if (newTime > hold.lastSeatAt) return null;
+    const reference = node.bookingRef || SCENARIO_IDS.dinnerBooking;
     return {
       agent: "Booking Agent",
       tool: "create_booking",
-      args: { type: "dining", reference: hold.bookingRef, details: { time: hhmm(newTime), party: 2, table: "Standard" } },
+      args: {
+        type: "dining",
+        reference,
+        details: { time: hhmm(newTime), party: "2", table: "Standard" },
+      },
       rationale: `${node.label}: creating new dining reservation for ${hhmm(newTime)} party of 2.`,
-      apply: (_graph) => _graph, // create_booking is a side-effect on the world, not the graph
+      apply: (graph) => {
+        const n = graph.nodes[node.id];
+        if (!n) return graph;
+        return {
+          ...graph,
+          nodes: {
+            ...graph.nodes,
+            [node.id]: {
+              ...n,
+              bookingRef: reference,
+              constraints: n.constraints.map((c) =>
+                c.kind === "reservation_hold" ? { ...c, bookingRef: reference } : c,
+              ),
+            },
+          },
+        };
+      },
     };
   }
 
-  // If the hotel node has no booking but needs late arrival flagging, create a hotel booking
+  // Hotel missing a bookingRef — create one with a valid ETA (minutes since day-1 midnight).
   if (v.kind === "arrive_before" && node.kind === "hotel" && !node.bookingRef) {
+    const reference = SCENARIO_IDS.hotelBooking;
+    // Was `?? 1800` which is Day 2 06:00, not 18:00. Default to 18:00 wall clock.
+    const eta = hhmm(node.bookedArriveAt ?? at(18));
     return {
       agent: "Booking Agent",
       tool: "create_booking",
-      args: { type: "hotel", reference: node.bookingRef, details: { etaTime: hhmm(node.bookedArriveAt ?? 1800) } },
+      args: { type: "hotel", reference, details: { etaTime: eta } },
       rationale: `${node.label}: creating hotel booking with expected arrival time.`,
-      apply: (_graph) => _graph,
+      apply: (graph) => {
+        const n = graph.nodes[node.id];
+        if (!n) return graph;
+        return {
+          ...graph,
+          nodes: {
+            ...graph.nodes,
+            [node.id]: { ...n, bookingRef: reference },
+          },
+        };
+      },
     };
   }
 
@@ -189,29 +224,43 @@ export function runShockAbsorber(
 
   // Provider notifications derived from the final plan.
   for (const node of Object.values(graph.nodes)) {
-    if (node.kind !== "hotel" || node.bookedArriveAt === undefined || !node.bookingRef) continue;
+    if (node.kind !== "hotel" || node.bookedArriveAt === undefined) continue;
     const eta = ev.timings[node.id].arriveAt;
-    if (eta - node.bookedArriveAt >= GRID_MIN) {
-      const args = { reservation: node.bookingRef, etaTime: hhmm(eta) };
+
+    // Hotel present in the graph but missing a provider booking — mint one before flagging.
+    if (!node.bookingRef) {
+      const reference = SCENARIO_IDS.hotelBooking;
+      const args = { type: "hotel", reference, details: { etaTime: hhmm(eta) } };
+      const result = executeTool(world, "create_booking", args);
+      toolResults.push(result);
+      if (result.ok) {
+        graph = {
+          ...graph,
+          nodes: {
+            ...graph.nodes,
+            [node.id]: { ...node, bookingRef: reference },
+          },
+        };
+        changed = true;
+        log({
+          type: "TOOL_CALL", agent: "Booking Agent", toolName: "create_booking",
+          toolArgs: args, toolStatus: result.status, durationMs: result.latencyMs,
+          message: `Created hotel booking for ${node.label} with ${hhmm(eta)} ETA.`,
+        });
+      }
+    }
+
+    const booked = graph.nodes[node.id];
+    if (!booked?.bookingRef || booked.bookedArriveAt === undefined) continue;
+    if (eta - booked.bookedArriveAt >= GRID_MIN) {
+      const args = { reservation: booked.bookingRef, etaTime: hhmm(eta) };
       const result = executeTool(world, "flag_hotel_late_arrival", args);
       toolResults.push(result);
       changed = true;
       log({
         type: "TOOL_CALL", agent: "Hotel Agent", toolName: "flag_hotel_late_arrival",
         toolArgs: args, toolStatus: result.status, durationMs: result.latencyMs,
-        message: `Notified ${node.label} of ${hhmm(eta)} arrival; mobile key pre-dispatched.`,
-      });
-    }
-    // If hotel has no booking ref, create one
-    if (!node.bookingRef) {
-      const args = { type: "hotel", reference: node.bookingRef, details: { etaTime: hhmm(eta) } };
-      const result = executeTool(world, "create_booking", args);
-      toolResults.push(result);
-      changed = true;
-      log({
-        type: "TOOL_CALL", agent: "Booking Agent", toolName: "create_booking",
-        toolArgs: args, toolStatus: result.status, durationMs: result.latencyMs,
-        message: `Created hotel booking for ${node.label} with ${hhmm(eta)} ETA.`,
+        message: `Notified ${booked.label} of ${hhmm(eta)} arrival; mobile key pre-dispatched.`,
       });
     }
   }

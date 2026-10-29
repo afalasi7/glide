@@ -4,6 +4,8 @@
  * a MockWorld so repeated calls are idempotent and inspectable by tests.
  */
 
+import { SCENARIO_IDS, scenarioHotelBookedArrive } from "./scenario";
+
 export type ToolName =
   | "resequence_node"
   | "modify_dining_reservation"
@@ -32,11 +34,26 @@ export interface MockWorld {
 
 export function createMockWorld(): MockWorld {
   return {
-    reservations: { "SR-994182": { time: "20:00", table: "Terrace #14", party: 2, feeCents: 0, revision: 0 } },
-    hotelBookings: { "IC-RAK-4089": { etaTime: "18:45", mobileKeyDispatched: false, status: "expected" } },
+    reservations: {
+      [SCENARIO_IDS.dinnerBooking]: {
+        time: "20:00",
+        table: "Terrace #14",
+        party: 2,
+        feeCents: 0,
+        revision: 0,
+      },
+    },
+    hotelBookings: {
+      [SCENARIO_IDS.hotelBooking]: {
+        // Must match scenario `bookedArriveAt` (18:30), not the stale 18:45 UI copy.
+        etaTime: scenarioHotelBookedArrive(),
+        mobileKeyDispatched: false,
+        status: "expected",
+      },
+    },
     walletPasses: {
-      "apple:SR-994182": { revision: 0, lastReason: "" },
-      "apple:IC-RAK-4089": { revision: 0, lastReason: "" },
+      [SCENARIO_IDS.dinnerPass]: { revision: 0, lastReason: "" },
+      [SCENARIO_IDS.hotelPass]: { revision: 0, lastReason: "" },
     },
     itineraryMoves: {},
   };
@@ -124,33 +141,60 @@ export function executeTool(world: MockWorld, tool: ToolName, args: Record<strin
         if (!details || typeof details !== "object") {
           return fail(400, "create_booking (dining) requires details object with time and party");
         }
-        const detailObj = details as { time?: string; party?: string; table?: string; feeCents?: number };
-        if (!detailObj.time || !detailObj.party) {
+        const detailObj = details as { time?: string; party?: string | number; table?: string; feeCents?: number };
+        const partyNum =
+          typeof detailObj.party === "number"
+            ? detailObj.party
+            : typeof detailObj.party === "string"
+              ? parseInt(detailObj.party, 10)
+              : NaN;
+        if (!detailObj.time || !Number.isFinite(partyNum) || partyNum < 1) {
           return fail(400, "create_booking (dining) requires details with time and party");
         }
         const bookingRef = newRef;
         world.reservations[bookingRef] = {
           time: detailObj.time,
           table: detailObj.table || "Standard",
-          party: parseInt(detailObj.party, 10) || 2,
+          party: partyNum,
           feeCents: detailObj.feeCents ?? 0,
           revision: 0,
         };
-        return ok({ bookingRef, time: detailObj.time, table: detailObj.table || "Standard", party: parseInt(detailObj.party, 10) || 2, feeCents: detailObj.feeCents ?? 0 });
+        // Keep wallet passes referentially consistent with reservations.
+        const passId = `apple:${bookingRef}`;
+        if (!world.walletPasses[passId]) {
+          world.walletPasses[passId] = { revision: 0, lastReason: "created" };
+        }
+        return ok({
+          bookingRef,
+          time: detailObj.time,
+          table: detailObj.table || "Standard",
+          party: partyNum,
+          feeCents: detailObj.feeCents ?? 0,
+        });
       } else if (type === "hotel") {
         if (!details || typeof details !== "object") {
           return fail(400, "create_booking (hotel) requires details object with etaTime");
         }
         const detailObj = details as { etaTime?: string };
-        if (!detailObj.etaTime) {
-          return fail(400, "create_booking (hotel) requires details with etaTime");
+        if (!detailObj.etaTime || !TIME_RE.test(detailObj.etaTime)) {
+          return fail(400, "create_booking (hotel) requires details with etaTime (HH:MM)");
         }
         world.hotelBookings[newRef] = {
           etaTime: detailObj.etaTime,
           mobileKeyDispatched: false,
           status: "expected",
         };
-        return ok({ bookingRef: newRef, etaTime: detailObj.etaTime, roomHeld: false, mobileKeyDispatched: false, status: "expected" });
+        const passId = `apple:${newRef}`;
+        if (!world.walletPasses[passId]) {
+          world.walletPasses[passId] = { revision: 0, lastReason: "created" };
+        }
+        return ok({
+          bookingRef: newRef,
+          etaTime: detailObj.etaTime,
+          roomHeld: false,
+          mobileKeyDispatched: false,
+          status: "expected",
+        });
       }
       return fail(400, `Unknown booking type: ${type}`);
     }
@@ -160,12 +204,15 @@ export function executeTool(world: MockWorld, tool: ToolName, args: Record<strin
       if (!str(bookingRef)) {
         return fail(400, "cancel_booking requires bookingRef");
       }
-      // Cancel dining reservation
+      // Cancel dining reservation and drop orphaned wallet passes for that ref.
       if (world.reservations[bookingRef]) {
         delete world.reservations[bookingRef];
+        for (const passId of Object.keys(world.walletPasses)) {
+          if (passId.endsWith(`:${bookingRef}`)) delete world.walletPasses[passId];
+        }
         return ok({ bookingRef, cancelled: true });
       }
-      // Cancel hotel booking
+      // Cancel hotel booking (keep the row; status marks it cancelled).
       if (world.hotelBookings[bookingRef]) {
         world.hotelBookings[bookingRef].status = "cancelled";
         return ok({ bookingRef, cancelled: true, status: "cancelled" });
