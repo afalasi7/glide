@@ -48,6 +48,10 @@ export interface AgentLogEntry {
   durationMs?: number;
 }
 
+/**
+ * Seed itinerary rows. Times, dwell, drive legs, and booking refs must match
+ * `buildRakRoadTrip()` / MockWorld (`src/lib/agent/seed.test.ts` guards this).
+ */
 export const INITIAL_STOPS: ItineraryStop[] = [
   {
     id: "stop-1",
@@ -90,7 +94,8 @@ export const INITIAL_STOPS: ItineraryStop[] = [
       description: "Sunset hard constraint",
       cutoff: "17:48 cutoff (Sun sets behind Hajar mountains)",
     },
-    durationMin: 60,
+    // Matches scenario `nodes.jais.dwellMin` (was incorrectly 60).
+    durationMin: 45,
     driveTimeFromPrevMin: 135, // 2h 15m
     iconName: "Sun",
   },
@@ -98,8 +103,9 @@ export const INITIAL_STOPS: ItineraryStop[] = [
     id: "stop-3",
     order: 3,
     day: 1,
-    originalTime: "18:45",
-    currentTime: "18:45",
+    // Matches scenario `bookedArriveAt` / MockWorld eta (was incorrectly 18:45).
+    originalTime: "18:30",
+    currentTime: "18:30",
     title: "InterContinental RAK",
     location: "Mina Al Arab, Ras Al Khaimah",
     type: "hotel",
@@ -116,11 +122,13 @@ export const INITIAL_STOPS: ItineraryStop[] = [
       provider: "Cloudbeds PMS",
     },
     durationMin: 45,
-    driveTimeFromPrevMin: 60,
+    // Matches scenario edge jais→hotel travelMin (was incorrectly 60).
+    driveTimeFromPrevMin: 30,
     iconName: "Building2",
     passDetails: {
       venue: "InterContinental RAK Mina Al Arab",
-      code: "IC-4089-RES",
+      // Must match hotel bookingRef / wallet pass key (was orphaned "IC-4089-RES").
+      code: "IC-RAK-4089",
       badge: "Ocean Terrace Suite",
       time: "Standard Check-in: 15:00 - 23:30",
     },
